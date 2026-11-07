@@ -1,5 +1,7 @@
 # ChaosUhr 2.0.7 – auswählbare Automatik
 
+**Weiter gültig für Wemos 2.0.8:** Die Automatik funktioniert wie hier beschrieben. Dort benötigen schreibende API-Aufrufe zusätzlich das Token aus `GET /api/session` als `X-CSRF-Token`. Ein neuer ESP32-Build gehört nicht zur Sicherheitsfassung 2.0.8; entsprechende Hinweise unten beschreiben den älteren Zwischenstand.
+
 Zunächst wird nur das Wemos-Paket bereitgestellt; die ESP32-Paketpflege folgt auf Wunsch bei Bedarf.
 
 Diese Funktion ist in beiden Builds identisch: **Wemos D1 mini / ESP8266, D6/GPIO12**, und **klassischer ESP32-WROOM-32 / DevKit, GPIO32**. Beide verwenden 4 MB Flash und eine 20×15-WS2812B-Matrix. Für ESP32-S3-/WT32-Displayboards sind diese BINs nicht vorgesehen.

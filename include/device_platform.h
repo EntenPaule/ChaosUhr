@@ -40,10 +40,10 @@ inline void collectClockHeaders(ClockWebServer& server){
   // HTTPUpdateServer replaces the collected headers during setup on ESP32.
   // Restore the combined set afterwards, retaining both reset and OTA guards.
 #if defined(ESP32)
-  const char* headers[]={"X-CSRF-Token","Origin","Host"};
-  server.collectHeaders(headers,3);
+  const char* headers[]={"X-CSRF-Token","Origin","Host","X-Firmware-SHA256"};
+  server.collectHeaders(headers,4);
 #else
-  server.collectHeaders("X-CSRF-Token","Origin","Host");
+  server.collectHeaders("X-CSRF-Token","Origin","Host","X-Firmware-SHA256");
 #endif
 }
 inline bool eraseDeviceWifi(){

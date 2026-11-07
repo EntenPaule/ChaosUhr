@@ -1,5 +1,28 @@
 # Übernommene Bestandteile
 
+## BearSSL
+
+SHA-256 und HMAC der ESP8266-Firmware verwenden die mit Arduino-Core 3.1.2
+gelieferte BearSSL-Implementierung, https://bearssl.org/.
+MIT-Lizenz, Copyright Thomas Pornin; vollständiger Hinweis in
+`third_party/BearSSL-LICENSE`. OpenSSL wird nur für die lokalen Tests verwendet
+und nicht in die ESP8266-Firmware eingebunden.
+
+## ESP8266WebServer – projektbezogene Härtung
+
+`lib/ChaosUhrWebServer` basiert auf `libraries/ESP8266WebServer/src` des
+ESP8266-Arduino-Cores **3.1.2**, https://github.com/esp8266/Arduino/tree/3.1.2/libraries/ESP8266WebServer.
+Originalautoren und Copyright-Hinweise bleiben in den Dateien erhalten.
+Lizenz **GNU LGPL 2.1 oder neuer**, vollständiger Text unter
+`lib/ChaosUhrWebServer/LICENSE`. Originaldatei-Prüfsummen:
+`lib/ChaosUhrWebServer/UPSTREAM_SHA256.json`.
+
+Änderungen für ChaosUhr 2.0.8: begrenzte Request-/Header-/Formulargrößen,
+begrenzte Boundary und Feldzahl, feste statt variabler Boundary-Puffer,
+Zeit-/Abbruchgrenzen, Prüfung vor Body-Verarbeitung, sichere Argumentzählung,
+keine pauschale CORS-Freigabe und zusätzliche Antwortheader. Diese Kopie liegt
+ausschließlich im Projekt; globale Toolchains und die Legacy-IDE werden nicht verändert.
+
 ## ChaosUhr / ChaosBlinkiBuntiUhr
 
 Quelle: https://github.com/oOmicha1986Oo/ChaosUhr

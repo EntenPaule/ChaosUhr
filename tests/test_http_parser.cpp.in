@@ -1,0 +1,143 @@
+// Compile the actual project-local HTTP parser against a deterministic socket.
+#include <algorithm>
+#include <cassert>
+#include <cctype>
+#include <cstdint>
+#include <cstdlib>
+#include <cstring>
+#include <functional>
+#include <iostream>
+#include <memory>
+#include <string>
+#include <vector>
+#include "request_security.h"
+#define F(x) x
+#define PROGMEM
+#define HTTP_MAX_POST_WAIT 5000
+#define FPSTR(x) x
+#define DBGWS(...) ((void)0)
+#define HTTP_UPLOAD_BUFLEN 16
+class String:public std::string {
+  std::string clearedBuffer_;
+ public:
+  using std::string::string;
+  String(const std::string& text):std::string(text){}
+  // ESP8266 WString::clear() retains the old C buffer despite length == 0.
+  void clear(){clearedBuffer_=static_cast<const std::string&>(*this);std::string::clear();}
+  const char* c_str()const{return empty()&&!clearedBuffer_.empty()?clearedBuffer_.c_str():std::string::c_str();}
+  String& operator=(const char* text){std::string::operator=(text);clearedBuffer_.clear();return *this;}
+  bool isEmpty()const{return empty();}
+  int indexOf(char c,size_t at=0)const{const auto pos=find(c,at);return pos==npos?-1:static_cast<int>(pos);}
+  int indexOf(const char* text,size_t at=0)const{const auto pos=find(text,at);return pos==npos?-1:static_cast<int>(pos);}
+  String substring(size_t at,size_t end=npos)const{return at>=size()?String():String(substr(at,end<at?0:end-at));}
+  void trim(){const auto begin=find_first_not_of(" \t\r\n"),end=find_last_not_of(" \t\r\n");*this=begin==npos?String():String(substr(begin,end-begin+1));}
+  void replace(const char* from,const char* to){size_t pos=0;while((pos=find(from,pos))!=npos){std::string::replace(pos,strlen(from),to);pos+=strlen(to);}}
+  bool startsWith(const String& text)const{return compare(0,text.size(),text)==0;}
+  bool equalsIgnoreCase(const String& other)const{if(size()!=other.size())return false;for(size_t i=0;i<size();++i)if(std::tolower((*this)[i])!=std::tolower(other[i]))return false;return true;}
+  char charAt(size_t i)const{return i<size()?std::string::operator[](i):0;}
+  char operator[](size_t i)const{return charAt(i);}
+};
+static String operator+(const String& a,const String& b){return String(static_cast<const std::string&>(a)+static_cast<const std::string&>(b));}
+static String operator+(const char* a,const String& b){return String(a)+b;}
+static String operator+(const String& a,const char* b){return a+String(b);}
+static uint32_t fakeTime=0;
+static uint32_t millis(){return fakeTime;}
+static void yield(){++fakeTime;}
+struct S2Stream {String& text;explicit S2Stream(String& value):text(value){}};
+struct SocketState {String bytes;size_t position=0;bool alive=true,holdOpen=false;};
+struct FakeClient {
+  std::shared_ptr<SocketState> state=std::make_shared<SocketState>();
+  int read(){return state->position<state->bytes.size()?static_cast<uint8_t>(state->bytes[state->position++]):-1;}
+  bool connected(){return state->alive&&(state->holdOpen||state->position<state->bytes.size());}
+  size_t available(){return state->bytes.size()-state->position;}
+  void stop(){state->alive=false;}
+  void flush(){}
+  size_t sendSize(S2Stream& output,size_t count,int){size_t sent=std::min(count,available());output.text+=state->bytes.substr(state->position,sent);state->position+=sent;return sent;}
+};
+enum HTTPMethod {HTTP_GET,HTTP_HEAD,HTTP_POST,HTTP_DELETE,HTTP_OPTIONS,HTTP_PUT,HTTP_PATCH};
+enum UploadStatus {UPLOAD_FILE_START,UPLOAD_FILE_WRITE,UPLOAD_FILE_END,UPLOAD_FILE_ABORTED};
+struct HTTPUpload {UploadStatus status;String name,filename,type;size_t totalSize=0,currentSize=0,contentLength=0;uint8_t buf[HTTP_UPLOAD_BUFLEN];};
+namespace mime {
+enum {txt};struct Entry{const char* mimeType;};static const Entry mimeTable[]={{"text/plain"}};
+static String getContentType(const String&){return "text/plain";}
+}
+struct Handler {
+  unsigned starts=0,ends=0,aborts=0;String bytes;
+  bool canHandle(HTTPMethod,const String&){return true;}
+  bool canUpload(const String&){return true;}
+  Handler* next(){return nullptr;}
+  template<typename Server>void upload(Server&,const String&,HTTPUpload& incoming){
+    if(incoming.status==UPLOAD_FILE_START)++starts;
+    if(incoming.status==UPLOAD_FILE_WRITE)bytes.append(reinterpret_cast<const char*>(incoming.buf),incoming.currentSize);
+    if(incoming.status==UPLOAD_FILE_END)++ends;
+    if(incoming.status==UPLOAD_FILE_ABORTED)++aborts;
+  }
+};
+namespace esp8266webserver {
+template<typename ServerType>class ESP8266WebServerTemplate {
+ public:
+  using ClientType=FakeClient;using RequestHandlerType=Handler;
+  using ContentTypeFunction=std::function<String(const String&)>;
+  enum ClientFuture {CLIENT_REQUEST_CAN_CONTINUE,CLIENT_REQUEST_IS_HANDLED,CLIENT_MUST_STOP,CLIENT_IS_GIVEN};
+  struct RequestArgument{String key,value;};
+  uint32_t _chaosRequestStarted=0,_chaosBodyBytes=0,_chaosBodyLimit=0;
+  std::function<bool()> _chaosBodyGuard;
+  std::function<ClientFuture(const String&,const String&,ClientType*,ContentTypeFunction)> _hook;
+  RequestArgument _currentHeaders[4]={{"Host",""},{"Origin",""},{"Authorization",""},{"X-CSRF-Token",""}};
+  int _headerKeysCount=4,_currentVersion=0,_currentArgCount=0,_postArgsLen=0,_currentArgsHavePlain=0;
+  RequestArgument* _currentArgs=nullptr;RequestArgument* _postArgs=nullptr;
+  HTTPMethod _currentMethod=HTTP_GET;bool _chunked=false,_keepAlive=false;String _currentUri,_hostHeader;
+  Handler handler;Handler* _firstHandler=&handler;Handler* _currentHandler=nullptr;
+  std::unique_ptr<HTTPUpload> _currentUpload;ClientType _currentClient;
+  ~ESP8266WebServerTemplate(){delete[] _currentArgs;delete[] _postArgs;}
+  bool hasArg(const String& key){for(int i=0;i<_currentArgCount;++i)if(_currentArgs[i].key==key)return true;return false;}
+  String arg(const String& key){for(int i=0;i<_currentArgCount;++i)if(_currentArgs[i].key==key)return _currentArgs[i].value;return "";}
+  ClientFuture _parseRequest(ClientType&);
+  bool _collectHeader(const char*,const char*);
+  bool _parseArguments(const String&);
+  int _parseArgumentsPrivate(const String&,std::function<void(String&,String&,const String&,int,int,int,int)>);
+  void _uploadWriteByte(uint8_t);
+  int _uploadReadByte(ClientType&);
+  bool _parseForm(ClientType&,const String&,uint32_t);
+  static String urlDecode(const String&);
+  bool _parseFormUploadAborted();
+};
+}
+@PARSER@
+struct Transport{using ClientType=FakeClient;};
+using Server=esp8266webserver::ESP8266WebServerTemplate<Transport>;
+static String multipart(unsigned count,const String& boundary="boundary"){
+  String out;
+  for(unsigned i=0;i<count;++i)out+="--"+boundary+"\r\nContent-Disposition: form-data; name=\"f"+String(std::to_string(i))+"\"\r\n\r\nv\r\n";
+  out+="--"+boundary+"--\r\n";return out;
+}
+static String request(const String& body,const String& type="multipart/form-data; boundary=boundary"){
+  return String("POST /update HTTP/1.1\r\nHost: chaosuhr.local\r\nContent-Type: ")+type+"\r\nContent-Length: "+String(std::to_string(body.size()))+"\r\n\r\n"+body;
+}
+static Server::ClientFuture parse(Server& server,const String& text,bool hold=false){
+  server._currentClient.state->bytes=text;server._currentClient.state->holdOpen=hold;
+  return server._parseRequest(server._currentClient);
+}
+int main(){
+  {Server s;s._chaosBodyGuard=[&](){return originMatchesHost(s._currentHeaders[1].value.c_str(),s._currentHeaders[0].value.c_str());};
+   const String bad="POST /api/settings HTTP/1.1\r\nHost: chaosuhr.local\r\nOrigin: https://foreign.invalid\r\nContent-Length: 0\r\n\r\n";
+   assert(parse(s,bad)==Server::CLIENT_MUST_STOP);
+   s._currentClient=FakeClient{};
+   assert(parse(s,"POST /api/settings HTTP/1.1\r\nHost: chaosuhr.local\r\nContent-Length: 0\r\n\r\n")==Server::CLIENT_REQUEST_CAN_CONTINUE);
+   assert(!*s._currentHeaders[1].value.c_str());}
+  for(unsigned fields:{1u,31u,32u}){Server s;assert(parse(s,request(multipart(fields)))==Server::CLIENT_REQUEST_CAN_CONTINUE);assert(s._currentArgCount==static_cast<int>(fields));}
+  for(unsigned fields:{33u,64u,100u}){Server s;assert(parse(s,request(multipart(fields)))==Server::CLIENT_MUST_STOP);}
+  {Server s;const String body=multipart(1,String(70,'a'));assert(parse(s,request(body,"multipart/form-data; boundary="+String(70,'a')))==Server::CLIENT_REQUEST_CAN_CONTINUE);}
+  {Server s;assert(parse(s,request(multipart(1),"multipart/form-data; boundary="+String(71,'a')))==Server::CLIENT_MUST_STOP);assert(!s.handler.starts);}
+  const String file="--boundary\r\nContent-Disposition: form-data; name=\"firmware\"; filename=\"test.bin\"\r\nContent-Type: application/octet-stream\r\n\r\n"+String(100,'X')+"\r\n--boundary--\r\n";
+  {Server s;assert(parse(s,request(file))==Server::CLIENT_REQUEST_CAN_CONTINUE);assert(s.handler.starts==1&&s.handler.ends==1&&s.handler.bytes==String(100,'X'));}
+  {Server s;s._chaosBodyGuard=[](){return false;};const String text=request(file);assert(parse(s,text)==Server::CLIENT_MUST_STOP);assert(!s.handler.starts&&s._currentClient.state->position==text.find("\r\n\r\n")+4);}
+  {Server s;assert(parse(s,request(file).substr(0,request(file).size()-8))==Server::CLIENT_MUST_STOP);assert(s.handler.aborts==1);}
+  {Server s;assert(parse(s,request(file.substr(0,100)),true)==Server::CLIENT_MUST_STOP);assert(fakeTime>=5000);}
+  {Server s;assert(parse(s,"GET / HTTP/1.1\r\nX-Large: "+String(1025,'x')+"\r\n\r\n")==Server::CLIENT_MUST_STOP);}
+  {Server s;assert(parse(s,"POST / HTTP/1.1\r\nContent-Length: 1\r\nContent-Length: 1\r\n\r\nx")==Server::CLIENT_MUST_STOP);}
+  {Server s;assert(parse(s,request(String(4097,'x'),"text/plain"))==Server::CLIENT_MUST_STOP);}
+  {Server s;String body;for(int i=0;i<33;++i)body+="x=1&";assert(parse(s,request(body,"application/x-www-form-urlencoded"))==Server::CLIENT_MUST_STOP);}
+  {Server s;assert(parse(s,"POST / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n0\r\n\r\n")==Server::CLIENT_MUST_STOP);}
+  std::cout<<"PASS actual HTTP parser: stale Origin cleared with ESP8266 String semantics, 32/33+ fields, 70/71-byte boundaries, encoded/body/header limits, duplicate length, no chunked smuggling, pre-body authorization, complete upload, abort and idle timeout (ASan/UBSan)\n";
+}

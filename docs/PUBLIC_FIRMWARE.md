@@ -1,76 +1,68 @@
-# ChaosUhr 2.0.7 – Wemos D1 mini / ESP8266
+# ChaosUhr 2.0.8 – Wemos D1 mini / ESP8266
 
-Diese Firmware enthält keine persönlichen Admin-, WLAN- oder Einrichtungspasswörter. Sie ist der ESP8266-Standard-Build für die eigene Uhr und die Weitergabe. Jeder Nutzer legt bei der ersten Einrichtung sein eigenes Admin-Passwort fest. Die 30 Effekte und der deutsche Wochentag-/Datums-Lauftext aus 2.0.4-dev sind enthalten. Eine separat zu kompilierende ESP32-Portierung aus derselben Codebasis ist unter [ESP32_FIRMWARE.md](ESP32_FIRMWARE.md) beschrieben; dafür gelten andere BINs und Anschlüsse.
+Für Wemos D1 mini / ESP8266 mit **4 MiB Flash, 20×15 WS2812B, D6/GPIO12**. Standard: oben rechts, zeilenweise, Zickzack. Geschätztes Software-Leistungslimit: 5 V/1,5 A; eine passende Stromversorgung bleibt erforderlich.
 
-Zielhardware: Wemos D1 mini / ESP8266 mit **4 MiB Flash**, **20×15 WS2812B**, Datenpin **D6/GPIO12**, 5-V-LED-Versorgung. Standardausrichtung: oben rechts, zeilenweise, Zickzack. Die Firmware begrenzt die geschätzte LED-Leistung softwareseitig auf 5 V/1,5 A; sie ersetzt keine passende Versorgung/Absicherung.
+Die BIN enthält keine persönlichen WLAN-, Admin- oder Einrichtungspasswörter. Ein vollständiger Flash-Dump einer eingerichteten Uhr enthält dagegen persönliche Daten und gehört nicht ins Weitergabepaket.
 
-## Neu in 2.0.7
+## Neu in 2.0.8
 
-Die Automatik bietet eine eigene Animationen-Auswahl und zwei Reihenfolgen: zufällige Runden ohne Wiederholung oder der Reihe nach. Zwischen zwei Animationen erscheint immer die Uhr. Einrichtung, Übernahme alter Einstellungen und API: [AUTOMATIK_2_0_7.md](AUTOMATIK_2_0_7.md).
+- Sicherheitskorrekturen für HTTP-Parser, zentrale Anmeldung, CSRF bei Einstellungen/OTA und WLAN-Recovery-Portal.
+- Gesalzener Admin-Passwort-Verifier mit erhaltender Migration und internem Wiederherstellungsjournal.
+- Einstellungen als JSON sichern, mit Vorschau importieren und anschließend bewusst speichern. Eigene Animationen werden anhand ihres Dateiinhalts zugeordnet; Passwörter sind nicht enthalten.
+- Updateprüfung über einen statischen GitHub-Kanal, HTTPS-Download durch den Browser, bestätigte Installation und geräteseitige SHA-256-Prüfung. 2.0.8 erscheint als Vorabversion im Testkanal.
 
-Zusätzlich können **acht eigene `.chaos`-Animationen über die GUI hochgeladen, in der Automatik deaktiviert, heruntergeladen und gelöscht** werden. Dateiformat, Beispiel und Anleitung zum Erstellen mit ChatGPT: [ANIMATIONEN_FORMAT.md](ANIMATIONEN_FORMAT.md), **CHATGPT_ANIMATION_PROMPT.txt**, `examples/Herz.chaos`. Den Animationsspeicher bei Bedarf einmalig in der GUI einrichten. Dateien werden vollständig geprüft, bevor sie verfügbar werden.
+30 Effekte, deutscher Wochentag und Datum, Nachtmodus, Matrixausrichtung, auswählbare Automatik und acht eigene .chaos-Dateien bleiben enthalten. [Automatik](AUTOMATIK_2_0_7.md), [Animationsformat](ANIMATIONEN_FORMAT.md), [Sicherheit](SICHERHEIT_2_0_8.md).
 
-## Dateien zum Teilen
+## Vorhandene Uhr aktualisieren
 
-- `chaosuhr-2.0.7-esp8266.bin`: öffentliche Firmware, 4-MiB-/1-MiB-Dateisystem-Layout.
-- `chaosuhr-2.0.7-esp8266.zip`: BIN, Anleitung zur Einrichtung/Automatik, Prüfsummen, GPL-/Drittlizenzhinweise und der zugehörige bereinigte Quellcode.
-- `SHA256SUMS`: Prüfsummen von BIN und Paket.
+Siehe [Upgrade von 2.0.5, 2.0.7 und Michas Original](UPGRADE_2_0_8.md). Übertragen wird nur die passende Anwendungs-BIN. Kein USB-Schritt ist für den normalen Versionswechsel vorgesehen. Gültige Einstellungen und Zugangsdaten der öffentlichen 2.0.x-Firmware bleiben erhalten. Das Original benötigt erstmals die Admin-Ersteinrichtung; dort im Programm festgelegte Anzeige-Einstellungen lassen sich nicht automatisch auslesen.
 
-Im Projekt liegen die Dateien unter `dist/2.0.7/esp8266/`. Für die Weitergabe vorzugsweise das vollständige ZIP mit Anleitung und Quellcode verwenden. Die persönliche `2.0.4-dev`-BIN und vollständige Flash-Dumps enthalten Zugangsdaten und gehören nicht in dieses Paket. Vorhandene öffentliche Pakete älterer Versionen bleiben in ihren bisherigen Ordnern erhalten.
+**Bei fehlendem/noch nicht eingerichtetem LittleFS bleibt eine bestehende alte Anmeldung zunächst aktiv.** Die GUI meldet die ausstehende Passwortmigration. Nach Sicherung eventuell vorhandener Dateien den Animationsspeicher ausdrücklich einrichten; danach wird die Migration versucht. Kein automatisches Formatieren, kein stiller Admin-Reset und keine Änderung des bisherigen Passworts.
 
 ## Erste Einrichtung
 
-1. Die Public-BIN auf die passende Hardware flashen. Eine vorhandene OTA-Funktion kann verwendet werden, sofern Zielboard, Speicherlayout und freier OTA-Platz passen. Ein normaler Build führt keinen Upload aus.
-2. Solange noch kein Public-Admin gespeichert ist, zeigt die LED-Matrix **SETUP** und darunter einen wiederholten **zwölfstelligen Zahlencode**. Der Code wird auf dem Gerät zufällig erzeugt; er steht nicht in der verteilten BIN.
-3. Mit dem WLAN **ChaosUhr-Setup-XXXXXX** verbinden. Die Endung unterscheidet Geräte. Das WLAN-Passwort ist der auf der Uhr angezeigte Zahlencode.
-4. Im Browser **http://192.168.4.1/** öffnen. Ein eigenes Admin-Passwort setzen und wiederholen: **16–64 druckbare Zeichen**, ohne Umlaute. Buchstaben, Ziffern, Leerzeichen und Sonderzeichen sind möglich.
-5. Nach dem Speichern startet die Uhr neu. Bereits im Wemos gespeicherte Heim-WLAN-Daten werden weiterverwendet. Bei einer neuen oder zurückgesetzten Uhr erneut mit dem gleichen Einrichtungs-WLAN und Zahlencode verbinden und im WLAN-Portal das Heim-WLAN auswählen und dessen Passwort speichern.
-6. Danach die Weboberfläche unter **http://chaosuhr.local/** bzw. der im Router angezeigten Geräte-IP öffnen. Benutzername: **admin**, Passwort: das selbst gewählte Admin-Passwort. Es schützt Weboberfläche, API und den Anwendungs-Updater `/update`.
+1. Nach passendem Firmware-Upload zeigt die Matrix **SETUP** und einen zwölfstelligen Zahlencode.
+2. Mit **ChaosUhr-Setup-XXXXXX** verbinden; WLAN-Passwort ist der angezeigte Code.
+3. **http://192.168.4.1/** öffnen, eigenes Admin-Passwort setzen und wiederholen: **16–64 druckbare ASCII-Zeichen**, auch Leer-/Sonderzeichen, ohne Umlaute.
+4. Nach Neustart werden vorhandene Heim-WLAN-Daten versucht weiterzuverwenden. Sonst erneut mit dem Einrichtungs-WLAN verbinden und im Portal das Heim-WLAN speichern.
+5. Normale Oberfläche unter **http://chaosuhr.local/** oder der Geräte-IP öffnen. Benutzername **admin**, Passwort wie selbst gesetzt.
 
-Bei einem späteren WLAN-Ausfall öffnet sich nach ungefähr 30 Sekunden erneut das passwortgeschützte Einrichtungsportal. Die Uhr zeigt dabei wieder ihren Einrichtungscode. Das Passwort der WLAN-Einrichtung ist vom Admin-Passwort getrennt; der zufällige Code wird bei der Ersteinrichtung im Gerät gespeichert. Firmware-Updates ersetzen diese gespeicherten Zugangsdaten nicht.
+Der AP-Code ist getrennt vom Admin-Passwort. Bei WLAN-Ausfall öffnet nach ungefähr 30 Sekunden wieder das geschützte Einrichtungsportal; der Code erscheint auf der Matrix. Heim-WLAN-Einrichtung bleibt möglich, versteckte Neustart-/Lösch-/OTA-Aktionen sind gesperrt.
 
-Die Ersteinrichtung ist ausschließlich über den Einrichtungs-Access-Point möglich. Ein vorhandener Admin kann über das Einrichtungsformular nicht überschrieben werden. Während die WLAN-Konfiguration läuft, ist der separate ungeschützte Firmware-Updater von WiFiManager gesperrt; Updates erfolgen nach Anmeldung über die normale Weboberfläche.
+**LOCK** bedeutet unbekannte oder beschädigte Zugangsdaten. Sie werden nicht durch eine neue Admin-Registrierung überschrieben. Zuerst wird die Wiederherstellung aus einem vorhandenen gültigen Journal versucht. Hardware-Recovery unter beliebigen Flashfehlern ist nicht garantiert.
 
-## Auf Werkseinstellungen zurücksetzen
+## Sicherung und Import
 
-1. In der normalen Weboberfläche als Admin anmelden.
-2. Unter **Werkseinstellungen** die Checkbox zum Löschen bestätigen.
-3. **Auf Werkseinstellungen zurücksetzen** drücken und den zusätzlichen Bestätigungsdialog annehmen.
+Unter **Einstellungen sichern** die Sicherung herunterladen. Eigene Animationsdateien zusätzlich als .chaos herunterladen. Die JSON-Datei enthält gespeicherte Uhreinstellungen, keine WLAN-/Admin-Daten.
 
-Gelöscht werden:
+Zum Import Datei auswählen, Vorschau prüfen und **Vorschau übernehmen**. Das füllt nur die Formulare. Erst **Einstellungen speichern** ändert die Uhr. Benötigte Upload-Dateien müssen vorhanden sein; SHA-256 ermöglicht die Zuordnung zu anderen Upload-Plätzen. Fehlende Dateien und ungültige Sicherungen werden gemeldet. Auch die Matrixausrichtung wird importiert.
 
-- sämtliche Uhr-Einstellungen, einschließlich Helligkeit, Nachtmodus, Effektwahl und Matrixausrichtung;
-- alle eigenen hochgeladenen Animationen;
-- das gespeicherte Admin-Passwort und der bisherige Einrichtungscode;
-- die dauerhaft gespeicherte WLAN-Konfiguration des ESP8266, einschließlich SSID und WLAN-Passwort.
+## Firmware / OTA
 
-Anschließend startet die Uhr neu und zeigt einen neuen Einrichtungscode. Die oben beschriebene Ersteinrichtung beginnt erneut. Ein normaler Neustart allein löscht nichts. Beim Reset wird zuerst eine persistente Markierung geschrieben; die WLAN-Konfiguration wird vor dem übrigen EEPROM-Inhalt gelöscht. Ein noch markierter Reset wird beim nächsten Start fortgesetzt.
+**OTA-Upload öffnen** nimmt weiterhin eine unkomprimierte Wemos-BIN entgegen. Ab 2.0.8 werden Länge, Core-CRC und Produktkennung geprüft. Dateisystem-Images, ZIP, GZIP und alte BINs ohne passende Produktkennung werden abgewiesen. Eine Altfirmware kann die neue 2.0.8-BIN weiterhin über ihren bisherigen Updater empfangen. Kein erfolgreicher Updateabschluss oder Neustart bei fehlgeschlagenem Upload.
 
-Der Reset verlangt die Admin-Anmeldung, eine ausdrückliche Bestätigung und ein an die aktuelle Sitzung gebundenes Anfragetoken. Das ist kein Weg, ein vergessenes Admin-Passwort ohne Anmeldung zu umgehen. In diesem Fall ist ein vollständiges Löschen per USB und anschließendes erneutes Flashen der Rückweg.
+**Auf Updates prüfen** liest den GitHub-Kanal. Standardmäßig werden freigegebene Versionen geprüft; **Vorabversionen berücksichtigen** ergänzt den Testkanal. Der Browser braucht Internet und lädt über HTTPS, ohne das lokale Admin-Passwort an GitHub zu schicken. Nach ausdrücklicher Bestätigung wird eine neuere passende Version lokal übertragen. Die Uhr prüft zusätzlich SHA-256. Keine unbeaufsichtigten Updates.
 
-## Selbst bauen
+Für 2.0.8 **Vorabversionen berücksichtigen** aktivieren; eine stabile Version wird noch nicht angeboten. [Updatekanal und Veröffentlichung](GITHUB_UPDATES.md). Fehlender Kanal oder fehlendes Internet verhindert kein manuelles OTA. HTTP zur lokalen Uhr bleibt unverschlüsselt. SHA-256 ist keine Herausgebersignatur; Signaturpflicht und geräteeigenes HTTPS sind nicht aktiviert.
+
+## Werkseinstellungen
+
+Als Admin Lösch-Checkbox und Bestätigungsdialog verwenden. Gelöscht werden Uhreinstellungen, Admin-Zugang, AP-Code, Heim-WLAN und eigene Animationen. Danach beginnt die Ersteinrichtung mit neuem Code.
+
+Zuerst wird ein dauerhaftes Reset-Merkmal gespeichert. Dann WLAN löschen, EEPROM leeren und zuletzt LittleFS einschließlich Journal formatieren. Das Journal erhält den Reset-Auftrag während der EEPROM-Löschung. Unterbrechungen werden nach Möglichkeit wiederaufgenommen; echte physische Flashfehler bleiben eine Grenze. Ein vergessenes Admin-Passwort lässt sich nicht über einen ungeschützten GUI-Reset umgehen.
+
+## Bauen und Paket
 
 ```bash
-pio run
+pio run -e d1_mini_public
+python3 tests/run_host_tests.py
 python3 scripts/package_public.py
 ```
 
-PlatformIO-Plattform `espressif8266 4.2.1`, Arduino-Core `3.1.2`, FastLED `3.10.9`, WiFiManager `2.0.17`. Die Standardumgebung ist `d1_mini_public`, optional ausdrücklich mit `pio run -e d1_mini_public` wählbar. Die zusätzliche Umgebung `esp32dev_public` erzeugt einen anderen Hardware-Build. Beide verwenden `CHAOSUHR_PUBLIC_BUILD=1`, binden `include/secrets.local.h` nicht ein und führen keinen persönlichen Passwortgenerator aus. Für 2.0.7 wird ausschließlich das Wemos-Paket bereitgestellt; die Upload-Verwaltung ist bislang nur dort enthalten.
+Plattform espressif8266 4.2.1, Arduino-Core 3.1.2, FastLED 3.10.9, WiFiManager 2.0.17; geprüft mit PlatformIO Core 6.2.0. Der gehärtete HTTP-Server ist projektlokal enthalten. Tests benötigen Python 3, Node.js, C++17 mit Sanitizern und OpenSSL-Entwicklungsdateien/libcrypto. Kein privater Secrets-Header erforderlich.
 
-Die Admin-/Einrichtungsdaten werden erst auf dem Gerät im EEPROM-Bereich ab Offset 32 gespeichert. Uhr-Einstellungen liegen ab Offset 0; 2.0.7 ergänzt den kompatiblen alten 20-Byte-Block in den Bytes 20–27 um die Automatik-Konfiguration und in Bytes 28–31 um die Upload-Auswahl. Eigene Dateien liegen im separaten LittleFS-Dateisystem. Die WLAN-Daten verwaltet weiterhin der ESP8266-SDK. Der gesamte Flash eines eingerichteten Geräts enthält daher weiterhin persönliche Daten, auch wenn die verteilte BIN keine enthält.
+Ausgabe unter `dist/2.0.8/esp8266/`: BIN, ZIP mit derselben BIN, Anleitung, passenden Quellen/Lizenzen, SHA256SUMS und vorbereitete Kanaldateien. Kein automatischer Upload oder Git-Push.
 
-Lokale Tests:
+**2.0.8 ist eine Vorabversion mit Teil-Gerätetest auf einem Wemos.** OTA von 2.0.7, Passwortmigration, Folge-OTA, Einstellungen und sichtbare Anzeige wurden geprüft. Lokale Tests decken zusätzlich Original-2.0.5-Testdaten, Speicherunterbrechungen, tatsächlichen HTTP-Parser, Auth/CSRF, OTA-Abbrüche, Backup und Update-GUI ab. Werksreset, WLAN-Recovery, physische Stromausfälle und Langzeitbetrieb bleiben offen; Online-Installation im echten Browser wurde nicht ausgeführt. [Testumfang und BIN-Identität](RELEASE_v2.0.8.md). Nur Wemos; die separate ESP32-2.0.6-Version bleibt unverändert.
 
-```bash
-python3 tests/run_host_tests.py
-```
-
-Benötigt Python 3, Node.js und einen C++17-Compiler mit Sanitizern. Abgedeckt sind zusätzlich Ersteinrichtung, Passwortbestätigung, Zugriff über AP statt LAN, Authentifizierung/Anfragetoken, Reset-Bestätigung, fehlgeschlagene Speicheroperationen, Wiederaufnahme eines unterbrochenen Resets und Löschung von Admin-/WLAN-Daten gegen lokale Test-Doubles. Ein Host-Test löscht keine Daten auf einer echten Uhr.
-
-## Teststand
-
-Die veröffentlichte 2.0.7-BIN wurde auf einem Wemos D1 mini per Web-OTA installiert. Firmwarestart, Admin-Anmeldung und die Übernahme vorhandener Uhreinstellungen wurden geprüft. Der Nutzer hat den Animationsspeicher eingerichtet und den Herz-Upload bestätigt; anschließend waren die zwei Bilder lesbar und der Originaldownload bytegleich zum Beispiel. Die BIN im Paket ist unverändert dieselbe Datei. Details und Prüfsumme: [Release- und Teststand](RELEASE_v2.0.7.md).
-
-Lokale Tests prüfen die echten Szenen-/API-/Upload-Funktionen, Dateiformat, Dateisystemfehler, Auswahllisten, zufällige Runden, Reihenfolge, alte 20-/28-Byte-Einstellungsdaten und unveränderten Admin-Speicher. Vollständige Automatik-Runden sind am Gerät noch nicht bestätigt. Auch Upload-Löschen, Werksreset, Stromunterbrechung, WLAN-Recovery und Langzeitbetrieb bleiben auf echter Hardware zu prüfen; daher erscheint 2.0.7 als Vorabversion. HTTP Basic Auth verwendet HTTP ohne TLS; die Weboberfläche gehört ins vertrauenswürdige LAN.
-
-Ursprüngliches Projekt: https://github.com/oOmicha1986Oo/ChaosUhr (Micha1986 / oOmicha1986Oo). Herkunft und Anpassungen der übernommenen Bilder/Effekte: `THIRD_PARTY.md`. Lizenz: GNU GPL Version 3, siehe `LICENSE`; FastLED-Lizenzhinweis unter `third_party/FastLED-LICENSE`.
+Original: https://github.com/oOmicha1986Oo/ChaosUhr. Herkunft in THIRD_PARTY.md; GPL Version 3, LGPL für den übernommenen Webserver und MIT-Hinweise für FastLED.

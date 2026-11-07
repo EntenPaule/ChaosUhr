@@ -12,8 +12,10 @@ import re
 import struct
 import warnings
 from zipfile import ZipFile, ZIP_DEFLATED
+from release_safety import ReleaseSafety
 
 project=Path(__file__).resolve().parents[1]
+safety=ReleaseSafety(project)
 version=re.search(r'^#define CHAOSUHR_VERSION "([^"]+)"$',
                   (project/"include/firmware_version.h").read_text(),re.M).group(1)
 name="chaosuhr-"+version+"-esp8266"
@@ -52,6 +54,7 @@ if secret_path.exists():
         forbidden.extend((secret,base64.b64encode(b"admin:"+secret)))
 
 def check_clean(data,label):
+    safety.check(data,label)
     if any(secret and secret in data for secret in forbidden):
         raise SystemExit("Personal credential detected in "+label)
 
@@ -61,9 +64,12 @@ for pattern in ("src/*.cpp","src/*.h","include/*.h","scripts/*.py","tests/*.cpp"
                 "tests/*.in","tests/*.py","tests/*.js","tests/*.json","tests/*.h","tests/public_stubs/*.h",
                 "examples/*.chaos","partitions/*.csv","third_party/*"):
     for path in project.glob(pattern):
-        if path.name=="secrets.local.h":continue
+        if path.name=="secrets.h" or path.name.startswith("secrets."):continue
         source[path.relative_to(project).as_posix()]=path.read_bytes()
-for filename in ("LICENSE","THIRD_PARTY.md","CHANGELOG.md",".gitignore","docs/RELEASE_v2.0.7.md","docs/ESP32_FIRMWARE.md","docs/AUTOMATIK_2_0_7.md",
+for path in (project/"lib/ChaosUhrWebServer").rglob("*"):
+    if path.is_file() and (path.suffix in (".h",".cpp") or path.name in ("library.json","UPSTREAM_SHA256.json","LICENSE")):
+        source[path.relative_to(project).as_posix()]=path.read_bytes()
+for filename in ("LICENSE","THIRD_PARTY.md","CHANGELOG.md",".gitignore","docs/RELEASE_v2.0.7.md","docs/RELEASE_v2.0.8.md","docs/UPGRADE_2_0_8.md","docs/SICHERHEIT_2_0_8.md","docs/GITHUB_UPDATES.md","docs/ESP32_FIRMWARE.md","docs/AUTOMATIK_2_0_7.md",
                  "docs/ANIMATIONEN_FORMAT.md","docs/CHATGPT_ANIMATION_PROMPT.txt"):
     source[filename]=(project/filename).read_bytes()
 source["platformio.ini"]=re.sub(r'^default_envs = (?:d1_mini_public|esp32dev_public)$',
@@ -71,7 +77,12 @@ source["platformio.ini"]=re.sub(r'^default_envs = (?:d1_mini_public|esp32dev_pub
                                (project/"platformio.ini").read_text(),count=1,flags=re.M).encode()
 manual=(project/"docs"/"PUBLIC_FIRMWARE.md").read_bytes()
 source["README.md"]=("# ChaosUhr "+version+" – ESP8266\n\nBuild: `pio run`\n\n"
+                     "Wemos D1 mini, 4 MiB Flash, D6/GPIO12, 20×15 WS2812B.\n\n"
+                     "Sicherheitskorrekturen, JSON-Einstellungssicherung und Online-Updates nach Bestätigung. "
+                     "Vorabversion mit bestätigtem OTA-/Anzeigetest auf einem Wemos; Umfang und offene Prüfungen im [Releasebericht](docs/RELEASE_v2.0.8.md).\n\n"
                      "Paket: `python3 scripts/package_public.py`\n\n"
+                     "[Upgrade](docs/UPGRADE_2_0_8.md), [Sicherheit](docs/SICHERHEIT_2_0_8.md), "
+                     "[GitHub-Updatekanal](docs/GITHUB_UPDATES.md).\n\n"
                      "[Anleitung](docs/PUBLIC_FIRMWARE.md), [Automatik](docs/AUTOMATIK_2_0_7.md), "
                      "[eigene Animationen](docs/ANIMATIONEN_FORMAT.md), [ESP32](docs/ESP32_FIRMWARE.md).\n").encode()
 source["docs/PUBLIC_FIRMWARE.md"]=manual
@@ -92,7 +103,11 @@ output.mkdir(parents=True,exist_ok=True)
 automatic=source["docs/AUTOMATIK_2_0_7.md"]
 (output/"AUTOMATIK_2_0_7.md").write_bytes(automatic)
 extras={"ANIMATIONEN_FORMAT.md":source["docs/ANIMATIONEN_FORMAT.md"],
+        "GITHUB_UPDATES.md":source["docs/GITHUB_UPDATES.md"],
+        "UPGRADE_2_0_8.md":source["docs/UPGRADE_2_0_8.md"],
+        "SICHERHEIT_2_0_8.md":source["docs/SICHERHEIT_2_0_8.md"],
         "RELEASE_v2.0.7.md":source["docs/RELEASE_v2.0.7.md"],
+        "RELEASE_v2.0.8.md":source["docs/RELEASE_v2.0.8.md"],
         "ESP32_FIRMWARE.md":source["docs/ESP32_FIRMWARE.md"],
         "CHATGPT_ANIMATION_PROMPT.txt":source["docs/CHATGPT_ANIMATION_PROMPT.txt"],
         "examples/Herz.chaos":source["examples/Herz.chaos"]}
@@ -102,6 +117,10 @@ metadata={"version":version,"board":"d1_mini","chip":"esp8266","led_gpio":12,
           "flash_bytes":4194304,"binary_bytes":len(raw),"hardware_tested":False,
           "animation_uploads":True,"upload_format":"chaos/1","max_uploads":8,"max_upload_bytes":24576,
           "sha256":{name+".bin":digest}}
+metadata.update(credentials_format=2,password_kdf="PBKDF2-HMAC-SHA256",password_rounds=10000,
+                legacy_migration_requires_readable_filesystem=True,settings_backup="chaosuhr-settings/1",
+                ota_integrity="ESP8266 core CRC and product check",ota_signature_required=False,tls=False)
+metadata["github_update_channel"]="https://raw.githubusercontent.com/EntenPaule/ChaosUhr/firmware-updates/"
 build_info=(json.dumps(metadata,indent=2)+"\n").encode()
 (output/"BUILD_INFO.json").write_bytes(build_info)
 zip_path=output/(name+".zip")
@@ -115,8 +134,19 @@ with ZipFile(zip_path,"w",ZIP_DEFLATED) as archive:
     archive.writestr("LICENSE",source["LICENSE"])
     archive.writestr("THIRD_PARTY.md",source["THIRD_PARTY.md"])
     archive.writestr("third_party/FastLED-LICENSE",source["third_party/FastLED-LICENSE"])
+    archive.writestr("third_party/BearSSL-LICENSE",source["third_party/BearSSL-LICENSE"])
     for path,data in sorted(source.items()):archive.writestr("source/"+path,data)
 zip_digest=hashlib.sha256(zip_path.read_bytes()).hexdigest()
 (output/"SHA256SUMS").write_text(digest+"  "+name+".bin\n"+zip_digest+"  "+name+".zip\n")
 print(f"Public release: {name}.bin ({len(raw)} bytes), {name}.zip ({zip_path.stat().st_size} bytes)")
 print("Checked: personal passwords absent, private header absent from build/source, matching source and licenses included.")
+
+# Prepared locally only. Publishing this directory requires a separate explicit
+# instruction. Keep previous stable.json when publishing a preview release.
+channel=output/"update-channel";channel.mkdir(exist_ok=True)
+manifest={"format":"chaosuhr-update","schema":1,"version":version,"prerelease":True,
+          "board":"d1_mini","chip":"esp8266","flash_bytes":4194304,"led_gpio":12,
+          "binary":name+".bin","bytes":len(raw),"sha256":digest}
+(channel/"preview.json").write_text(json.dumps(manifest,indent=2)+"\n")
+(channel/(name+".bin")).write_bytes(raw)
+print("Prepared update-channel/preview.json and matching BIN locally; not published.")

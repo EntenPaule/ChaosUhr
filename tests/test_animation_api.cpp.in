@@ -28,10 +28,12 @@ struct TestStorage {
   template<typename T>void put(size_t at,const T& value){memcpy(buffer.data()+at,&value,sizeof value);}
   bool commit(){++commits;if(fail)return false;flash=buffer;return true;}
 } EEPROM;
+#define clockStorage EEPROM
 struct TestAccess {
   bool configured=true,token=true;
   bool ready(){return configured;}
-  const char* adminPassword(){return "fixture-admin-passphrase-42";}
+  bool authenticate();
+  bool migrate(){return false;}
   bool validMutationToken(){return configured && token;}
 } publicAccess;
 enum {UPLOAD_FILE_START,UPLOAD_FILE_WRITE,UPLOAD_FILE_END,UPLOAD_FILE_ABORTED};
@@ -46,6 +48,11 @@ struct TestServer {
   void send(int code,const char*,const std::string& value){status=code;body=value;}
   Upload& upload(){return incoming;}
 } server;
+inline bool TestAccess::authenticate(){
+  if(!configured){server.send(503,"text/plain","Not configured");return false;}
+  if(!server.authorized){server.requestAuthentication();return false;}
+  return true;
+}
 static MemoryAnimationFS fs;
 static AnimationLibrary<MemoryAnimationFS,AnimationFile> animations(fs);
 

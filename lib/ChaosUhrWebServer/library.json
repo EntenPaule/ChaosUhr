@@ -1,0 +1,11 @@
+{
+  "name": "ChaosUhrWebServer",
+  "version": "3.1.2-hardened.1",
+  "description": "Project-local bounded ESP8266WebServer, based on ESP8266 Arduino Core 3.1.2",
+  "frameworks": "arduino",
+  "platforms": "espressif8266",
+  "build": {
+    "includeDir": "src",
+    "srcDir": "src"
+  }
+}

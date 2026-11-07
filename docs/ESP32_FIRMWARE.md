@@ -1,5 +1,7 @@
 # ChaosUhr 2.0.7 – ESP32-Testversion
 
+**2.0.8 gilt nur für Wemos:** Das neue Sicherheitsprofil bietet keinen ESP32-Build an. Für den unveränderten ESP32-2.0.6-Stand dessen separates ZIP mit eigener Konfiguration verwenden. Die nachfolgende Beschreibung des zurückgestellten 2.0.7-Zwischenstands ist historisch.
+
 **Paketpflege für 2.0.7 vorerst zurückgestellt:** Auf Wunsch wird zunächst nur der Wemos-Build veröffentlicht. Der gemeinsame ESP32-Code wurde bereits kompiliert; die folgenden 2.0.7-Dateinamen sind für eine spätere Paketfreigabe vorgesehen. Das vorhandene 2.0.6-Paket liegt weiterhin unter `dist/esp32/`.
 
 **Erfolgreich kompiliert und lokal getestet; noch nicht auf einem ESP32-Gerät ausgeführt.**

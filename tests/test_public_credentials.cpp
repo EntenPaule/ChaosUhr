@@ -22,6 +22,7 @@ struct Network {
 };
 
 int main(){
+  const uint8_t salt[16]={1,2,3,4};
   Storage storage;
   DeviceCredentials credentials={};
   const char* password="fixture-admin-passphrase-42";
@@ -43,17 +44,18 @@ int main(){
   assert(!validAdminPassword("test-password-with\nnewline"));
   assert(!validAdminPassword("passphrase-with-umlaut-\xc3\xa4"));
   assert(!validSetupCode("123") && !validSetupCode("12345678901x"));
-  assert(!provisionCredentials(storage,credentials,password,"different",code));
+  assert(!provisionCredentials(storage,credentials,password,"different",code,salt));
   assert(storage.commits==0);
   Settings settings=defaultSettings();settings.brightness=10;sealSettings(settings);
   storage.put(0,settings);assert(storage.commit());
   const auto settingsBytes=storage.flash;
   storage.fail=true;
-  assert(!provisionCredentials(storage,credentials,password,password,code));
+  assert(!provisionCredentials(storage,credentials,password,password,code,salt));
   assert(!credentialsReady(credentials));
   storage.fail=false;
-  assert(provisionCredentials(storage,credentials,password,password,code));
-  assert(credentialsReady(credentials) && !strcmp(credentials.adminPassword,password));
+  assert(provisionCredentials(storage,credentials,password,password,code,salt));
+  assert(credentialsReady(credentials) && credentials.version==2 && verifyAdminPassword(credentials,password));
+  assert(!verifyAdminPassword(credentials,"fixture-wrong-password"));
   for(size_t i=0;i<CREDENTIALS_OFFSET;++i)assert(storage.flash[i]==settingsBytes[i]);
   const auto withAdmin=storage.flash;
   Settings next=settings;next.autoEffects=(uint32_t{1}<<29)|1;next.autoOrder=1;
@@ -61,9 +63,9 @@ int main(){
   assert(persistSettings(storage,settings,next,settingsSaved));
   for(size_t i=CREDENTIALS_OFFSET;i<storage.length();++i)assert(storage.flash[i]==withAdmin[i]);
   DeviceCredentials retained;storage.get(CREDENTIALS_OFFSET,retained);
-  assert(credentialsReady(retained) && !strcmp(retained.adminPassword,password));
+  assert(credentialsReady(retained) && verifyAdminPassword(retained,password));
   const unsigned commits=storage.commits;
-  assert(!provisionCredentials(storage,credentials,password,password,code));
+  assert(!provisionCredentials(storage,credentials,password,password,code,salt));
   assert(storage.commits==commits); // An existing admin cannot be claimed again.
   for(size_t i=0;i<sizeof credentials;++i){
     auto damaged=credentials;reinterpret_cast<uint8_t*>(&damaged)[i]^=1;

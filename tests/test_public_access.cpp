@@ -2,6 +2,7 @@
 #include <EEPROM.h>
 #include <cassert>
 #include <cstdio>
+#include "upgrade_fixtures.h"
 
 uint32_t fakeMillis=0;
 FakeESP ESP;
@@ -50,11 +51,17 @@ int main(){
   // combined set. Reset/session tokens and the OTA origin guard must coexist.
   const char* otaHeaders[]={"Origin","Host"};second.collectHeaders(otaHeaders,2);
   collectClockHeaders(second);
-  assert(second.collectedHeaders.size()==3);
+  assert(second.collectedHeaders.size()==4);
   assert(second.collectedHeaders[0]=="X-CSRF-Token");
   assert(second.collectedHeaders[1]=="Origin" && second.collectedHeaders[2]=="Host");
+  assert(second.collectedHeaders[3]=="X-Firmware-SHA256");
   const auto secondToken=token(second);assert(secondToken!=firstToken);
   second.arguments={{"confirm","RESET"}};
+  second.headers["X-CSRF-Token"]=secondToken;second.headers["Origin"]="http://foreign.invalid";
+  second.dispatch("/api/factory-reset",HTTP_POST);assert(second.status==403 && ESP.erases==0);
+  second.headers["Origin"]="null";
+  second.dispatch("/api/factory-reset",HTTP_POST);assert(second.status==403 && ESP.erases==0);
+  second.headers.erase("Origin");
   second.dispatch("/api/factory-reset",HTTP_GET);assert(second.status==404);
   second.password="wrong";second.headers["X-CSRF-Token"]=secondToken;
   second.dispatch("/api/factory-reset",HTTP_POST);assert(second.status==401 && ESP.erases==0);
@@ -83,7 +90,9 @@ int main(){
   fakeMillis+=250;interrupted.loop();
   assert(ESP.erases==2 && ESP.restarts==1 && storageErases==1);
   DeviceCredentials pendingCredentials;EEPROM.get(CREDENTIALS_OFFSET,pendingCredentials);
-  assert(resetPending(pendingCredentials));
+  // This raw EEPROM adapter omits the independent FS journal. Production
+  // recovery of the preserved reset marker is exercised by test_security.cpp.
+  assert(interrupted.resetting() && !credentialsReady(pendingCredentials));
   storageFails=false;fakeMillis+=5000;interrupted.loop();
   assert(ESP.erases==3 && ESP.restarts==2 && storageErases==2);
   assert(WiFi.savedSsid.empty() && WiFi.savedPassword.empty());
@@ -93,5 +102,16 @@ int main(){
   assert(!fresh.ready() && fresh.provisioning() && fourth.starts==1);
   assert(WiFi.apPassword!=setupCode && validSetupCode(WiFi.apPassword.c_str()));
   fourth.dispatch("/setup",HTTP_GET);assert(fourth.status==200);
+  EEPROM=FakeEEPROM();memcpy(EEPROM.flash.data(),UPGRADE_205,128);EEPROM.reboot();
+  ClockWebServer fifth;PublicAccess upgraded(fifth);upgraded.begin();
+  assert(upgraded.ready() && upgraded.migrationPending());
+  fifth.user="admin";fifth.password="fixture-upgrade-admin-205";token(fifth);
+  for(unsigned i=0;i<5;++i){fifth.password="fixture-wrong-passphrase";fifth.dispatch("/api/session",HTTP_GET);assert(fifth.status==401);}
+  fifth.dispatch("/api/session",HTTP_GET);assert(fifth.status==429);
+  fakeMillis+=5001;fifth.password="fixture-upgrade-admin-205";token(fifth);
+  EEPROM.flash[36]=99;EEPROM.reboot();ClockWebServer sixth;PublicAccess unknown(sixth);unknown.begin();unknown.startInitialPortal();
+  assert(unknown.locked() && !unknown.provisioning() && sixth.starts==0);
+  sixth.dispatch("/api/setup",HTTP_POST);assert(sixth.status==403);
+  sixth.dispatch("/api/session",HTTP_GET);assert(sixth.status==403);
   puts("PASS public HTTP/device adapter: AP-only setup, CSRF/auth, password confirmation, failed save, reboot, protected reset, interrupted reset, deleted Wi-Fi/admin, new commissioning code");
 }

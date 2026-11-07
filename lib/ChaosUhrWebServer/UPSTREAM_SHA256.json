@@ -1,0 +1,14 @@
+{
+  "ESP8266WebServer-impl.h": "19934c7352eea30acb6d30ab6314d1b794fa5311d88fd3cdc7edaa6cdb7bb150",
+  "ESP8266WebServer.h": "167b098fa4f964fc92ae9b89d531a69e3984561d4ca0729ab857f8f36d52dd67",
+  "ESP8266WebServerSecure.h": "5ac9a506cc3837d47d9093141dc52ee1ccfb411d27c21c082690d0505a6f5dbf",
+  "Parsing-impl.h": "f8fe756b04222f20c49813ea63f0c8a90a99034255324de84349e32755afe818",
+  "Uri.h": "8b9197eb9010bb7405cfa57f78bc7b86cb9b96f621879f1d636c7b0ef859b786",
+  "detail/RequestHandler.h": "fe83e7572b02f14bdb3ab7e052c3072d15bcdcdb5c0758a918faeb3a9407a4ab",
+  "detail/RequestHandlersImpl.h": "e539e1ccc58d3a745475cbe04164009e332842708386beb963063db01aebe358",
+  "detail/mimetable.cpp": "0ced8b156f62102a451be2d435b26fb98c2161d006f57eb922f60f1a475b03e6",
+  "detail/mimetable.h": "ef452d4f1e34bd0442353ff3350a1f98a3d71a1ee92b2f25046119b05f0b416f",
+  "uri/UriBraces.h": "9b82cb916840cf55037e89fae9300cde2c6239d3a1863d38fe299b7c5940159c",
+  "uri/UriGlob.h": "9cb67fe773f7997f0b95d6e1db7c6abf4170c48a75c51f0acea38b5df50e1cb3",
+  "uri/UriRegex.h": "2b3d38c57ef927084668e3f1102995ef3a5727529f0f937530c3c39e2a74d495"
+}

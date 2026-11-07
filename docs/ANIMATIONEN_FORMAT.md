@@ -1,5 +1,7 @@
 # Eigene ChaosUhr-Animationen teilen – Format .chaos, Version 1
 
+Auch Wemos **2.0.8** verwendet dieses unveränderte Dateiformat. Testangaben zu 2.0.7 unten sind historisch; 2.0.8 ist bisher nur lokal geprüft. Die zusätzliche Einstellungssicherung enthält keine Animationsdateien.
+
 Für die **Wemos-Version 2.0.7 mit Upload-Verwaltung**. Das Format beschreibt Pixelbilder und ihre Anzeigedauer; es enthält keinen auszuführenden Programmcode. Für jede neue Animation ist damit kein Firmware-Flashen nötig. Die ESP32-Erweiterung bleibt vorerst zurückgestellt.
 
 ## In der GUI benutzen

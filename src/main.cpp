@@ -15,6 +15,7 @@ using ClockUpdateServer = ESP8266HTTPUpdateServer;
 #endif
 #include <WiFiManager.h>
 #include <EEPROM.h>
+#include "clock_storage.h"
 #include <FastLED.h>
 #include <time.h>
 #include <stddef.h>
@@ -24,6 +25,9 @@ using ClockUpdateServer = ESP8266HTTPUpdateServer;
 #include "clock_text.h"
 #include "firmware_version.h"
 #include "auto_playback.h"
+#include "firmware_upload.h"
+#include "ota_ui.h"
+#include "portal_ui.h"
 #if defined(ESP8266) && defined(CHAOSUHR_PUBLIC_BUILD)
 #define CHAOSUHR_HAS_UPLOADS
 #include <LittleFS.h>
@@ -62,8 +66,14 @@ static_assert(!sameText(OTA_PASS,"CHANGE_THIS_PASSWORD_BEFORE_BUILD"), "Replace 
 
 CRGB leds[LED_COUNT];
 ClockWebServer server(80);
+#if !defined(CHAOSUHR_PUBLIC_BUILD) || defined(ESP32)
 ClockUpdateServer updater;
-WiFiManager wifiManager;
+#endif
+class ClockWiFiManager:public WiFiManager {
+ public:void saveClockWifi(){handleWifiSave();}
+  void requestPortalExit(){abort=true;}
+};
+ClockWiFiManager wifiManager;
 #ifdef CHAOSUHR_PUBLIC_BUILD
 PublicAccess publicAccess(server);
 #endif
@@ -77,7 +87,7 @@ static constexpr uint32_t WIFI_RETRY_MS=30000;
 static Settings cfg;
 static bool settingsPersisted=false;
 static void loadSettings(){
-  EEPROM.begin(128); EEPROM.get(0,cfg);
+  clockStorage.begin(128); clockStorage.get(0,cfg);
   settingsPersisted=normalizeLoadedSettings(cfg);
 }
 static uint16_t indexXY(int x,int y) {
@@ -241,9 +251,9 @@ static void render(){
 #ifdef CHAOSUHR_PUBLIC_BUILD
   if(publicAccess.pending() || !publicAccess.ready() || wifiManager.getConfigPortalActive()){
     clear();FastLED.setBrightness(40);
-    const char* label=publicAccess.pending()?(publicAccess.resetting()?"RESET":"START"):"SETUP";
+    const char* label=publicAccess.locked()?"LOCK":publicAccess.pending()?(publicAccess.resetting()?"RESET":"START"):"SETUP";
     drawText(label,0,CLOCK_TIME_Y,CRGB(0,180,240));
-    if(!publicAccess.pending()) drawText(publicAccess.setupPassword(),dateScrollX(millis(),12),CLOCK_DATE_Y,CRGB(255,140,35));
+    if(!publicAccess.pending() && !publicAccess.locked()) drawText(publicAccess.setupPassword(),dateScrollX(millis(),12),CLOCK_DATE_Y,CRGB(255,140,35));
     FastLED.show();return;
   }
 #endif
@@ -293,7 +303,7 @@ button,a.btn{background:#53b9ff;color:#081221;border:0;border-radius:10px;paddin
 small{color:#abb9d0}output{float:right;color:#8bd5ff}.flex{display:flex;gap:10px;flex-wrap:wrap}.status{color:#92e4ae}
 .auto-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:4px;max-height:330px;overflow:auto;margin:12px 0}.auto-list label{display:flex;align-items:center;gap:8px;margin:0;padding:7px}.auto-list input{flex-shrink:0}summary{cursor:pointer;margin:12px 0}.auto-actions button{padding:8px 12px;font-size:14px}
 </style></head><body><h1>🌈 ChaosUhr 2.0</h1><small>20×15 LEDs · lokale Steuerung</small>
-<article><div id="status">Lade Status …</div></article>
+<article><div id="status">Lade Status …</div><p id="securityStatus" role="status"></p></article>
 <article><h2>Anzeige & Animationen</h2>
 <label>Modus</label><select id="mode"><option value="0">Automatik: Uhr / Animation</option><option value="1">Nur Uhrzeit</option><option value="2">Gewählte Animation</option></select>
 <label>Einzelanimation (Modus „Gewählte Animation“)</label><select id="effect"><option value="">Lade Animationen …</option></select>
@@ -325,7 +335,11 @@ small{color:#abb9d0}output{float:right;color:#8bd5ff}.flex{display:flex;gap:10px
 <p><a class="btn" href="/animations/example.chaos">Herz-Beispiel herunterladen</a> <a class="btn" href="/animations/prompt" target="_blank" rel="noopener">ChatGPT-Vorlage öffnen</a></p>
 <div id="uploadedAnimations"></div><p id="uploadMessage" role="status"></p>
 <p><small>Uploads können heruntergeladen, geteilt und gelöscht werden. Bei den fest eingebauten Effekten entfernt ein fehlendes Häkchen die Animation aus der Automatik.</small></p></article>
-<article><h2>Firmware / OTA</h2><p>Neue <code>firmware.bin</code> über den geschützten Updater hochladen.</p><a class="btn" href="/update">OTA-Upload öffnen</a><p><small>Vorher alte Firmware sichern. Update niemals bei instabiler Stromversorgung.</small></p></article>
+<article><h2>Einstellungen sichern</h2><p>Speichere deine Uhreinstellungen vor einem Update. Zugangsdaten und Animationsdateien werden nicht exportiert.</p>
+<button type="button" onclick="exportSettings()">Sicherung herunterladen</button>
+<label for="settingsFile">Sicherungsdatei wiederherstellen</label><input id="settingsFile" type="file" accept=".json" onchange="previewSettingsImport()">
+<p id="backupMessage" role="status"></p><pre id="backupPreview" style="white-space:pre-wrap"></pre><button id="applyBackup" type="button" onclick="applySettingsImport()" hidden>Vorschau übernehmen</button></article>
+<article><h2>Firmware / OTA</h2><p>Neue <code>firmware.bin</code> über den geschützten Updater hochladen.</p><a class="btn" href="/update">OTA-Upload öffnen</a><p><small>Vorher Einstellungen sichern. Update niemals bei instabiler Stromversorgung.</small></p></article>
 )HTML"
 #ifdef CHAOSUHR_PUBLIC_BUILD
 R"HTML(<article><h2>Werkseinstellungen</h2><p>Alle Uhr-Einstellungen, eigene Animationen, der Admin-Zugang und die gespeicherten WLAN-Daten werden gelöscht. Danach beginnt die Ersteinrichtung erneut.</p><label><input id="resetConfirm" type="checkbox" onchange="document.getElementById('resetButton').disabled=!this.checked"> Ich möchte alle Einstellungen, Uploads und Zugangsdaten löschen.</label><button id="resetButton" onclick="factoryReset()" disabled>Auf Werkseinstellungen zurücksetzen</button><p id="resetMessage" role="status"></p></article>)HTML"
@@ -334,6 +348,8 @@ R"HTML(
 <script>
 const ids=['mode','effect','brightness','speed','duration','nightOn','nightFrom','nightUntil','nightBrightness','corner','vertical','zigzag','autoOrder'];
 let automaticChoices=[];
+let effectChoices=[],pendingImport=null;
+const backupKeys=[...ids,'autoEffects','autoUploads'];
 function automaticMask(){return automaticChoices.reduce((mask,choice)=>mask+(choice.input.checked&&!choice.uploaded?2**(choice.id-1):0),0)}
 function automaticUploadMask(){return automaticChoices.reduce((mask,choice)=>mask+(choice.input.checked&&choice.uploaded?2**(choice.id-31):0),0)}
 function updateAutomaticCount(){document.getElementById('autoCount').textContent=`${automaticChoices.filter(choice=>choice.input.checked).length} von ${automaticChoices.length} ausgewählt`}
@@ -352,6 +368,7 @@ async function load(){
   document.getElementById('saveButton').disabled=true;
   try{
     const [d,effects]=await Promise.all([readJson('/api/status'),readJson('/api/effects')]);
+    effectChoices=effects;
     const select=document.getElementById('effect');select.replaceChildren();
     for(const [kind,label] of [['normal','Animationen'],['legacy','Klassiker der ChaosUhr'],['uploaded','Eigene Uploads']]){
       const choices=effects.filter(effect=>(effect.uploaded?'uploaded':effect.legacy?'legacy':'normal')===kind);
@@ -366,6 +383,7 @@ async function load(){
     ids.forEach(k=>{const el=document.getElementById(k);el[el.type==='checkbox'?'checked':'value']=d[k]});
     if(!effects.some(effect=>effect.id===d.effect))document.getElementById('effect').value=1;
     document.getElementById('uploadPanel').hidden=!d.animationUploads;
+    document.getElementById('securityStatus').textContent=d.credentialsMigrationPending?'Admin-Zugang wird noch im alten Format gespeichert. Richte den Animationsspeicher ein, um die Passwortspeicherung sicher zu migrieren. Dein bisheriges Passwort bleibt gültig.':'Admin-Passwort wird als gesalzener Hash gespeichert. Die lokale Oberfläche verwendet weiterhin HTTP.';
     if(d.animationUploads)showAnimationStorage(await readJson('/api/animations'));
     bVal.value=d.brightness+' %';sVal.value=d.speed+' %';dVal.value=d.duration+' s';nVal.value=d.nightBrightness+' %';
     document.getElementById('saveButton').disabled=false;
@@ -377,10 +395,63 @@ async function save(){
     d.autoEffects=automaticMask();
     d.autoUploads=automaticUploadMask();
     if(!d.autoEffects&&!d.autoUploads)throw Error('Bitte mindestens eine Animation für die Automatik auswählen.');
-    const r=await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams(d)});
+    const {token}=await readJson('/api/session');
+    const r=await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRF-Token':token},body:new URLSearchParams(d)});
     if(!r.ok)throw Error(await r.text());
     msg.textContent='✔ gespeichert';setTimeout(()=>msg.textContent='',3000);
   }catch(e){msg.textContent='Fehler: '+e}
+}
+async function exportSettings(){
+  const message=document.getElementById('backupMessage');
+  try{
+    const current=await readJson('/api/status');
+    const storage=current.animationUploads?await readJson('/api/animations'):{uploads:[]};
+    const settings=Object.fromEntries(backupKeys.map(key=>[key,current[key]??0]));
+    const uploads=storage.uploads.filter(upload=>upload.valid).map(upload=>({id:upload.id,sha256:upload.sha256}));
+    const backup={format:'chaosuhr-settings',version:1,firmware:current.version,settings,uploads};
+    const blob=new Blob([JSON.stringify(backup,null,2)+'\n'],{type:'application/json'}),url=URL.createObjectURL(blob),link=document.createElement('a');
+    link.href=url;link.download='chaosuhr-einstellungen-'+current.version+'.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+    message.textContent='Einstellungen gesichert. Eigene Animationen bitte zusätzlich als .chaos herunterladen.';
+  }catch(error){message.textContent='Sicherung fehlgeschlagen: '+error.message}
+}
+function validateSettingsBackup(backup,currentUploads){
+  if(!backup || typeof backup!=='object' || Array.isArray(backup) || Object.keys(backup).some(key=>!['format','version','firmware','settings','uploads'].includes(key)) || backup.format!=='chaosuhr-settings' || backup.version!==1 || typeof backup.firmware!=='string' || backup.firmware.length>32)throw Error('Keine unterstützte ChaosUhr-Sicherung.');
+  const settings=backup.settings;
+  if(!settings || typeof settings!=='object' || Array.isArray(settings) || Object.keys(settings).length!==backupKeys.length || backupKeys.some(key=>!Object.hasOwn(settings,key) || !Number.isInteger(settings[key])))throw Error('Einstellungen unvollständig oder ungültig.');
+  const bounds={mode:[0,2],effect:[1,38],brightness:[1,100],speed:[1,100],duration:[5,120],nightOn:[0,1],nightFrom:[0,23],nightUntil:[0,23],nightBrightness:[1,100],corner:[0,3],vertical:[0,1],zigzag:[0,1],autoOrder:[0,1],autoEffects:[0,1073741823],autoUploads:[0,255]};
+  for(const key of backupKeys)if(settings[key]<bounds[key][0]||settings[key]>bounds[key][1])throw Error('Ungültiger Einstellungswert.');
+  if(!settings.autoEffects&&!settings.autoUploads)throw Error('Die Animationsauswahl ist leer.');
+  if(!Array.isArray(backup.uploads)||backup.uploads.length>8)throw Error('Ungültige Upload-Zuordnung.');
+  const mapping=new Map();
+  for(const upload of backup.uploads){
+    if(!upload || Object.keys(upload).length!==2 || !Number.isInteger(upload.id) || upload.id<31 || upload.id>38 || typeof upload.sha256!=='string' || !/^[a-f0-9]{64}$/.test(upload.sha256) || mapping.has(upload.id))throw Error('Ungültige Upload-Zuordnung.');
+    const match=currentUploads.find(current=>current.valid&&current.sha256===upload.sha256);mapping.set(upload.id,match?.id);
+  }
+  const result={...settings};result.autoUploads=0;
+  for(let bit=0;bit<8;bit++)if(settings.autoUploads&2**bit){const mapped=mapping.get(31+bit);if(!mapped)throw Error('Eine benötigte Animation fehlt. Lade zuerst die passende .chaos-Datei hoch.');result.autoUploads+=2**(mapped-31)}
+  if(settings.effect>30){const mapped=mapping.get(settings.effect);if(!mapped)throw Error('Die gewählte Einzelanimation fehlt. Lade zuerst die passende .chaos-Datei hoch.');result.effect=mapped}
+  return result;
+}
+async function previewSettingsImport(){
+  pendingImport=null;document.getElementById('applyBackup').hidden=true;document.getElementById('backupPreview').textContent='';
+  const message=document.getElementById('backupMessage');
+  try{
+    const file=document.getElementById('settingsFile').files?.[0];if(!file)return;
+    if(file.size>8192)throw Error('Sicherung darf höchstens 8 KiB groß sein.');
+    const current=await readJson('/api/status'),storage=current.animationUploads?await readJson('/api/animations'):{uploads:[]};
+    pendingImport=validateSettingsBackup(JSON.parse(await file.text()),storage.uploads);
+    const count=value=>value.toString(2).replaceAll('0','').length;
+    const d=pendingImport;
+    document.getElementById('backupPreview').textContent=`Vorschau – noch nicht gespeichert\nModus: ${['Automatik','Nur Uhrzeit','Einzelanimation'][d.mode]}\nHelligkeit: ${d.brightness} % · Tempo: ${d.speed} %\nSzenendauer: ${d.duration} s\nAutomatik: ${count(d.autoEffects)+count(d.autoUploads)} Animationen, ${d.autoOrder?'der Reihe nach':'zufällige Runden'}\nNachtmodus: ${d.nightOn?'an':'aus'}, ${d.nightFrom} bis ${d.nightUntil} Uhr, ${d.nightBrightness} %\nAuch die Matrixausrichtung wird übernommen.\nWLAN und Admin-Zugang bleiben erhalten.`;
+    document.getElementById('applyBackup').hidden=false;message.textContent='Prüfe die Vorschau, bevor du sie übernimmst.';
+  }catch(error){pendingImport=null;message.textContent='Import abgelehnt: '+error.message}
+}
+function applySettingsImport(){
+  if(!pendingImport)return;
+  const d=pendingImport;ids.forEach(key=>{const element=document.getElementById(key);element[element.type==='checkbox'?'checked':'value']=element.type==='checkbox'?!!d[key]:d[key]});
+  buildAutomaticChoices(effectChoices,d.autoEffects,d.autoUploads);
+  bVal.value=d.brightness+' %';sVal.value=d.speed+' %';dVal.value=d.duration+' s';nVal.value=d.nightBrightness+' %';
+  document.getElementById('backupMessage').textContent='Vorschau übernommen. Zum dauerhaften Anwenden Einstellungen speichern.';document.getElementById('applyBackup').hidden=true;pendingImport=null;
 }
 let animationBusy=false;
 function showAnimationStorage(storage){
@@ -432,8 +503,7 @@ load();
 
 static bool auth(){
 #ifdef CHAOSUHR_PUBLIC_BUILD
-  if(!publicAccess.ready()){server.send(503,"text/plain","Bitte zuerst die Uhr einrichten.");return false;}
-  if(server.authenticate(OTA_USER,publicAccess.adminPassword())) return true;
+  return publicAccess.authenticate();
 #else
   if(server.authenticate(OTA_USER,OTA_PASS)) return true;
 #endif
@@ -466,6 +536,10 @@ static void statusApi(){
   s+="\"rssi\":"+String(WiFi.RSSI())+",\"heap\":"+String(ESP.getFreeHeap());
   s+=",\"flash\":"+String(deviceFlashSize())+",\"ota\":"+String(ESP.getFreeSketchSpace());
   s+=",\"platform\":\""+String(DEVICE_FAMILY)+"\",\"ledPin\":"+String(LED_PIN);
+  s+=",\"otaProduct\":\""+String(FIRMWARE_PRODUCT)+"\"";
+#ifdef CHAOSUHR_PUBLIC_BUILD
+  s+=",\"credentialsMigrationPending\":"+String(publicAccess.migrationPending()?"true":"false");
+#endif
   s+=",\"mode\":"+String(cfg.mode)+",\"effect\":"+String(cfg.effect);
   s+=",\"activeEffect\":"+String(activeEffect());
   uint8_t uploadedCount=0;
@@ -494,6 +568,9 @@ static void statusApi(){
 static void saveApi(){
   if(!auth())return;
   if(server.method()!=HTTP_POST){server.send(405,"text/plain","POST only");return;}
+#ifdef CHAOSUHR_PUBLIC_BUILD
+  if(!publicAccess.validMutationToken()){server.send(403,"text/plain","Sitzungstoken fehlt oder fremde Webseite.");return;}
+#endif
   if(!server.args()){server.send(400,"text/plain; charset=utf-8","Keine Einstellungen angegeben");return;}
   Settings next=cfg;
   for(int i=0;i<server.args();i++){
@@ -515,7 +592,7 @@ static void saveApi(){
 #endif
   const bool changed=memcmp(&cfg,&next,sizeof cfg)!=0;
   const bool restartAutomatic=cfg.mode!=next.mode || cfg.autoEffects!=next.autoEffects || cfg.autoOrder!=next.autoOrder || cfg.autoUploads!=next.autoUploads;
-  if(!persistSettings(EEPROM,cfg,next,settingsPersisted)){
+  if(!persistSettings(clockStorage,cfg,next,settingsPersisted)){
     server.send(500,"text/plain; charset=utf-8","Einstellungen konnten nicht gespeichert werden");return;
   }
   if(changed){
@@ -526,8 +603,16 @@ static void saveApi(){
 }
 
 #ifdef CHAOSUHR_HAS_UPLOADS
+static String animationDigest(uint8_t id){
+  auto file=animations.openDownload(id);if(!file)return "";
+  br_sha256_context hash;br_sha256_init(&hash);uint8_t buffer[128];
+  for(;;){const size_t length=file.read(buffer,sizeof buffer);if(!length)break;br_sha256_update(&hash,buffer,length);yield();}
+  file.close();uint8_t digest[32];br_sha256_out(&hash,digest);char text[65];
+  for(size_t i=0;i<32;++i)snprintf(text+2*i,3,"%02x",digest[i]);
+  return String(text);
+}
 static bool animationMutationAllowed(){
-  return publicAccess.ready() && server.authenticate(OTA_USER,publicAccess.adminPassword()) && publicAccess.validMutationToken();
+  return publicAccess.authenticate() && publicAccess.validMutationToken();
 }
 static void animationStatusApi(){
   if(!auth())return;
@@ -538,7 +623,7 @@ static void animationStatusApi(){
     const auto& slot=animations.slot(i);if(!slot.present)continue;
     if(!first)result+=',';
     first=false;
-    result+="{\"id\":"+String(EFFECT_COUNT+1+i)+",\"name\":\""+String(slot.name)+"\",\"valid\":"+String(slot.valid?"true":"false")+",\"frames\":"+String(slot.frames)+"}";
+    result+="{\"id\":"+String(EFFECT_COUNT+1+i)+",\"name\":\""+String(slot.name)+"\",\"valid\":"+String(slot.valid?"true":"false")+",\"frames\":"+String(slot.frames)+",\"sha256\":\""+(slot.valid?animationDigest(EFFECT_COUNT+1+i):String(""))+"\"}";
   }
   result+="]}";server.sendHeader("Cache-Control","no-store");server.send(200,"application/json",result);
 }
@@ -548,6 +633,7 @@ static void animationInitApi(){
     server.send(403,"text/plain","Einrichtung bestaetigen und Seite neu laden.");return;
   }
   if(!animations.initialize()){server.send(animations.status(),"text/plain",animations.error());return;}
+  publicAccess.migrate();
   server.send(200,"application/json","{\"ok\":true}");
 }
 static void animationUploadDone(){
@@ -576,7 +662,7 @@ static void animationDeleteApi(){
     server.send(404,"text/plain","Upload nicht gefunden.");return;
   }
   Settings next=cfg;forgetUploadedAnimation(next,id);
-  if(!persistSettings(EEPROM,cfg,next,settingsPersisted)){server.send(500,"text/plain","Einstellungen konnten nicht gespeichert werden; Upload bleibt erhalten.");return;}
+  if(!persistSettings(clockStorage,cfg,next,settingsPersisted)){server.send(500,"text/plain","Einstellungen konnten nicht gespeichert werden; Upload bleibt erhalten.");return;}
   if(!animations.remove(id)){server.send(animations.status(),"text/plain",animations.error());return;}
   autoPlayback.reset();scene.reset(millis(),cfg.effect);resetAnimation();
   server.send(200,"application/json","{\"ok\":true}");
@@ -590,6 +676,77 @@ static void animationDownloadApi(){
   auto file=animations.openDownload(id);if(!file){server.send(500,"text/plain","Lesefehler.");return;}
   server.sendHeader("Content-Disposition","attachment; filename=animation-"+String(id)+".chaos");
   server.sendHeader("Cache-Control","no-store");server.streamFile(file,"text/plain");file.close();
+}
+#endif
+
+#if defined(CHAOSUHR_PUBLIC_BUILD) && defined(ESP8266)
+struct OtaBackend {
+  bool begin(){
+    const size_t available=ESP.getFreeSketchSpace();
+    if(available<=FIRMWARE_MAX_BYTES+4096)return false;
+    // Keep the reserved capacity strictly larger than any accepted payload, so
+    // end(false) can never accidentally finalize an aborted complete-size file.
+    return Update.begin((available-4096)&0xfffff000,U_FLASH);
+  }
+  size_t write(const uint8_t* data,size_t size){return Update.write(const_cast<uint8_t*>(data),size);}
+  bool finish(){return Update.end(true);}
+  void cancel(){Update.end(false);}
+} otaBackend;
+FirmwareUpload<OtaBackend> firmwareUpload(otaBackend);
+static void setupSecureOta(){
+  server.on("/update",HTTP_GET,[](){if(auth())server.send_P(200,"text/html; charset=utf-8",OTA_HTML);});
+  server.on("/update",HTTP_POST,[](){
+    if(firmwareUpload.finish(publicAccess.authenticate() && publicAccess.validMutationToken(),server.args()==0)){
+      server.send(200,"application/json","{\"ok\":true,\"restarting\":true}");publicAccess.restartAfterUpdate();
+    }else server.send(firmwareUpload.status(),"text/plain; charset=utf-8",firmwareUpload.error());
+  },[](){
+    auto& upload=server.upload();
+    switch(upload.status){
+      case UPLOAD_FILE_START:firmwareUpload.start(publicAccess.authenticate() && publicAccess.validMutationToken(),upload.name=="firmware" && upload.filename.endsWith(".bin"),server.header("X-Firmware-SHA256").c_str());break;
+      case UPLOAD_FILE_WRITE:firmwareUpload.write(upload.buf,upload.currentSize);break;
+      case UPLOAD_FILE_END:firmwareUpload.end();break;
+      case UPLOAD_FILE_ABORTED:firmwareUpload.abort();break;
+      default:break;
+    }
+  });
+}
+static bool portalRequestAllowed(ClockWebServer& target,bool mutation){
+  const String host=target.header("Host"),origin=target.header("Origin"),address=WiFi.softAPIP().toString();
+  if(target.client().localIP()!=WiFi.softAPIP() || !setupHostAllowed(host.c_str(),address.c_str()) || !originMatchesHost(origin.c_str(),host.c_str()))return false;
+  const String token=target.header("X-CSRF-Token");
+  return !mutation || (target.method()==HTTP_POST && token.length()==32 && constantEqual(token.c_str(),publicAccess.portalToken(),32));
+}
+static void setupSecurePortal(){
+  auto& portal=*wifiManager.server;collectClockHeaders(portal);
+  portal.addHook([](const String&,const String&,WiFiClient* client,ClockWebServer::ContentTypeFunction){
+    if(client->localIP()==WiFi.softAPIP())return ClockWebServer::CLIENT_REQUEST_CAN_CONTINUE;
+    wifiManager.server->send(403,"text/plain","Einrichtung nur ueber das Einrichtungs-WLAN.");return ClockWebServer::CLIENT_MUST_STOP;
+  });
+  portal.setBodyGuard([](){
+    auto& current=*wifiManager.server;
+    if((current.uri()=="/wifisave" || current.uri()=="/exit") && portalRequestAllowed(current,true))return true;
+    current.send(403,"text/plain","Ungueltige Einrichtungsanfrage.");return false;
+  });
+  for(const char* path:{"/update","/u","/erase","/restart","/paramsave","/param","/close","/info"})portal.on(path,HTTP_ANY,[](){
+    wifiManager.server->send(403,"text/plain","Diese Aktion ist im Einrichtungsportal gesperrt.");
+  });
+  portal.on("/api/portal-session",HTTP_GET,[](){
+    auto& current=*wifiManager.server;if(!portalRequestAllowed(current,false)){current.send(403,"text/plain","Einrichtung nicht erlaubt.");return;}
+    current.send(200,"application/json",String("{\"token\":\"")+publicAccess.portalToken()+"\"}");
+  });
+  portal.on("/wifisave",HTTP_GET,[](){wifiManager.server->send(405,"text/plain","POST erforderlich.");});
+  portal.on("/wifisave",HTTP_POST,[](){
+    if(!portalRequestAllowed(*wifiManager.server,true)){wifiManager.server->send(403,"text/plain","Ungueltige Einrichtungsanfrage.");return;}
+    wifiManager.saveClockWifi();
+  });
+  portal.on("/exit",HTTP_GET,[](){
+    if(!portalRequestAllowed(*wifiManager.server,false)){wifiManager.server->send(403,"text/plain","Einrichtung nicht erlaubt.");return;}
+    wifiManager.server->send(200,"text/html",String(FPSTR(PORTAL_EXIT_HTML))+FPSTR(PORTAL_HEAD)+"</body></html>");
+  });
+  portal.on("/exit",HTTP_POST,[](){
+    if(!portalRequestAllowed(*wifiManager.server,true)){wifiManager.server->send(403,"text/plain","Ungueltige Einrichtungsanfrage.");return;}
+    wifiManager.server->send(200,"text/plain","Einrichtung geschlossen.");wifiManager.requestPortalExit();
+  });
 }
 #endif
 
@@ -649,13 +806,15 @@ static void serviceNetwork(){
 }
 void setup(){
   Serial.begin(115200);
+#ifdef CHAOSUHR_HAS_UPLOADS
+  LittleFSConfig filesystemConfig;filesystemConfig.setAutoFormat(false);LittleFS.setConfig(filesystemConfig);
+#endif
   loadSettings();
   FastLED.addLeds<WS2812B,LED_PIN,GRB>(leds,LED_COUNT);
   FastLED.setMaxPowerInVoltsAndMilliamps(5,1500); // estimated software power limit
   clear(); FastLED.show();
 #ifdef CHAOSUHR_PUBLIC_BUILD
 #ifdef CHAOSUHR_HAS_UPLOADS
-  LittleFSConfig filesystemConfig;filesystemConfig.setAutoFormat(false);LittleFS.setConfig(filesystemConfig);
   animations.begin();publicAccess.setResetStorage([](){return animations.factoryReset();});
 #endif
   publicAccess.begin();
@@ -684,10 +843,17 @@ void setup(){
   // These handlers precede the library routes, so its configuration portal
   // cannot bypass the application's admin-protected firmware updater.
   wifiManager.setWebServerCallback([](){
+#if defined(ESP8266)
+    setupSecurePortal();
+#else
     for(const char* path:{"/update","/u"}) wifiManager.server->on(path,HTTP_ANY,[](){
       wifiManager.server->send(403,"text/plain; charset=utf-8","Firmware-Updates nur ueber den angemeldeten Admin-Zugang.");
     });
+#endif
   });
+#if defined(ESP8266)
+  wifiManager.setCustomHeadElement(PORTAL_HEAD);
+#endif
 #endif
   wifiAttemptStarted=millis();
 #ifdef CHAOSUHR_PUBLIC_BUILD
@@ -727,8 +893,10 @@ void setup(){
   });
 #endif
 #ifdef CHAOSUHR_PUBLIC_BUILD
-  if(publicAccess.ready()) updater.setup(&server,"/update",OTA_USER,publicAccess.adminPassword());
-  else if(publicAccess.provisioning()) publicAccess.startInitialPortal();
+#if defined(ESP8266)
+  setupSecureOta();
+#endif
+  if(publicAccess.provisioning()) publicAccess.startInitialPortal();
 #else
   updater.setup(&server,"/update",OTA_USER,OTA_PASS);
 #endif

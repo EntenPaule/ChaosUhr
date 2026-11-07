@@ -38,6 +38,9 @@ struct MemoryStorage {
   }
   bool commit(){++commits;if(fail)return false;flash=buffer;return true;}
 } EEPROM;
+#define clockStorage EEPROM
+#define CHAOSUHR_PUBLIC_BUILD 1
+struct {bool token=true;bool validMutationToken(){return token;}} publicAccess;
 static constexpr int HTTP_POST=1;
 static bool auth(){return true;}
 struct TestServer {
@@ -136,6 +139,8 @@ static void testSettingsApi(){
   EEPROM=MemoryStorage();EEPROM.buffer.fill(0xa5);EEPROM.put(0,cfg);
   assert(EEPROM.commit());settingsPersisted=true;
   const auto original=EEPROM.flash;
+  publicAccess.token=false;server.arguments={{"brightness","25"}};saveApi();assert(server.status==403 && EEPROM.flash==original);
+  publicAccess.token=true;
   const uint32_t mask=autoEffectBit(2)|autoEffectBit(30);
   server.arguments={{"autoEffects",std::to_string(mask)},{"autoOrder","1"}};
   saveApi();assert(server.status==200 && cfg.autoEffects==mask && cfg.autoOrder==1);

@@ -15,6 +15,8 @@ import tempfile
 import time
 
 project = Path(__file__).resolve().parents[1]
+subprocess.run(["python3",str(project/"tests/test_release_safety.py")],check=True)
+subprocess.run(["python3",str(project/"tests/run_http_parser_test.py")],check=True)
 build_dir = project / ".pio" / "host-tests"
 build_dir.mkdir(parents=True, exist_ok=True)
 binary = build_dir / "test_logic"
@@ -26,6 +28,7 @@ subprocess.run([
 subprocess.run([str(binary)], check=True)
 
 for name,sources,flags in (
+    ("security",[project/"tests/test_security.cpp"],["-I",str(project/"tests")]),
     ("animation_uploads",[project/"tests/test_animation_uploads.cpp"],["-I",str(project/"tests")]),
     ("public_credentials",[project/"tests"/"test_public_credentials.cpp"],[]),
     ("public_access",[project/"tests"/"test_public_access.cpp",project/"src"/"public_access.cpp"],
@@ -36,7 +39,7 @@ for name,sources,flags in (
     target=build_dir/("test_"+name)
     subprocess.run(["g++","-std=c++17","-Wall","-Wextra","-Werror","-pedantic",
                     "-fsanitize=address,undefined","-fno-omit-frame-pointer",
-                    *flags,"-I",str(project/"include"),*map(str,sources),"-o",str(target)],check=True)
+                    *flags,"-I",str(project/"include"),*map(str,sources),"-o",str(target),"-lcrypto"],check=True)
     arguments=[str(target)]
     if name=="animation_uploads":arguments.append(str(project/"examples/Herz.chaos"))
     subprocess.run(arguments,check=True)
@@ -79,6 +82,9 @@ print(f"PASS original assets: {len(frames_checked)} source-verified frames, exac
 
 subprocess.run(["node",str(project/"tests"/"test_web_ui.js")], check=True)
 subprocess.run(["node",str(project/"tests"/"test_public_ui.js")], check=True)
+subprocess.run(["node",str(project/"tests"/"test_backup_ui.js")], check=True)
+subprocess.run(["node",str(project/"tests"/"test_ota_ui.js")], check=True)
+subprocess.run(["node",str(project/"tests"/"test_github_update_ui.js")], check=True)
 
 source = (project / "src" / "main.cpp").read_text()
 example=(project/"examples/Herz.chaos").read_text()

@@ -1,5 +1,17 @@
 # Änderungen
 
+## 2.0.8 – Wemos / ESP8266
+
+- Härtung von HTTP-Parser, zentraler Anmeldung, CSRF für Einstellungen/OTA und WLAN-Portal.
+- Gesalzener Passwort-Verifier mit erhaltender Migration, internem Journal und Tests aus Original-2.0.5-Daten.
+- Kontrollierter OTA-Abschluss, Image-/CRC-/Produkt-/optionale SHA-256-Prüfung; keine rohen Dateisystem-Uploads.
+- JSON-Einstellungssicherung mit Import-Vorschau und Zuordnung eigener Animationen über Dateifingerabdrücke.
+- GUI für Online-Updates nach ausdrücklicher Bestätigung über einen statischen GitHub-Kanal; 2.0.8 wird als Vorabversion im Testkanal angeboten.
+- Beim Gerätetest gefundene Origin-Restwerte im ESP8266-Stringpuffer bereinigt; Regressionstest bildet das tatsächliche `String::clear()`-Verhalten nach.
+- Erweiterte Tests und Prüfung der Weitergabedateien. Nur Wemos; OTA von 2.0.7, Passwortmigration, Folge-OTA und sichtbare Anzeige auf einer Uhr bestätigt. [Testumfang](docs/RELEASE_v2.0.8.md).
+
+HTTP bleibt lokal unverschlüsselt; Signaturpflicht ist nicht aktiviert. [Upgrade](docs/UPGRADE_2_0_8.md), [Sicherheit](docs/SICHERHEIT_2_0_8.md), [Updatekanal](docs/GITHUB_UPDATES.md).
+
 ## 2.0.7 – Wemos / ESP8266
 
 - Gewünschte Animationen für die Automatik auswählen, einschließlich eigener Uploads.

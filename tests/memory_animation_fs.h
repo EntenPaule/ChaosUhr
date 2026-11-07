@@ -31,7 +31,7 @@ struct MemoryAnimationFS {
   bool mkdir(const char* path){if(!mounted)return false;directories.insert(path);return true;}
   bool remove(const char* path){if(!mounted||removeFails)return false;return files.erase(path)!=0;}
   bool rename(const char* from,const char* to){
-    if(!mounted||renameFails||!files.count(from)||files.count(to))return false;
+    if(!mounted||renameFails||!files.count(from))return false;
     files[to]=files[from];files.erase(from);return true;
   }
   AnimationFile open(const char* path,const char* mode){
