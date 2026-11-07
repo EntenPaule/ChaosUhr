@@ -76,15 +76,9 @@ source["platformio.ini"]=re.sub(r'^default_envs = (?:d1_mini_public|esp32dev_pub
                                'default_envs = d1_mini_public',
                                (project/"platformio.ini").read_text(),count=1,flags=re.M).encode()
 manual=(project/"docs"/"PUBLIC_FIRMWARE.md").read_bytes()
-source["README.md"]=("# ChaosUhr "+version+" – ESP8266\n\nBuild: `pio run`\n\n"
-                     "Wemos D1 mini, 4 MiB Flash, D6/GPIO12, 20×15 WS2812B.\n\n"
-                     "Sicherheitskorrekturen, JSON-Einstellungssicherung und Online-Updates nach Bestätigung. "
-                     "Vorabversion mit bestätigtem OTA-/Anzeigetest auf einem Wemos; Umfang und offene Prüfungen im [Releasebericht](docs/RELEASE_v2.0.8.md).\n\n"
-                     "Paket: `python3 scripts/package_public.py`\n\n"
-                     "[Upgrade](docs/UPGRADE_2_0_8.md), [Sicherheit](docs/SICHERHEIT_2_0_8.md), "
-                     "[GitHub-Updatekanal](docs/GITHUB_UPDATES.md).\n\n"
-                     "[Anleitung](docs/PUBLIC_FIRMWARE.md), [Automatik](docs/AUTOMATIK_2_0_7.md), "
-                     "[eigene Animationen](docs/ANIMATIONEN_FORMAT.md), [ESP32](docs/ESP32_FIRMWARE.md).\n").encode()
+# Keep the reviewed public project overview intact; apply the same credential
+# scan below as for every other published source file.
+source["README.md"]=(project/"README.md").read_bytes()
 source["docs/PUBLIC_FIRMWARE.md"]=manual
 for path,data in source.items():check_clean(data,path)
 if any("secrets.local.h"==Path(path).name or ".pio" in Path(path).parts for path in source):

@@ -1,8 +1,8 @@
 # Eigene ChaosUhr-Animationen teilen – Format .chaos, Version 1
 
-Auch Wemos **2.0.8** verwendet dieses unveränderte Dateiformat. Testangaben zu 2.0.7 unten sind historisch; 2.0.8 ist bisher nur lokal geprüft. Die zusätzliche Einstellungssicherung enthält keine Animationsdateien.
+Auch Wemos **2.0.8** verwendet dieses unveränderte Dateiformat. Der aktuelle Geräte- und Teststand steht im [Releasebericht 2.0.8](RELEASE_v2.0.8.md); Angaben zu 2.0.7 unten sind historisch. Die zusätzliche Einstellungssicherung enthält keine Animationsdateien.
 
-Für die **Wemos-Version 2.0.7 mit Upload-Verwaltung**. Das Format beschreibt Pixelbilder und ihre Anzeigedauer; es enthält keinen auszuführenden Programmcode. Für jede neue Animation ist damit kein Firmware-Flashen nötig. Die ESP32-Erweiterung bleibt vorerst zurückgestellt.
+Für die **Wemos-Versionen 2.0.7 mit Upload-Verwaltung und 2.0.8**. Das Format beschreibt Pixelbilder und ihre Anzeigedauer; es enthält keinen auszuführenden Programmcode. Für jede neue Animation ist damit kein Firmware-Flashen nötig.
 
 ## In der GUI benutzen
 
@@ -49,7 +49,7 @@ Die hochgeladene Datei wird zunächst vorübergehend gespeichert, anschließend 
 
 Uhreinstellungen und Zugangsdaten bleiben im bisherigen EEPROM-Bereich. Die Upload-Auswahl ergänzt die Bytes 28–31; der Admin-Bereich beginnt weiterhin bei Offset 32. Alte 20- und 28-Byte-Einstellungsdaten werden übernommen. Ein normales OTA-Update mit unverändertem Flash-/Dateisystemlayout erhält die hochgeladenen Dateien. Die Firmware-BIN enthält keine persönlichen Uploads; zum Teilen einer Animation deren `.chaos` herunterladen.
 
-Ein bestätigter **Werksreset löscht auch alle eigenen Animationen**. Nach dem dauerhaften Reset-Merkmal werden zuerst WLAN-Daten, dann das Animationsdateisystem und zuletzt EEPROM-Einstellungen und Zugangsdaten gelöscht. Scheitert ein Schritt, bleibt das Merkmal für einen erneuten Versuch erhalten.
+Ein bestätigter **Werksreset löscht auch alle eigenen Animationen**. Ab 2.0.8 werden nach dem dauerhaften Reset-Merkmal zuerst WLAN-Daten und dann EEPROM-Einstellungen und Zugangsdaten gelöscht; das Journal bleibt bis zum abschließenden Formatieren des Dateisystems erhalten. Scheitert ein Schritt, bleibt das Merkmal nach Möglichkeit für einen erneuten Versuch verfügbar. Siehe [Sicherheitskonzept](SICHERHEIT_2_0_8.md).
 
 ## API
 
