@@ -1,0 +1,102 @@
+// Execute the actual upload/initialize/delete handlers with in-memory adapters.
+#include "animation_library.h"
+#include "memory_animation_fs.h"
+#include "auto_playback.h"
+#include "display_logic.h"
+#include <array>
+#include <cassert>
+#include <fstream>
+#include <iostream>
+#include <iterator>
+
+struct String:std::string {
+  using std::string::string;
+  String(const std::string& value):std::string(value){}
+  explicit String(uint8_t value):std::string(std::to_string(value)){}
+};
+static constexpr char OTA_USER[]="admin";
+static uint32_t millis(){return 100;}
+static void resetAnimation(){}
+static Settings cfg=defaultSettings();
+static SceneState scene;
+static AutoPlayback autoPlayback;
+static bool settingsPersisted=true;
+struct TestStorage {
+  std::array<uint8_t,128> buffer,flash;
+  bool fail=false;unsigned commits=0;
+  TestStorage(){buffer.fill(0xa5);flash=buffer;}
+  template<typename T>void put(size_t at,const T& value){memcpy(buffer.data()+at,&value,sizeof value);}
+  bool commit(){++commits;if(fail)return false;flash=buffer;return true;}
+} EEPROM;
+struct TestAccess {
+  bool configured=true,token=true;
+  bool ready(){return configured;}
+  const char* adminPassword(){return "fixture-admin-passphrase-42";}
+  bool validMutationToken(){return configured && token;}
+} publicAccess;
+enum {UPLOAD_FILE_START,UPLOAD_FILE_WRITE,UPLOAD_FILE_END,UPLOAD_FILE_ABORTED};
+struct Upload {int status=UPLOAD_FILE_START;String name="animation";uint8_t buf[1024];size_t currentSize=0;};
+struct TestServer {
+  bool authorized=true;int status=0;std::string body;
+  std::vector<std::pair<String,String>> arguments;Upload incoming;
+  int args(){return arguments.size();}
+  String arg(const char* name){for(const auto& value:arguments)if(value.first==name)return value.second;return "";}
+  bool authenticate(const char*,const char*){return authorized;}
+  void requestAuthentication(){status=401;}
+  void send(int code,const char*,const std::string& value){status=code;body=value;}
+  Upload& upload(){return incoming;}
+} server;
+static MemoryAnimationFS fs;
+static AnimationLibrary<MemoryAnimationFS,AnimationFile> animations(fs);
+
+@AUTH@
+@MUTATION@
+@INITIALIZE@
+@UPLOAD_CHUNK@
+@UPLOAD_DONE@
+@DELETE@
+
+static void sendFile(const std::string& text){
+  server.arguments.clear();server.incoming.status=UPLOAD_FILE_START;server.incoming.name="animation";animationUploadChunk();
+  for(size_t at=0;at<text.size();at+=sizeof(server.incoming.buf)){
+    server.incoming.status=UPLOAD_FILE_WRITE;server.incoming.currentSize=std::min(sizeof(server.incoming.buf),text.size()-at);
+    memcpy(server.incoming.buf,text.data()+at,server.incoming.currentSize);animationUploadChunk();
+  }
+  server.incoming.status=UPLOAD_FILE_END;animationUploadChunk();animationUploadDone();
+}
+int main(int argc,char** argv){
+  assert(argc==2);std::ifstream input(argv[1]);assert(input);
+  const std::string example((std::istreambuf_iterator<char>(input)),std::istreambuf_iterator<char>());
+  fs.mountable=false;animations.begin();
+  server.arguments={{"confirm","INITIALIZE"}};server.authorized=false;
+  animationInitApi();assert(server.status==401 && fs.formats==0);
+  server.authorized=true;publicAccess.token=false;
+  animationInitApi();assert(server.status==403 && fs.formats==0);
+  publicAccess.token=true;server.arguments={{"confirm","WRONG"}};
+  animationInitApi();assert(server.status==403 && fs.formats==0);
+  server.arguments={{"confirm","INITIALIZE"}};
+  animationInitApi();assert(server.status==200 && fs.formats==1 && animations.ready());
+  animationInitApi();assert(server.status==409 && fs.formats==1);
+  server.authorized=false;sendFile(example);assert(server.status==403 && fs.files.empty());
+  server.authorized=true;publicAccess.token=false;sendFile(example);assert(server.status==403 && fs.files.empty());
+  publicAccess.token=true;sendFile(example);assert(server.status==200 && animations.playable(31));
+  assert(server.body=="{\"ok\":true,\"id\":31}");
+  server.arguments.clear();animationUploadDone();assert(server.status==400 && fs.files.size()==1);
+  cfg=defaultSettings();cfg.autoEffects=0;cfg.autoUploads=1;cfg.effect=31;sealSettings(cfg);
+  EEPROM.put(0,cfg);assert(EEPROM.commit());const auto before=EEPROM.flash;
+  server.arguments={{"id","31"},{"confirm","DELETE"}};
+  server.authorized=false;animationDeleteApi();assert(server.status==401 && animations.exists(31));
+  server.authorized=true;publicAccess.token=false;
+  animationDeleteApi();assert(server.status==403 && EEPROM.flash==before && animations.exists(31));
+  publicAccess.token=true;server.arguments={{"id","../31"},{"confirm","DELETE"}};
+  animationDeleteApi();assert(server.status==404 && animations.exists(31));
+  server.arguments={{"id","1"},{"confirm","DELETE"}};
+  animationDeleteApi();assert(server.status==404 && animations.exists(31));
+  server.arguments={{"id","31"},{"confirm","DELETE"}};EEPROM.fail=true;
+  animationDeleteApi();assert(server.status==500 && animations.exists(31) && cfg.effect==31 && cfg.autoUploads==1);
+  assert(EEPROM.flash==before);EEPROM.fail=false;
+  animationDeleteApi();assert(server.status==200 && !animations.exists(31) && cfg.effect==1 && cfg.autoEffects==1 && cfg.mode==1 && !cfg.autoUploads);
+  for(size_t i=32;i<128;++i)assert(EEPROM.flash[i]==before[i]);
+  const auto commits=EEPROM.commits;animationDeleteApi();assert(server.status==404 && EEPROM.commits==commits);
+  std::cout<<"PASS actual animation HTTP handlers: authentication/CSRF/confirmation before formatting or writing, chunked upload, empty requests, ID bounds, failed-settings preservation and deletion fallback\n";
+}

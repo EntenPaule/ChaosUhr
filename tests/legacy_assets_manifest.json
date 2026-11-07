@@ -1,0 +1,311 @@
+{
+  "repository": "https://github.com/oOmicha1986Oo/ChaosUhr",
+  "commit": "51aef401db22ef0fba3e5e334f141bf794d7505a",
+  "files": {
+    "DigiDug.h": "141dbf4b3fe5bf82b70f601616bb76793797d3adcb9167c679f0387a45f39f5a",
+    "Qbert.h": "869327a30a327fb48610e32cb18577b25657a229fe29429b9a601aa957e0c5b4",
+    "Face.h": "02fd1960c80d2639116936872bd1e98abd8b8e0e84f533bc6a7d2a083c1625a1",
+    "Face2.h": "395d459eb4a68031b8deceffabef39fb79621f15c35cda9223a9c82a8f1fcec5",
+    "Face3.h": "b96b1a8734198843090baa3b886eeb2e511ad3538efee0c8314e6b4f4a8e2d38",
+    "Feuer.h": "1d2bd7451ea8b06d979813bb37b4147509e2eac44bd49b5f695deb8fa4254164",
+    "Drink.h": "55dad54e1db9f4bccebfc486ea926280a3de7a88c898fc537536c653de2c1564",
+    "BombJack.h": "ed6bcd4fa83055da2eb139517c872ad21bf0faa80d09f978e4ebf043802b523a",
+    "ChaosBlinkiBuntiUhr.ino": "91b04b7809238b3c252fe5da85d72329ec1fc80f33e43639aa0359556b3fffe5"
+  },
+  "frames": {
+    "DigDug01": "27e16e0342f9ddc9ba9d5c28c829d86acd04d7e31440dd4b1c5ecc7a95e9c0d1",
+    "DigDug02": "2903120de0a048a2013c3388e8bfa74445324cb7958224fa87e288d12edd6eea",
+    "Qbert01": "40c7bd812827083ff6ee1f2d7ad90c1d9f8dd646fbab9e672b8a2fdbd721e25f",
+    "Qbert02": "ebdf6b5293350ca8ecaf41da1ebcf79fb99773af5744446502a8a2bed3e8ce50",
+    "Face001": "7e683fc80c32eb5edab85d9ee71131fcb02fc87a9968cb50dfb666c2dc033919",
+    "Face002": "05848574f7c667d2867b8f0d4fdcb4aceb998fb7e1cf446c2a59ee355fe3f377",
+    "Face003": "1fa8b9d185f10fbdfd7b3ae5399166eef3e734de0dc457bbc4c929a0a23cd07b",
+    "Face004": "afcee24439d6271dfa0d183475ef7fdc074fb30b844ae73c629273931304ed4b",
+    "Face005": "7ea4b93bb2641b3b927a4b2cfab7a9091535a59eab90e5faaf15415a824cc0c3",
+    "Face007": "add04e16702d65e122dc309c381116bb680e5e9043875ee2c1be6196bb37b7a9",
+    "Face008": "309641e890e48a4a05c1ea3befac96f0c69b0a2dbda8786fa3d66fdf1b37a5e9",
+    "Face202": "8afa22c088bc553c66749aaea774e31903e4c14f69f2f6ee1b213693094c87ad",
+    "Face203": "77e7002f2b484a834f6196266bc71085851f6d35528e660818c982d00b0c0731",
+    "Face301": "93b8b08b5bb023105b78e3e6ae55cbe1e985149d94d52cd072a272289c1d9efe",
+    "Face302": "5ce343784f63f2f2051046295243375a11adea195b66b3a76e793a4e6e4905df",
+    "Face303": "a0cfa1b7ad2c46a97ed3584c6e55eea1994868d189a67fd2910dab62015f0f76",
+    "Face304": "86cb97986fddf3b15a6498435c2c899df2ceb060d41d687b2ecd45da92244b97",
+    "Face305": "1825a24d1e4d324505d2db8c89989109b51d4bee51230242b8eeaf66ecc1aba0",
+    "Face306": "acba672c13f6a04773257595b67f7b0ee803e04b52100d3ddf834d0aae7276ea",
+    "Face307": "89d8a55077b97a7af7125cd6ed8b18694ded8b53e6af9e498c51229184403eaa",
+    "Face308": "89d8a55077b97a7af7125cd6ed8b18694ded8b53e6af9e498c51229184403eaa",
+    "Face309": "acba672c13f6a04773257595b67f7b0ee803e04b52100d3ddf834d0aae7276ea",
+    "Face310": "2f42f598351bf9b342e1f650bbf89fb7f5104d99e54c345360092b18333d241d",
+    "Face311": "1825a24d1e4d324505d2db8c89989109b51d4bee51230242b8eeaf66ecc1aba0",
+    "Face312": "93b8b08b5bb023105b78e3e6ae55cbe1e985149d94d52cd072a272289c1d9efe",
+    "Face313": "b3eb47063535648c6761ab43f72a5472f4fd94a4cba01c2c955ca7d421cdd922",
+    "Face314": "0cfd59249e35e190ef000825e29ca5a86df03269bc0340bb3809b516df156a27",
+    "Face315": "b3eb47063535648c6761ab43f72a5472f4fd94a4cba01c2c955ca7d421cdd922",
+    "Feuer1": "905478168aca9e87b28d0ecd2e5e4ba39669598aecc85fef15993345b66e7fa0",
+    "Feuer2": "fb9785174a8226cd625fea6e4bbee61dd7dd471aec3cebde1dd9cb0be3a5f705",
+    "Feuer3": "fb4330b6968506078adefc908e4bb158d1688456b1d3399a6c8be18fb7bb3ca0",
+    "Feuer4": "a6cc484885843c04df46444b3c4f3e2e610af46aac461a870e13cf8cf5caa114",
+    "Feuer5": "4c1b415ace4f74941dc89822896bd57917a5ffa05b15244ac1510e7d5cc06d42",
+    "Feuer6": "389259176ab1e8e923a40975695d2860e8484fc21eda45e8440dd4bb52a579b0",
+    "Drink01": "9a198c8a586481b90f642b29e74b23c29c7943e2f1bd3a8387f4820ba07fbdf7",
+    "Drink02": "cd678a400735938ecca70e190b9a457a845970d181ca7dcde67fc35f4b528069",
+    "Drink03": "1b42696a83af0e8abb3c32a90802535fee4f5f97b5b3f5e81954aa16b2b37aa9",
+    "Drink04": "bba8ac7d8d600da72d82c20a4a4b25bf9de4bb691679a13d4a3105e4da686bf3",
+    "Drink05": "c36a9651c5d5858c06606e36d2065fefca480294efbb3fc47799a754ad45c6bb",
+    "Drink06": "d649aa8259ae2dd8f102e543fb4ba19baee92bb2fdb3ca91d5776718e65640f1",
+    "Drink07": "277a51b7f659a980681a2140c631f7d7a21e2db37aacd2cc653d991fef646114",
+    "Drink08": "4a45343ee754b556defac5950c982f102382a57a5d0a56a145f31c471f4eea6b",
+    "Drink09": "8a4707480e5bd52a99be790cc070b94cd02feaa580f9537b506377a5a50c6c76",
+    "Drink010": "dd62877613a3d714b88e5af899119efaad42b3195c667a148f1678b2dd326a7c",
+    "Drink011": "901994264de29584d5365782dbdcbd1d46605d1739a574784c66fe9985a84e86",
+    "Drink012": "c07dc0cfd9b4f257ceec1ec492ec6fd4a983933ef7b9b00fd25425d4f4440703",
+    "Drink013": "e0e8367348328d1df7b9342a39e72d0ac32dcd8965a436808565bcbc6795d5c4",
+    "Drink014": "586955e1db354c94ddb9ef9fcdc5c28118b8258e746d8296e3cef2680185a499",
+    "Drink015": "16275fd58e1e11beb243ed4da12da968639ee2aa8dca11e164a71778d441d530",
+    "Drink016": "c88f65df675061895afbc76c596515f6bea25a9ab9181a21ae9375f7de68014c",
+    "BombJack01": "18881b77df71c67f2edc847f17dee417b3c3e491a1193ef93f4053ab8cb77eae",
+    "BombJack02": "4ea22f9fda998adedf98d7d8cc3414d6ae8371d9c158ece89c16e3c052708407"
+  },
+  "sequences": {
+    "17": [
+      {
+        "frame": "DigDug01",
+        "ms": 250
+      },
+      {
+        "frame": "DigDug02",
+        "ms": 250
+      }
+    ],
+    "18": [
+      {
+        "frame": "Qbert01",
+        "ms": 500
+      },
+      {
+        "frame": "Qbert02",
+        "ms": 500
+      }
+    ],
+    "19": [
+      {
+        "frame": "Face001",
+        "ms": 2000
+      },
+      {
+        "frame": "Face002",
+        "ms": 1000
+      },
+      {
+        "frame": "Face003",
+        "ms": 1000
+      },
+      {
+        "frame": "Face001",
+        "ms": 1000
+      },
+      {
+        "frame": "Face004",
+        "ms": 40
+      },
+      {
+        "frame": "Face005",
+        "ms": 40
+      },
+      {
+        "frame": "Face007",
+        "ms": 40
+      },
+      {
+        "frame": "Face008",
+        "ms": 60
+      },
+      {
+        "frame": "Face007",
+        "ms": 40
+      },
+      {
+        "frame": "Face005",
+        "ms": 40
+      },
+      {
+        "frame": "Face004",
+        "ms": 40
+      }
+    ],
+    "20": [
+      {
+        "frame": "Face202",
+        "ms": 700
+      },
+      {
+        "frame": "Face203",
+        "ms": 700
+      }
+    ],
+    "21": [
+      {
+        "frame": "Face301",
+        "ms": 100
+      },
+      {
+        "frame": "Face302",
+        "ms": 100
+      },
+      {
+        "frame": "Face303",
+        "ms": 100
+      },
+      {
+        "frame": "Face304",
+        "ms": 100
+      },
+      {
+        "frame": "Face305",
+        "ms": 100
+      },
+      {
+        "frame": "Face306",
+        "ms": 100
+      },
+      {
+        "frame": "Face307",
+        "ms": 100
+      },
+      {
+        "frame": "Face308",
+        "ms": 100
+      },
+      {
+        "frame": "Face309",
+        "ms": 100
+      },
+      {
+        "frame": "Face310",
+        "ms": 100
+      },
+      {
+        "frame": "Face311",
+        "ms": 100
+      },
+      {
+        "frame": "Face312",
+        "ms": 100
+      },
+      {
+        "frame": "Face313",
+        "ms": 100
+      },
+      {
+        "frame": "Face314",
+        "ms": 100
+      },
+      {
+        "frame": "Face315",
+        "ms": 100
+      }
+    ],
+    "22": [
+      {
+        "frame": "Feuer1",
+        "ms": 80
+      },
+      {
+        "frame": "Feuer2",
+        "ms": 80
+      },
+      {
+        "frame": "Feuer3",
+        "ms": 80
+      },
+      {
+        "frame": "Feuer4",
+        "ms": 80
+      },
+      {
+        "frame": "Feuer5",
+        "ms": 80
+      },
+      {
+        "frame": "Feuer6",
+        "ms": 80
+      }
+    ],
+    "29": [
+      {
+        "frame": "Drink01",
+        "ms": 200
+      },
+      {
+        "frame": "Drink02",
+        "ms": 200
+      },
+      {
+        "frame": "Drink03",
+        "ms": 200
+      },
+      {
+        "frame": "Drink04",
+        "ms": 200
+      },
+      {
+        "frame": "Drink05",
+        "ms": 200
+      },
+      {
+        "frame": "Drink06",
+        "ms": 200
+      },
+      {
+        "frame": "Drink07",
+        "ms": 200
+      },
+      {
+        "frame": "Drink08",
+        "ms": 200
+      },
+      {
+        "frame": "Drink09",
+        "ms": 200
+      },
+      {
+        "frame": "Drink010",
+        "ms": 200
+      },
+      {
+        "frame": "Drink011",
+        "ms": 200
+      },
+      {
+        "frame": "Drink012",
+        "ms": 200
+      },
+      {
+        "frame": "Drink013",
+        "ms": 200
+      },
+      {
+        "frame": "Drink014",
+        "ms": 200
+      },
+      {
+        "frame": "Drink015",
+        "ms": 200
+      },
+      {
+        "frame": "Drink016",
+        "ms": 200
+      }
+    ],
+    "30": [
+      {
+        "frame": "BombJack01",
+        "ms": 250
+      },
+      {
+        "frame": "BombJack02",
+        "ms": 250
+      }
+    ]
+  }
+}

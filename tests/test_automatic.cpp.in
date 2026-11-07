@@ -1,0 +1,177 @@
+// Actual scene/API functions are inserted by run_host_tests.py. No device I/O.
+#include "auto_playback.h"
+#include "display_logic.h"
+#include <array>
+#include <cassert>
+#include <cstdio>
+#include <string>
+#include <utility>
+#include <vector>
+
+using String=std::string;
+static uint32_t now=0,randomState=1;
+static unsigned resets=0;
+static uint32_t millis(){return now;}
+static uint8_t random8(uint8_t count){
+  assert(count);randomState=randomState*1664525u+1013904223u;
+  return (randomState>>16)%count;
+}
+static void resetAnimation(){++resets;}
+static Settings cfg=defaultSettings();
+static SceneState scene;
+static AutoPlayback autoPlayback;
+#define CHAOSUHR_HAS_UPLOADS
+struct TestUploads {
+  uint8_t mask=255;
+  uint8_t available(){return mask;}
+  bool playable(uint8_t id){return id>30 && id<=38 && (mask&(1<<(id-31)));}
+} animations;
+static bool settingsPersisted=true;
+
+struct MemoryStorage {
+  std::array<uint8_t,128> buffer,flash;
+  bool fail=false;unsigned commits=0;
+  MemoryStorage(){buffer.fill(0xff);flash=buffer;}
+  template<typename T>void get(size_t offset,T& value){memcpy(&value,buffer.data()+offset,sizeof value);}
+  template<typename T>void put(size_t offset,const T& value){
+    assert(offset+sizeof value<=buffer.size());memcpy(buffer.data()+offset,&value,sizeof value);
+  }
+  bool commit(){++commits;if(fail)return false;flash=buffer;return true;}
+} EEPROM;
+static constexpr int HTTP_POST=1;
+static bool auth(){return true;}
+struct TestServer {
+  std::vector<std::pair<String,String>> arguments;
+  int status=0;
+  int method(){return HTTP_POST;}
+  int args(){return arguments.size();}
+  String argName(int i){return arguments.at(i).first;}
+  String arg(int i){return arguments.at(i).second;}
+  void send(int code,const char*,const String&){status=code;}
+} server;
+
+@ACTIVE_EFFECT@
+@NEXT_SCENE@
+@SAVE_API@
+
+static void testMigration(){
+  // Actual legacy 20-byte format: brightness 10, effect 16, night 20..6,
+  // duration 10; old checksum 0xb89c. No 2.0.7 extension existed.
+  const uint8_t legacy[]={0x26,0x20,0x05,0xca,0x0a,0x37,0x10,0x00,0x05,0x14,
+                          0x06,0x01,0x0a,0x00,0x01,0x00,0x01,0x00,0x9c,0xb8};
+  MemoryStorage storage;storage.buffer.fill(0x63);
+  memcpy(storage.buffer.data(),legacy,sizeof legacy);storage.flash=storage.buffer;
+  const auto before=storage.flash;
+  Settings loaded;storage.get(0,loaded);
+  assert(validLegacySettings(loaded) && !validSettings(loaded));
+  bool persisted=normalizeLoadedSettings(loaded);
+  assert(!persisted && storage.commits==0 && validSettings(loaded));
+  assert(!memcmp(&loaded,legacy,sizeof legacy));
+  assert(loaded.autoEffects==ALL_AUTO_EFFECTS && loaded.autoOrder==0);
+  assert(persistSettings(storage,loaded,loaded,persisted) && persisted);
+  for(size_t i=sizeof(Settings);i<128;++i)assert(storage.flash[i]==before[i]);
+  Settings rebooted;storage.get(0,rebooted);
+  assert(normalizeLoadedSettings(rebooted));
+  rebooted.autoCrc^=1;
+  assert(!normalizeLoadedSettings(rebooted));
+  assert(!memcmp(&rebooted,legacy,sizeof legacy) && validSettings(rebooted));
+  rebooted.brightness=0;
+  assert(!normalizeLoadedSettings(rebooted));
+  assert(validSettings(rebooted) && rebooted.brightness==25);
+  puts("PASS migration: exact legacy 20-byte fixture, defaults only for new automatic fields, explicit save/reboot, extension corruption, untouched admin region");
+}
+
+static void testOrderAndAlternation(){
+  cfg=defaultSettings();cfg.effect=16;cfg.autoOrder=1;
+  cfg.autoEffects=autoEffectBit(2)|autoEffectBit(17)|autoEffectBit(30);
+  autoPlayback.reset();now=100;scene.reset(now,cfg.effect);
+  const uint8_t expected[]={2,17,30,2,17,30};
+  for(uint8_t effect:expected){
+    assert(scene.clock && activeEffect()==0);
+    assert(!scene.due(now+4999,0,5) && scene.due(now+5000,0,5));
+    now+=5000;nextScene();
+    assert(!scene.clock && activeEffect()==effect && cfg.effect==16);
+    const auto remaining=autoPlayback.remaining;
+    now+=5000;nextScene();
+    assert(scene.clock && activeEffect()==0 && autoPlayback.last==effect);
+    assert(autoPlayback.remaining==remaining); // Clock scenes consume no entry.
+  }
+  cfg.mode=1;assert(activeEffect()==0 && !scene.due(now+100000,1,5));
+  cfg.mode=2;assert(activeEffect()==16 && !scene.due(now+100000,2,5));
+  cfg.mode=0;now=UINT32_MAX-2000;scene.reset(now,cfg.effect);
+  assert(!scene.due(2998,0,5) && scene.due(2999,0,5));
+  now=2999;nextScene();assert(activeEffect()==2);
+  puts("PASS sequential scenes: selected IDs in order, wraparound, clock between every effect, solo modes, selected manual effect and millis rollover");
+}
+
+static void testShuffle(){
+  const uint64_t masks[]={autoEffectBit(30),autoEffectBit(1)|autoEffectBit(30),
+                         autoEffectBit(2)|autoEffectBit(17)|autoEffectBit(30),ALL_AUTO_EFFECTS};
+  for(uint64_t mask:masks)for(uint32_t seed=1;seed<=32;++seed){
+    Settings settings=defaultSettings();settings.autoEffects=mask;
+    AutoPlayback player;randomState=seed;
+    unsigned count=0;for(uint8_t i=1;i<=EFFECT_COUNT;++i)if(mask&autoEffectBit(i))++count;
+    uint8_t previous=0;
+    for(unsigned round=0;round<20;++round){
+      uint64_t seen=0;
+      for(unsigned i=0;i<count;++i){
+        const uint8_t selected=player.next(settings,[](uint8_t n){return random8(n);});
+        const uint32_t bit=autoEffectBit(selected);
+        assert(bit && (mask&bit) && !(seen&bit));seen|=bit;
+        if(count>1)assert(selected!=previous);
+        previous=selected;
+      }
+      assert(seen==mask);
+    }
+    settings.autoEffects=autoEffectBit(5);settings.autoOrder=1;
+    assert(player.next(settings,[](uint8_t)->uint8_t{assert(false);return 0;})==5);
+    settings.autoEffects=autoEffectBit(3)|autoEffectBit(7);
+    assert(player.next(settings,[](uint8_t)->uint8_t{assert(false);return 0;})==3);
+  }
+  puts("PASS random rounds: each selected effect exactly once, sparse/full/single selections, ID 30, no boundary repeat, changed selection/order");
+}
+
+static void testSettingsApi(){
+  cfg=defaultSettings();cfg.effect=16;sealSettings(cfg);
+  EEPROM=MemoryStorage();EEPROM.buffer.fill(0xa5);EEPROM.put(0,cfg);
+  assert(EEPROM.commit());settingsPersisted=true;
+  const auto original=EEPROM.flash;
+  const uint32_t mask=autoEffectBit(2)|autoEffectBit(30);
+  server.arguments={{"autoEffects",std::to_string(mask)},{"autoOrder","1"}};
+  saveApi();assert(server.status==200 && cfg.autoEffects==mask && cfg.autoOrder==1);
+  assert(cfg.effect==16 && validSettings(cfg));
+  for(size_t i=32;i<128;++i)assert(EEPROM.flash[i]==original[i]);
+  scene.reset(0,cfg.effect);now=5000;nextScene();assert(autoPlayback.last==2);
+  const unsigned commits=EEPROM.commits,resetCount=resets;
+  saveApi();assert(server.status==200 && EEPROM.commits==commits && resets==resetCount);
+  assert(autoPlayback.last==2);
+  const auto saved=EEPROM.flash;
+  const std::vector<std::vector<std::pair<String,String>>> bad={
+    {{"autoEffects","0"}},{{"autoEffects","1073741824"}},{{"autoEffects","4294967296"}},
+    {{"autoOrder","2"}},{{"autoEffects","1"},{"autoOrder","2"}},
+    {{"autoEffects","1"},{"autoEffects","2"}}
+  };
+  for(const auto& args:bad){
+    server.arguments=args;saveApi();
+    assert(server.status==400 && EEPROM.commits==commits && EEPROM.flash==saved);
+    assert(cfg.autoEffects==mask && cfg.autoOrder==1 && autoPlayback.last==2);
+  }
+  server.arguments={{"autoEffects","1"},{"autoOrder","0"}};EEPROM.fail=true;
+  saveApi();assert(server.status==500 && cfg.autoEffects==mask && autoPlayback.last==2);
+  assert(EEPROM.flash==saved && !settingsPersisted);
+  EEPROM.fail=false;saveApi();
+  assert(server.status==200 && cfg.autoEffects==1 && cfg.autoOrder==0 && autoPlayback.last==0);
+  assert(settingsPersisted);
+  for(size_t i=32;i<128;++i)assert(EEPROM.flash[i]==original[i]);
+  server.arguments={{"autoEffects","0"},{"autoUploads","129"},{"autoOrder","1"}};
+  saveApi();assert(server.status==200 && cfg.autoEffects==0 && cfg.autoUploads==129);
+  now+=5000;nextScene();assert(activeEffect()==31);
+  now+=5000;nextScene();assert(activeEffect()==0);
+  now+=5000;nextScene();assert(activeEffect()==38);
+  animations.mask=1;assert(activeEffect()==0);
+  server.arguments={{"autoUploads","128"}};saveApi();assert(server.status==400);
+  animations.mask=255;
+  puts("PASS actual settings API: atomic automatic selection/order, rejects empty/out-of-range/duplicate values, no-op saves, failed commit rollback and retained admin bytes");
+}
+
+int main(){testMigration();testOrderAndAlternation();testShuffle();testSettingsApi();}

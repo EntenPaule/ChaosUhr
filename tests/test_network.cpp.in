@@ -1,0 +1,158 @@
+// run_host_tests.py inserts the actual serviceNetwork function from main.cpp.
+// All collaborators are in-memory doubles; this test cannot access a network.
+#include <cassert>
+#include <cstdint>
+#include <cstdio>
+#include <string>
+
+static constexpr int WIFI_STA=1, WL_CONNECTED=3;
+static constexpr uint32_t WIFI_RETRY_MS=30000;
+static constexpr char HOSTNAME[]="test-clock", VERSION[]="test", SETUP_PASS[]="test-only-password";
+static uint32_t now=0, wifiAttemptStarted=0;
+static bool webStarted=false;
+static uint32_t millis(){return now;}
+
+struct TestAddress {
+  std::string toString(){return "127.0.0.1";}
+};
+struct TestWiFi {
+  int state=0, begins=0;
+  bool persistentEnabled=false, reconnect=false;
+  int status(){return state;}
+  void persistent(bool enabled){persistentEnabled=enabled;}
+  void mode(int mode){assert(mode==WIFI_STA);}
+  void setAutoReconnect(bool enabled){reconnect=enabled;}
+  void begin(){++begins;}
+  TestAddress localIP(){return {};}
+} WiFi;
+
+struct TestManager {
+  bool active=false, closesOnProcess=false, processingConnects=false;
+  int processes=0, starts=0, stops=0;
+  bool getConfigPortalActive(){return active;}
+  void process(){
+    assert(active);
+    ++processes;
+    if(processingConnects) WiFi.state=WL_CONNECTED;
+    if(closesOnProcess){active=false;WiFi.persistent(true);}
+  }
+  void startConfigPortal(const char*,const char*){
+    assert(!webStarted && !active);
+    active=true; ++starts;
+  }
+  void stopConfigPortal(){
+    assert(active && !webStarted);
+    active=false; ++stops; WiFi.persistent(true);
+  }
+} wifiManager;
+
+#ifdef CHAOSUHR_PUBLIC_BUILD
+struct TestAccess {
+  bool configured=true,waiting=false;
+  unsigned loops=0;
+  void loop(){++loops;}
+  bool ready(){return configured;}
+  bool pending(){return waiting;}
+  bool provisioning(){return !configured && !waiting;}
+  const char* setupSsid(){return "fixture-setup";}
+  const char* setupPassword(){return "fixture-ap-code";}
+} publicAccess;
+#endif
+
+struct TestServer {
+  int starts=0, stops=0, handles=0;
+  void begin(){assert(!wifiManager.active);++starts;}
+  void stop(){++stops;}
+  void handleClient(){
+#ifdef CHAOSUHR_PUBLIC_BUILD
+    assert((webStarted && !wifiManager.active) || publicAccess.provisioning());
+#else
+    assert(webStarted && !wifiManager.active);
+#endif
+    ++handles;
+  }
+} server;
+struct TestMDNS {
+  int starts=0, closes=0, updates=0;
+  bool begin(const char*){++starts;return true;}
+  void addService(const char*,const char*,int){}
+  void close(){++closes;}
+  void end(){++closes;}
+  void update(){++updates;}
+} MDNS;
+struct TestSerial {
+  template<typename... Args> void printf(const char*,Args...){}
+} Serial;
+
+@SERVICE_NETWORK@
+
+static void reset(){
+  now=wifiAttemptStarted=0;webStarted=false;
+  WiFi={};wifiManager={};server={};MDNS={};
+#ifdef CHAOSUHR_PUBLIC_BUILD
+  publicAccess={};
+#endif
+}
+int main(){
+  reset();
+  serviceNetwork();
+  now=29999;serviceNetwork();
+  assert(wifiManager.starts==0 && !webStarted);
+  now=30000;serviceNetwork();
+  assert(wifiManager.active && wifiManager.starts==1 && !webStarted);
+  now=30001;serviceNetwork();
+  assert(wifiManager.processes==1 && server.starts==0);
+  // Timeout: retry the saved network without rebooting or starting two servers.
+  wifiManager.closesOnProcess=true;
+  now=210000;serviceNetwork();
+  assert(!wifiManager.active && WiFi.begins==1 && wifiAttemptStarted==now);
+  assert(!WiFi.persistentEnabled && WiFi.reconnect);
+  now=239999;serviceNetwork();
+  assert(wifiManager.starts==1);
+  now=240000;serviceNetwork();
+  assert(wifiManager.starts==2 && wifiManager.active);
+  // Successful portal submission: application takes over port 80.
+  wifiManager.processingConnects=true;
+  ++now;serviceNetwork();
+  assert(webStarted && server.starts==1 && server.handles==1 && !wifiManager.active);
+  assert(!WiFi.persistentEnabled);
+  ++now;serviceNetwork();
+  assert(server.starts==1 && server.handles==2);
+  // A later outage closes the application server, then reopens the portal.
+  WiFi.state=0;
+  ++now;serviceNetwork();
+  assert(!webStarted && server.stops==1 && MDNS.closes==1);
+  now+=30000;serviceNetwork();
+  assert(wifiManager.active && wifiManager.starts==3);
+
+  // SDK reconnects while the portal is active, before a submission.
+  reset();
+  wifiManager.active=true;WiFi.state=WL_CONNECTED;
+  serviceNetwork();
+  assert(!wifiManager.active && wifiManager.stops==1 && !webStarted);
+  assert(!WiFi.persistentEnabled);
+  serviceNetwork();
+  assert(webStarted && server.starts==1);
+
+  // Short outages recover directly, and the retry timer tolerates wraparound.
+  reset();
+  now=UINT32_MAX-10000;WiFi.state=WL_CONNECTED;serviceNetwork();
+  WiFi.state=0;now=19998;serviceNetwork();
+  assert(wifiManager.starts==0 && !webStarted);
+  now=19999;serviceNetwork();
+  assert(wifiManager.starts==1);
+  reset();
+  WiFi.state=WL_CONNECTED;serviceNetwork();
+  WiFi.state=0;now=10;serviceNetwork();
+  WiFi.state=WL_CONNECTED;now=20;serviceNetwork();
+  assert(webStarted && server.starts==2 && wifiManager.starts==0);
+#ifdef CHAOSUHR_PUBLIC_BUILD
+  reset();publicAccess.configured=false;now=90000;
+  serviceNetwork();
+  assert(server.handles==1 && !webStarted && wifiManager.starts==0 && WiFi.begins==0);
+  publicAccess.waiting=true;serviceNetwork();
+  assert(server.handles==1 && wifiManager.starts==0 && publicAccess.loops==2);
+  puts("PASS public network gate: own setup HTTP before registration; no LAN/WiFiManager start or admin re-claim during reset");
+#endif
+  puts("PASS network orchestration: offline boot, portal timeout, reconnect, port 80 handover, millis rollover (test doubles)");
+}
