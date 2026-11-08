@@ -1,0 +1,127 @@
+{
+  "version": "2.0.11",
+  "status": "local-test",
+  "hardware_tested": false,
+  "real_broker_tested": false,
+  "firmware_source_commit": "a3d23360ce1f27a05fcf2110788193126aa2dee9",
+  "platformio_profiles": {
+    "d1_mini_public": {
+      "static_ram_bytes": 50312,
+      "static_ram_limit": 81920,
+      "linker_flash_bytes": 666223,
+      "ota_slot_bytes": 1044464,
+      "binary_bytes": 670368,
+      "ota_binary_reserve_bytes": 374096,
+      "dependency_files_without_private_header": 219
+    },
+    "esp32dev_public": {
+      "static_ram_bytes": 67276,
+      "static_ram_limit": 327680,
+      "linker_flash_bytes": 1875167,
+      "ota_slot_bytes": 1966080,
+      "binary_bytes": 1936400,
+      "ota_binary_reserve_bytes": 29680,
+      "dependency_files_without_private_header": 160
+    }
+  },
+  "esp32_factory_flash_offset": "0x0",
+  "esp32_factory_bytes": 4194304,
+  "esp32_factory_components": [
+    {
+      "file": "bootloader.bin",
+      "offset": "0x1000",
+      "bytes": 23520,
+      "sha256": "f7ec7b7d9026e12dd3616bf79cee0e78974a2605afbc2863fcfb0ac9aeb159d4"
+    },
+    {
+      "file": "partitions.bin",
+      "offset": "0x8000",
+      "bytes": 3072,
+      "sha256": "1ae446228d79cf83a4b83de41c33d1e01dc21a3557149d7da90fbcbfc303311d"
+    },
+    {
+      "file": "boot_app0.bin",
+      "offset": "0xe000",
+      "bytes": 8192,
+      "sha256": "f94c5d786a7a8fab06ac5d10e33bf37711a6697636dc037559ea19cc410a17f0"
+    },
+    {
+      "file": "firmware.bin",
+      "offset": "0x10000",
+      "bytes": 1936400,
+      "sha256": "aae84580b8a3a4de118d502322cf9bce81cdb67aef64e4e0d2fac1392184970a"
+    }
+  ],
+  "esp32_partition_csv": "partitions/esp32_4mb_ota.csv",
+  "esp32_partition_csv_sha256": "9e545bb69371071b36d82643c93c6d7f354d16e75c4e144f617687ca12f09651",
+  "esp32_partition_binary_sha256": "1ae446228d79cf83a4b83de41c33d1e01dc21a3557149d7da90fbcbfc303311d",
+  "esp32_partitions": [
+    {
+      "name": "nvs",
+      "type": 1,
+      "subtype": 2,
+      "offset": "0x9000",
+      "bytes": 20480,
+      "flags": []
+    },
+    {
+      "name": "otadata",
+      "type": 1,
+      "subtype": 0,
+      "offset": "0xe000",
+      "bytes": 8192,
+      "flags": []
+    },
+    {
+      "name": "app0",
+      "type": 0,
+      "subtype": 16,
+      "offset": "0x10000",
+      "bytes": 1966080,
+      "flags": []
+    },
+    {
+      "name": "app1",
+      "type": 0,
+      "subtype": 17,
+      "offset": "0x1f0000",
+      "bytes": 1966080,
+      "flags": []
+    },
+    {
+      "name": "spiffs",
+      "type": 1,
+      "subtype": 130,
+      "offset": "0x3d0000",
+      "bytes": 196608,
+      "flags": []
+    }
+  ],
+  "flash_mode": "dio",
+  "flash_frequency_hz": 40000000,
+  "flash_bytes": 4194304,
+  "host_pass_groups": 52,
+  "ota_validation": "Both production validators accept matching OTA; reject mutation/truncation/other chip/factory/wrong SHA",
+  "factory_validation": "PlatformIO metadata; core partition parser and MD5; exact CSV and byte/padding comparison",
+  "credential_check": "Known private credentials/token patterns absent; no private header in compiler dependencies",
+  "source_archive_sha256": "f90f6acd095d235d1dd70110249b297287bdbd9a839884b1e7d66befa67677c1",
+  "firmware": {
+    "ChaosUhr_2.0.11_Wemos_OTA.bin": {
+      "bytes": 670368,
+      "sha256": "9127c120a623c32bf9106a900f9c5347bc617ffc08d5741f71424e97defc8b4f",
+      "ota_allowed": true
+    },
+    "ChaosUhr_2.0.11_ESP32_OTA.bin": {
+      "bytes": 1936400,
+      "sha256": "aae84580b8a3a4de118d502322cf9bce81cdb67aef64e4e0d2fac1392184970a",
+      "ota_allowed": true
+    },
+    "ChaosUhr_2.0.11_ESP32_Factory.bin": {
+      "bytes": 4194304,
+      "sha256": "e55d09bca9871e4f4c729d08c489f95ae19163da9e677a127fca586062233275",
+      "ota_allowed": false
+    }
+  },
+  "published": false,
+  "update_channels_changed": false
+}

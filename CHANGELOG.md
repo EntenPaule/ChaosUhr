@@ -2,6 +2,8 @@
 
 ## 2.0.11 – lokale Entwicklung, nicht veröffentlicht
 
+- Vollständiges lokales Testpaket mit eindeutig benannten OTA-Dateien für beide Controller und vollständigem 4-MiB-ESP32-Factory-Image für USB. Komponenten/Offsets aus tatsächlichen PlatformIO-Metadaten, binäre Partitionstabelle einschließlich MD5 geprüft, alle Komponenten und leeren Flash-Bereiche byteweise verifiziert. Flash-Anleitung, Checkliste, Einschränkungen, Prüfsummen, Quellcode und Lizenzen enthalten; keine Änderung der Updatekanäle.
+
 - ESP32: Flash/NVS als WLAN-Speicher vor dem ersten Funkstart wählen; gespeicherte Konfiguration statt aktuell verbundener SSID prüfen. Routerausfall löscht keine Zugangsdaten, die 30-Sekunden-Frist und das geschützte Recovery-Portal bleiben erhalten.
 - Einheitliche stabile Fehlercodes mit deutscher Beschreibung, technischer Ursache und Handlungsempfehlung für API, GUI und serielle Diagnose. Acht Einträge im RAM, ohne laufende Flash-Schreibzugriffe; Codevertrag und automatisch geprüfte Referenz.
 - MQTT: keine leeren Fehlermeldungen bei HTTP 401, fehlgeschlagenen Antworten oder Sitzungsfehlern. Speicherfehler getrennt von DNS/TCP/Timeout, Brokerablehnung, Berechtigungen und Verbindungsabbruch melden; unbekannte Ursachen ausdrücklich allgemein lassen.

@@ -1,0 +1,11 @@
+# ChaosUhr 2.0.11 – Bekannte Einschränkungen der Testversion
+
+- **Keine neue Hardwarefreigabe.** Frische Builds, native Firmwarevalidatoren, simulierte WLAN-/MQTT-/Dateifehler und Hosttests sind geprüft. Drei echte ESP32-Kaltstarts, realer Routerausfall mit Wiederverbindung, Wemos-MQTT-Speichern/Laden nach Neustart, reale Brokerfehler, serielle Ausgabe am Gerät, weiteres OTA sowie Last-/Langzeitbetrieb stehen aus.
+- Unterstützt sind Wemos D1 mini / ESP8266 und klassischer ESP32-WROOM-32 / `esp32dev`, jeweils 4 MiB. Keine ESP32-S3-/WT32-SC01-Plus-/Display-Firmware.
+- Das ESP32-Anwendungsimage liegt nahe an der unveränderten OTA-Slotgrenze. Der genaue verbleibende Platz wird in `BUILD_INFO_2.0.11.json` ausgewiesen; die tatsächliche BIN-Größe zählt. Statisches RAM ist keine Laufzeit-Heapmessung.
+- Das **ESP32-Factory-Image ist nur für USB bei Adresse `0x0`** bestimmt und überschreibt WLAN-/Admin-/Uhrdaten und Animationen. Es darf niemals als OTA angeboten oder ausgewählt werden.
+- Bereits durch Stromtrennung verlorene RAM-WLAN-Daten aus älteren ESP32-Versionen können nicht rekonstruiert werden. Einmalige erneute Einrichtung kann notwendig sein.
+- Der konkrete ursprüngliche HTTP-Fehler des gemeldeten Wemos wurde nicht am Gerät aufgezeichnet. Der bisher mögliche leere HTTP-401-Fehlerpfad ist reproduziert und korrigiert; daraus folgt keine Behauptung eines falschen Brokerpassworts oder eines ursprünglichen LittleFS-Defekts.
+- MQTT verwendet hier TCP ohne TLS; lokaler HTTP-Zugriff ist ebenfalls unverschlüsselt. Wetterdaten werden von HA/ioBroker per MQTT zugeliefert. Keine Netzwerkdienste oder Broker werden durch das Testpaket umkonfiguriert.
+- Der Fehlerverlauf lebt ausschließlich im RAM und wird bei Neustart gelöscht. Wiederholungen werden zusammengefasst. Alte Einträge sind historische Ereignisse und beweisen keinen weiterhin aktiven Defekt. Browserseitige Transportfehler werden im Browser angezeigt; sie können ohne Geräteantwort nicht seriell auf dem Gerät protokolliert werden.
+- GitHub-Release und produktive Updatekanäle bleiben auf ihrem bisherigen Stand. Die Testversion wird manuell aus diesem Paket installiert. SHA-256 sichert den Dateivergleich; eine verpflichtende Herausgebersignatur wurde nicht ergänzt.

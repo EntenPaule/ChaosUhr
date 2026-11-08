@@ -24,7 +24,8 @@ def collect_public_sources(project, default_environment):
             'ANIMATIONEN_FORMAT.md', 'CHATGPT_ANIMATION_PROMPT.txt', 'RELEASE_v2.0.7.md',
             'RELEASE_v2.0.8.md', 'UPGRADE_2_0_8.md', 'SICHERHEIT_2_0_8.md',
             'GITHUB_UPDATES.md', 'MQTT_2_0_10.md', 'UPGRADE_2_0_10.md', 'RELEASE_v2.0.10.md',
-            'VERGLEICH_GITHUB.md','FEHLERCODES.md','RELEASE_v2.0.11.md','ENTWICKLUNGSBERICHT_2_0_11.md')
+            'VERGLEICH_GITHUB.md','FEHLERCODES.md','RELEASE_v2.0.11.md','ENTWICKLUNGSBERICHT_2_0_11.md',
+            'FLASHANLEITUNG_2.0.11.md','TESTCHECKLISTE_2.0.11.md','BEKANNTE_EINSCHRAENKUNGEN_2.0.11.md')
     for name in ('README.md', 'LICENSE', 'THIRD_PARTY.md', 'CHANGELOG.md', '.gitignore',
                  *('docs/'+name for name in docs)):
         source[name] = (project/name).read_bytes()

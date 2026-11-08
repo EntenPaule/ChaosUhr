@@ -2,6 +2,12 @@
 
 Dieser Entwicklungsstand ist **nicht veröffentlicht**. Kein Release, kein neuer Versions-Tag, keine Änderung am produktiven Branch oder an Updatekanälen. Firmware für Wemos D1 mini / ESP8266 und klassischen ESP32-WROOM-32, jeweils 4 MiB Flash und 20×15 WS2812B.
 
+## Lokales Testpaket
+
+`dist/2.0.11/ChaosUhr_2.0.11_TEST.zip` enthält `ChaosUhr_2.0.11_Wemos_OTA.bin`, `ChaosUhr_2.0.11_ESP32_OTA.bin` und `ChaosUhr_2.0.11_ESP32_Factory.bin`. Das vollständige 4-MiB-Factory-Image wird per USB bei `0x0` geschrieben und **darf nicht für OTA verwendet werden**. Komponenten und Offsets stammen aus dem tatsächlich verwendeten PlatformIO-Profil; Partitionstabelle, Imageintegrität und Bytepositionen sind offline geprüft.
+
+Beigefügt sind [Flash-Anleitung](FLASHANLEITUNG_2.0.11.md), [Testcheckliste](TESTCHECKLISTE_2.0.11.md), [bekannte Einschränkungen](BEKANNTE_EINSCHRAENKUNGEN_2.0.11.md), Fehlercodeliste, SHA-256-Prüfsummen, Buildinformationen sowie bereinigter Quellcode und vollständige Lizenztexte. Dies ist eine manuell zu verteilende Testversion und keine offizielle GitHub-Freigabe.
+
 ## Korrekturen
 
 - ESP32 startet den WLAN-Treiber mit Flash/NVS-Speicherung. WiFiManager kann neue Zugangsdaten damit dauerhaft speichern; Routerausfälle lösen keine Löschung aus.

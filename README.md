@@ -2,6 +2,8 @@
 
 **Lokaler Entwicklungsstand 2.0.11:** Korrekturen für ESP32-WLAN-Persistenz, verständliche MQTT-/HTTP-Fehler und ein gemeinsames Fehlercodesystem. Dieser Stand ist **nicht veröffentlicht**; produktiver Branch und Updatekanäle bleiben auf 2.0.10. [Änderungen und Tests](docs/ENTWICKLUNGSBERICHT_2_0_11.md), [Fehlercodes](docs/FEHLERCODES.md), [Versionsinformationen](docs/RELEASE_v2.0.11.md).
 
+Das lokale Testpaket liegt unter `dist/2.0.11/ChaosUhr_2.0.11_TEST.zip`: Wemos-OTA, ESP32-OTA und vollständiges ESP32-USB-Factory-Image, Prüfsummen, bereinigter Quellcode und Lizenztexte. [Flash-Anleitung](docs/FLASHANLEITUNG_2.0.11.md), [Testcheckliste](docs/TESTCHECKLISTE_2.0.11.md), [bekannte Einschränkungen](docs/BEKANNTE_EINSCHRAENKUNGEN_2.0.11.md). Die ESP32-Factory-BIN ist ausschließlich für USB bestimmt.
+
 **Aktuelle stabile Version: [2.0.10 für Wemos / ESP8266 und klassischen ESP32](https://github.com/EntenPaule/ChaosUhr/releases/tag/v2.0.10).** MQTT-Wetter und Sensoren, wählbare Anzeigearten, konfigurierbarer LED-Pin, Sekundenleisten-Schalter und Wochentag-Auswahl. Beide Builds und die ZIP-Quellen sind lokal geprüft; die neuen BINs sind **noch nicht am Gerät getestet**. [Teststand](docs/RELEASE_v2.0.10.md), [MQTT-Anleitung](docs/MQTT_2_0_10.md), [Upgrade](docs/UPGRADE_2_0_10.md).
 
 Eine bunte LED-Uhr für die **20×15-WS2812B-Matrix**: Uhrzeit, deutscher Wochentag und Datum, Animationen sowie Wetter- und Sensorwerte aus Home Assistant oder ioBroker. Über die Weboberfläche lassen sich Anzeige, Automatik und eigene Animationen einstellen – direkt im lokalen WLAN. Auch ausschließlich Uhr/Wetter ist möglich.
