@@ -25,10 +25,13 @@ using ClockUpdateServer = ESP8266HTTPUpdateServer;
 #include "clock_text.h"
 #include "firmware_version.h"
 #include "auto_playback.h"
+#include "scene_pages.h"
+#include "clock_mqtt.h"
+#include "weather_icons.h"
 #include "firmware_upload.h"
 #include "ota_ui.h"
 #include "portal_ui.h"
-#if defined(ESP8266) && defined(CHAOSUHR_PUBLIC_BUILD)
+#if defined(CHAOSUHR_PUBLIC_BUILD)
 #define CHAOSUHR_HAS_UPLOADS
 #include <LittleFS.h>
 #include "animation_library.h"
@@ -37,14 +40,16 @@ using ClockUpdateServer = ESP8266HTTPUpdateServer;
 #endif
 #ifdef CHAOSUHR_PUBLIC_BUILD
 #include "public_access.h"
+static_assert(DISPLAY_OPTIONS_OFFSET==CREDENTIALS_OFFSET+sizeof(DeviceCredentials),"Keep new options after credentials");
 #else
 #include "secrets.local.h"
 #endif
 
-#ifndef CHAOSUHR_LED_PIN
-#define CHAOSUHR_LED_PIN D6  // Wemos D1 mini: D6 / GPIO12
+#if defined(ESP32)
+static constexpr bool TARGET_ESP32=true;
+#else
+static constexpr bool TARGET_ESP32=false;
 #endif
-static constexpr uint8_t LED_PIN=CHAOSUHR_LED_PIN;
 static constexpr uint8_t W=MATRIX_WIDTH, H=MATRIX_HEIGHT;
 static constexpr uint16_t LED_COUNT=W*H;
 static constexpr char HOSTNAME[]="chaosuhr";
@@ -66,7 +71,7 @@ static_assert(!sameText(OTA_PASS,"CHANGE_THIS_PASSWORD_BEFORE_BUILD"), "Replace 
 
 CRGB leds[LED_COUNT];
 ClockWebServer server(80);
-#if !defined(CHAOSUHR_PUBLIC_BUILD) || defined(ESP32)
+#if !defined(CHAOSUHR_PUBLIC_BUILD)
 ClockUpdateServer updater;
 #endif
 class ClockWiFiManager:public WiFiManager {
@@ -78,17 +83,44 @@ ClockWiFiManager wifiManager;
 PublicAccess publicAccess(server);
 #endif
 #ifdef CHAOSUHR_HAS_UPLOADS
-AnimationLibrary<fs::FS,fs::File> animations(LittleFS,[](){yield();});
+AnimationLibrary<decltype(LittleFS),fs::File> animations(LittleFS,[](){yield();});
 #endif
 static bool webStarted=false;
 static uint32_t wifiAttemptStarted=0;
 static constexpr uint32_t WIFI_RETRY_MS=30000;
 
 static Settings cfg;
-static bool settingsPersisted=false;
+static DisplayOptions displayOptions=defaultDisplayOptions(TARGET_ESP32);
+static bool settingsPersisted=false,optionsPersisted=false;
+static MqttConfig mqttConfig=defaultMqttConfig();
+static Telemetry telemetry;
+static ClockMqtt clockMqtt(mqttConfig,telemetry);
+static MqttConfigStorage<decltype(LittleFS),fs::File> mqttStorage(LittleFS);
+static IpAnnouncement ipAnnouncement;
+static uint8_t currentSensor=SENSOR_SLOTS-1;
 static void loadSettings(){
   clockStorage.begin(128); clockStorage.get(0,cfg);
   settingsPersisted=normalizeLoadedSettings(cfg);
+  clockStorage.get(DISPLAY_OPTIONS_OFFSET,displayOptions);
+  optionsPersisted=normalizeDisplayOptions(displayOptions,TARGET_ESP32);
+  mqttStorage.load(mqttConfig);
+}
+template<uint8_t Pin>static void addLedController(){FastLED.addLeds<WS2812B,Pin,GRB>(leds,LED_COUNT);}
+static void setupLedController(){
+  switch(displayOptions.ledPin){
+#if defined(ESP32)
+    case 13:addLedController<13>();break;case 14:addLedController<14>();break;
+    case 18:addLedController<18>();break;case 19:addLedController<19>();break;
+    case 21:addLedController<21>();break;case 22:addLedController<22>();break;
+    case 23:addLedController<23>();break;case 25:addLedController<25>();break;
+    case 26:addLedController<26>();break;case 27:addLedController<27>();break;
+    case 33:addLedController<33>();break;default:addLedController<32>();break;
+#else
+    case 4:addLedController<4>();break;case 5:addLedController<5>();break;
+    case 13:addLedController<13>();break;case 14:addLedController<14>();break;
+    default:addLedController<12>();break;
+#endif
+  }
 }
 static uint16_t indexXY(int x,int y) {
   return matrixIndex(x,y,cfg);
@@ -129,12 +161,12 @@ static void drawClock(){
   if((millis()/500)%2){ pixel(x+8,y+1,color); pixel(x+8,y+3,color); }
   drawDigit(mm/10,x+10,y,color); drawDigit(mm%10,x+14,y,color);
   char date[CLOCK_DATE_CAPACITY];
-  if(!valid || !formatGermanDate(local,date,sizeof date))
+  if(!valid || !formatGermanDate(local,date,sizeof date,displayOptions.weekdayStyle))
     snprintf(date,sizeof date,"Warte auf Zeit");
   drawText(date,dateScrollX(millis()-scene.startedAt,strlen(date)),CLOCK_DATE_Y,
            valid?CRGB(255,140,35):color);
   // A small second-progress bar, separate from digits.
-  if(valid) for(int i=0;i<(local.tm_sec*W/60);i++) pixel(i,H-1,CRGB(0,0,32));
+  if(valid && (displayOptions.flags&DISPLAY_SECONDS)) for(int i=0;i<(local.tm_sec*W/60);i++) pixel(i,H-1,CRGB(0,0,32));
 }
 static void drawEffect(uint8_t e){
   if(renderLegacyEffect(e,millis()-animationStarted,cfg.speed,leds,cfg)) return;
@@ -247,6 +279,35 @@ static uint8_t activeEffect(){
 #endif
   return selected;
 }
+static uint8_t availableScenePages(){
+  uint8_t mask=selectedScenePages(displayOptions);const uint32_t now=millis();
+  if(!mqttConfig.enabled || !telemetry.weatherAvailable(now,mqttConfig.staleSeconds))mask&=~(1<<PAGE_WEATHER);
+  if(!mqttConfig.enabled || !telemetry.sensorsAvailable(now,mqttConfig.staleSeconds))mask&=~(1<<PAGE_SENSOR);
+  return mask?mask:1;
+}
+static int dataTextX(const char* text){
+  const int width=strlen(text)*FONT_ADVANCE-1;
+  return width<=W?(W-width)/2:W-static_cast<int>(((millis()-scene.startedAt)/DATE_SCROLL_MS)%(width+W+4));
+}
+static void drawWeather(){
+  clear();const uint32_t now=millis();
+  if(telemetry.condition.fresh(now,mqttConfig.staleSeconds))
+    weatherIcon(telemetry.condition.value,now,[](int x,int y,uint32_t rgb){pixel(x,y,CRGB(rgb));});
+  else drawText("Wetter",dataTextX("Wetter"),2,CRGB(100,170,255));
+  if(telemetry.temperature.fresh(now,mqttConfig.staleSeconds)){
+    char value[20];snprintf(value,sizeof value,"%.1fC",telemetry.temperature.value);
+    drawText(value,dataTextX(value),10,CRGB(255,170,50));
+  }
+}
+static void drawSensor(){
+  clear();const auto& reading=telemetry.sensors[currentSensor];
+  if(!reading.fresh(millis(),mqttConfig.staleSeconds)){drawClock();return;}
+  char label[32],unit[16],value[48];displayAscii(mqttConfig.sensors[currentSensor].label,label,sizeof label);
+  displayAscii(mqttConfig.sensors[currentSensor].unit,unit,sizeof unit);
+  if(!label[0])snprintf(label,sizeof label,"Sensor %u",currentSensor+1);
+  snprintf(value,sizeof value,"%s%s",reading.text,unit);
+  drawText(label,dataTextX(label),1,CRGB(100,180,255));drawText(value,dataTextX(value),9,CRGB(255,180,60));
+}
 static void render(){
 #ifdef CHAOSUHR_PUBLIC_BUILD
   if(publicAccess.pending() || !publicAccess.ready() || wifiManager.getConfigPortalActive()){
@@ -262,7 +323,10 @@ static void render(){
   uint8_t pct=night?cfg.nightBrightness:cfg.brightness;
   FastLED.setBrightness((uint8_t)map(pct,1,100,2,120)); // safety cap: 120/255
   const uint8_t effect=activeEffect();
-  if(!effect) drawClock();
+  if(ipAnnouncement.active(millis())){clear();drawText(ipAnnouncement.text(),ipAnnouncement.x(millis()),5,CRGB(120,210,255));}
+  else if(cfg.mode==0 && scene.page==PAGE_WEATHER)drawWeather();
+  else if(cfg.mode==0 && scene.page==PAGE_SENSOR)drawSensor();
+  else if(!effect) drawClock();
   else {
 #ifdef CHAOSUHR_HAS_UPLOADS
     if(effect>EFFECT_COUNT){
@@ -288,8 +352,13 @@ static void nextScene(){
 #ifdef CHAOSUHR_HAS_UPLOADS
   availableUploads=animations.available();
 #endif
-  const uint8_t effect=scene.clock ? autoPlayback.next(cfg,[](uint8_t count){return random8(count);},availableUploads) : scene.effect;
-  scene.advance(millis(),effect);
+  scene.page=nextScenePage(scene.page,availableScenePages());scene.clock=scene.page!=PAGE_ANIMATION;
+  if(!scene.clock)scene.previousEffect=scene.effect=autoPlayback.next(cfg,[](uint8_t count){return random8(count);},availableUploads);
+  if(scene.page==PAGE_SENSOR){
+    for(uint8_t step=1;step<=SENSOR_SLOTS;++step){const uint8_t next=(currentSensor+step)%SENSOR_SLOTS;
+      if(telemetry.sensors[next].fresh(millis(),mqttConfig.staleSeconds)){currentSensor=next;break;}}
+  }
+  scene.startedAt=millis();
   resetAnimation();
 }
 
@@ -305,19 +374,27 @@ small{color:#abb9d0}output{float:right;color:#8bd5ff}.flex{display:flex;gap:10px
 </style></head><body><h1>🌈 ChaosUhr 2.0</h1><small>20×15 LEDs · lokale Steuerung</small>
 <article><div id="status">Lade Status …</div><p id="securityStatus" role="status"></p></article>
 <article><h2>Anzeige & Animationen</h2>
-<label>Modus</label><select id="mode"><option value="0">Automatik: Uhr / Animation</option><option value="1">Nur Uhrzeit</option><option value="2">Gewählte Animation</option></select>
+<label>Modus</label><select id="mode"><option value="0">Automatik: gewählte Anzeigen</option><option value="1">Nur Uhrzeit</option><option value="2">Gewählte Animation</option></select>
 <label>Einzelanimation (Modus „Gewählte Animation“)</label><select id="effect"><option value="">Lade Animationen …</option></select>
 <label>Helligkeit <output id="bVal"></output></label><input type="range" id="brightness" min="1" max="100" oninput="bVal.value=this.value+' %'">
 <label>Tempo <output id="sVal"></output></label><input type="range" id="speed" min="1" max="100" oninput="sVal.value=this.value+' %'">
 <label>Dauer je Szene <output id="dVal"></output></label><input type="range" id="duration" min="5" max="120" step="5" oninput="dVal.value=this.value+' s'">
 <h2>Automatik</h2>
-<p><small>Uhr → Animation → Uhr → nächste Animation. Diese Auswahl gilt nur für den Modus Automatik; jede ausgewählte Animation läuft einmal pro Runde.</small></p>
+<p>Welche Anzeigen sollen abwechselnd laufen?</p>
+<div class="flex"><label><input id="showClock" type="checkbox" checked> Uhrzeit</label><label><input id="showAnimations" type="checkbox" checked> Animationen</label><label><input id="showWeather" type="checkbox"> Wetter</label><label><input id="showSensors" type="checkbox"> Sensorwerte</label></div>
+<p><small>Für nur Uhr/Wetter Animationen abwählen. Wetter und Sensorwerte kommen über MQTT; ohne aktuelle Daten erscheint die Uhr.</small></p>
+<p><small>Die gewählten Anzeigearten wechseln sich ab. Bei Uhr und Animationen bleibt der Ablauf Uhr → Animation → Uhr. Jede gewählte Animation läuft einmal pro Runde.</small></p>
 <label for="autoOrder">Reihenfolge</label><select id="autoOrder"><option value="0">Zufällig (jede einmal pro Runde)</option><option value="1">Der Reihe nach</option></select>
 <details open><summary>Animationen für die Automatik auswählen</summary>
 <div class="flex auto-actions"><button type="button" onclick="selectAutomatic(true)">Alle auswählen</button><button type="button" onclick="selectAutomatic(false)">Auswahl leeren</button></div>
 <div id="autoEffects" class="auto-list"></div><small id="autoCount" role="status"></small>
-<p><small>Mindestens eine Animation auswählen. Für eine dauerhafte Uhranzeige den Modus „Nur Uhrzeit“ verwenden.</small></p></details>
+<p><small>Bei aktivierter Anzeigeart Animationen mindestens eine Animation auswählen. Für eine dauerhafte Uhranzeige den Modus „Nur Uhrzeit“ verwenden.</small></p></details>
+<h2>Uhranzeige</h2>
+<label><input id="secondsBar" type="checkbox" checked> Sekundenleiste unten anzeigen</label>
+<label for="weekdayStyle">Wochentag</label><select id="weekdayStyle"><option value="0">Ausgeschrieben: Montag, Dienstag …</option><option value="1">Kurzform: mo, di, mi, do, fr, sa, so</option></select>
 <h2>Matrixverdrahtung</h2>
+<label for="ledPin">LED-Datenpin</label><select id="ledPin"></select>
+<p><small>Passend zur tatsächlichen Verkabelung wählen. Eine Pin-Änderung startet die Uhr nach dem Speichern neu.</small></p>
 <p><small>Vorsicht: Diese Einstellungen nur aendern, wenn die Anzeige gespiegelt oder verdreht erscheint.</small></p>
 <label>Start-Ecke</label><select id="corner"><option value="0">Oben links</option><option value="1">Oben rechts (Standard)</option><option value="2">Unten links</option><option value="3">Unten rechts</option></select>
 <label>Verlauf</label><select id="vertical"><option value="0">Zeilenweise (Standard)</option><option value="1">Spaltenweise</option></select>
@@ -326,16 +403,35 @@ small{color:#abb9d0}output{float:right;color:#8bd5ff}.flex{display:flex;gap:10px
 <div class="flex"><label>Beginn (Stunde)<br><input id="nightFrom" type="number" min="0" max="23" style="width:75px"></label><label>Ende (Stunde)<br><input id="nightUntil" type="number" min="0" max="23" style="width:75px"></label></div>
 <label>Nachthelligkeit <output id="nVal"></output></label><input type="range" id="nightBrightness" min="1" max="100" oninput="nVal.value=this.value+' %'">
 <button id="saveButton" onclick="save()" disabled>Einstellungen speichern</button> <span id="msg"></span></article>
-<article id="uploadPanel" hidden><h2>Eigene Animationen</h2>
+<article id="uploadPanel" hidden><h2>Eigene Animationen / Speicher</h2>
 <p>Bis zu acht <code>.chaos</code>-Dateien mit je 24 KiB, 20×15 Pixeln, bis zu 16 Farben und 64 Bildern. Nach dem Upload oben für die Automatik oder als Einzelanimation auswählen.</p>
 <p id="animationStorage"></p>
-<button id="initializeAnimations" type="button" onclick="initializeAnimations()" hidden>Animationsspeicher einrichten</button>
+<button id="initializeAnimations" type="button" onclick="initializeAnimations()" hidden>Datenspeicher einrichten</button>
 <label for="animationFile">Animationsdatei</label><input id="animationFile" type="file" accept=".chaos">
 <button id="uploadAnimation" type="button" onclick="uploadAnimation()">Animation hochladen</button>
 <p><a class="btn" href="/animations/example.chaos">Herz-Beispiel herunterladen</a> <a class="btn" href="/animations/prompt" target="_blank" rel="noopener">ChatGPT-Vorlage öffnen</a></p>
 <div id="uploadedAnimations"></div><p id="uploadMessage" role="status"></p>
 <p><small>Uploads können heruntergeladen, geteilt und gelöscht werden. Bei den fest eingebauten Effekten entfernt ein fehlendes Häkchen die Animation aus der Automatik.</small></p></article>
-<article><h2>Einstellungen sichern</h2><p>Speichere deine Uhreinstellungen vor einem Update. Zugangsdaten und Animationsdateien werden nicht exportiert.</p>
+<article id="mqttPanel" hidden><h2>MQTT, Wetter und Sensoren</h2>
+<p id="mqttStatus" role="status"></p>
+<label><input id="mqEnabled" type="checkbox"> MQTT aktivieren</label>
+<label>Broker-Hostname oder IP</label><input id="mqHost" type="text" maxlength="95" placeholder="MQTT-Broker im lokalen Netz">
+<label>Port</label><input id="mqPort" type="number" min="1" max="65535" value="1883">
+<label>Benutzername</label><input id="mqUser" type="text" maxlength="64" autocomplete="off">
+<label>MQTT-Passwort</label><input id="mqPassword" type="password" maxlength="64" autocomplete="new-password" placeholder="Leer lassen: bisheriges Passwort behalten">
+<label><input id="mqClearPassword" type="checkbox"> Gespeichertes MQTT-Passwort löschen</label>
+<label>Topic-Basis der Uhr (optional)</label><input id="mqBase" type="text" maxlength="63" placeholder="Leer: automatisch je Gerät">
+<label><input id="mqDiscovery" type="checkbox" checked> Home-Assistant-Erkennung der Gerätediagnose</label>
+<label>Discovery-Präfix</label><input id="mqDiscoveryPrefix" type="text" maxlength="63" value="homeassistant">
+<label>Wetter-Topic</label><input id="mqWeatherTopic" type="text" maxlength="95">
+<p><small>Wetterzustand als Text, z. B. sunny, cloudy oder rainy. Alternativ JSON mit condition und temperature. HA oder ioBroker liefert die Daten.</small></p>
+<label>Temperatur-Topic (optional bei gemeinsamem Wetter-JSON)</label><input id="mqTemperatureTopic" type="text" maxlength="95">
+<label>Daten nach so vielen Sekunden als veraltet behandeln</label><input id="mqStaleSeconds" type="number" min="60" max="86400" value="1800">
+<div id="mqttSensors"></div>
+<p><small>Sensoren akzeptieren Zahlen, kurze Texte oder JSON mit value, val oder state. Wetter/Sensoren anschließend oben als Anzeigeart auswählen. Der lokale MQTT-Zugang verwendet kein TLS.</small></p>
+<button type="button" onclick="saveMqtt()">MQTT speichern</button> <button type="button" onclick="loadMqtt()">Status aktualisieren</button>
+<p id="mqttMessage" role="status"></p></article>
+<article><h2>Einstellungen sichern</h2><p>Speichere deine Uhreinstellungen vor einem Update. Zugangsdaten, MQTT-Konfiguration, LED-Datenpin und Animationsdateien werden nicht exportiert.</p>
 <button type="button" onclick="exportSettings()">Sicherung herunterladen</button>
 <label for="settingsFile">Sicherungsdatei wiederherstellen</label><input id="settingsFile" type="file" accept=".json" onchange="previewSettingsImport()">
 <p id="backupMessage" role="status"></p><pre id="backupPreview" style="white-space:pre-wrap"></pre><button id="applyBackup" type="button" onclick="applySettingsImport()" hidden>Vorschau übernehmen</button></article>
@@ -349,7 +445,20 @@ R"HTML(
 const ids=['mode','effect','brightness','speed','duration','nightOn','nightFrom','nightUntil','nightBrightness','corner','vertical','zigzag','autoOrder'];
 let automaticChoices=[];
 let effectChoices=[],pendingImport=null;
-const backupKeys=[...ids,'autoEffects','autoUploads'];
+const optionFlags=['secondsBar','showClock','showAnimations','showWeather','showSensors'];
+const optionIds=['ledPin','weekdayStyle',...optionFlags];
+let currentOptions={ledPin:12,weekdayStyle:0,secondsBar:1,showClock:1,showAnimations:1,showWeather:0,showSensors:0};
+let savedMasks={autoEffects:1073741823,autoUploads:0};
+function loadDisplayOptions(d){
+  const pins=d.ledPins||[{gpio:d.ledPin??12,label:'LED-Datenpin'}],select=document.getElementById('ledPin');select.replaceChildren();
+  for(const pin of pins){const option=document.createElement('option');option.value=pin.gpio;option.textContent=pin.label;select.append(option)}
+  currentOptions=Object.fromEntries(optionIds.map(key=>[key,d[key]??currentOptions[key]]));
+  optionIds.forEach(key=>{const element=document.getElementById(key);element[optionFlags.includes(key)?'checked':'value']=optionFlags.includes(key)?!!currentOptions[key]:currentOptions[key]});
+  savedMasks={autoEffects:d.autoEffects,autoUploads:d.autoUploads||0};
+}
+function formOptions(){return Object.fromEntries(optionIds.map(key=>[key,optionFlags.includes(key)?(document.getElementById(key).checked?1:0):Number(document.getElementById(key).value)]))}
+const legacyBackupKeys=[...ids,'autoEffects','autoUploads'];
+const backupKeys=[...legacyBackupKeys,...optionIds.filter(key=>key!=='ledPin')];
 function automaticMask(){return automaticChoices.reduce((mask,choice)=>mask+(choice.input.checked&&!choice.uploaded?2**(choice.id-1):0),0)}
 function automaticUploadMask(){return automaticChoices.reduce((mask,choice)=>mask+(choice.input.checked&&choice.uploaded?2**(choice.id-31):0),0)}
 function updateAutomaticCount(){document.getElementById('autoCount').textContent=`${automaticChoices.filter(choice=>choice.input.checked).length} von ${automaticChoices.length} ausgewählt`}
@@ -378,7 +487,7 @@ async function load(){
         const option=document.createElement('option');option.value=effect.id;option.textContent=effect.name;group.append(option);
       }select.append(group);
     }
-    buildAutomaticChoices(effects,d.autoEffects,d.autoUploads||0);
+    buildAutomaticChoices(effects,d.autoEffects,d.autoUploads||0);loadDisplayOptions(d);
     document.getElementById('status').textContent=`Firmware ${d.version} · ${d.ip} · WLAN ${d.rssi} dBm · Freier Heap ${d.heap} B · Flash ${d.flash} B · Freier OTA-Platz ${d.ota} B · Uhrzeit ${d.timeValid?'bereit':'wird synchronisiert'}`;
     ids.forEach(k=>{const el=document.getElementById(k);el[el.type==='checkbox'?'checked':'value']=d[k]});
     if(!effects.some(effect=>effect.id===d.effect))document.getElementById('effect').value=1;
@@ -387,6 +496,8 @@ async function load(){
     if(d.animationUploads)showAnimationStorage(await readJson('/api/animations'));
     bVal.value=d.brightness+' %';sVal.value=d.speed+' %';dVal.value=d.duration+' s';nVal.value=d.nightBrightness+' %';
     document.getElementById('saveButton').disabled=false;
+    document.getElementById('mqttPanel').hidden=!d.mqttAvailable;
+    if(d.mqttAvailable)await loadMqtt();
   }catch(e){document.getElementById('status').textContent='Uhr nicht erreichbar: '+e}
 }
 async function save(){
@@ -394,32 +505,70 @@ async function save(){
     const d={};ids.forEach(k=>{const e=document.getElementById(k);d[k]=e.type==='checkbox'?(e.checked?1:0):Number(e.value)});
     d.autoEffects=automaticMask();
     d.autoUploads=automaticUploadMask();
-    if(!d.autoEffects&&!d.autoUploads)throw Error('Bitte mindestens eine Animation für die Automatik auswählen.');
+    Object.assign(d,formOptions());
+    if(!d.showClock&&!d.showAnimations&&!d.showWeather&&!d.showSensors)throw Error('Bitte mindestens eine Anzeigeart auswählen.');
+    if(!d.autoEffects&&!d.autoUploads){
+      if(d.showAnimations)throw Error('Bitte mindestens eine Animation für die Automatik auswählen.');
+      Object.assign(d,savedMasks);
+    }
+    if(d.ledPin!==currentOptions.ledPin&&!confirm('LED-Datenpin ändern und die Uhr nach dem Speichern neu starten?'))return;
     const {token}=await readJson('/api/session');
     const r=await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRF-Token':token},body:new URLSearchParams(d)});
     if(!r.ok)throw Error(await r.text());
-    msg.textContent='✔ gespeichert';setTimeout(()=>msg.textContent='',3000);
+    const result=typeof r.json==='function'?await r.json():{};
+    msg.textContent=result.restarting?'Gespeichert – die Uhr startet mit dem neuen LED-Pin neu.':'✔ gespeichert';
+    if(!result.restarting){currentOptions=formOptions();savedMasks={autoEffects:d.autoEffects,autoUploads:d.autoUploads};setTimeout(()=>msg.textContent='',3000)}
   }catch(e){msg.textContent='Fehler: '+e}
+}
+const mqttFields={host:'mqHost',port:'mqPort',user:'mqUser',base:'mqBase',discoveryPrefix:'mqDiscoveryPrefix',weatherTopic:'mqWeatherTopic',temperatureTopic:'mqTemperatureTopic',staleSeconds:'mqStaleSeconds'};
+async function loadMqtt(){
+  try{
+    const d=await readJson('/api/mqtt');
+    Object.entries(mqttFields).forEach(([key,id])=>document.getElementById(id).value=d[key]??'');
+    document.getElementById('mqEnabled').checked=!!d.enabled;document.getElementById('mqDiscovery').checked=!!d.discovery;
+    document.getElementById('mqPassword').value='';document.getElementById('mqClearPassword').checked=false;
+    document.getElementById('mqPassword').placeholder=d.hasPassword?'Passwort gespeichert – leer lassen zum Behalten':'MQTT-Passwort (optional)';
+    const list=document.getElementById('mqttSensors');list.replaceChildren();
+    for(let i=0;i<4;i++){
+      const entry=d.sensors?.[i]||{},group=document.createElement('div'),title=document.createElement('h3');title.textContent='Sensor '+(i+1);group.append(title);
+      for(const [key,label,max] of [['topic','Topic',95],['label','Anzeigename',24],['unit','Einheit, z. B. C, % oder W',8]]){
+        const caption=document.createElement('label'),input=document.createElement('input');caption.textContent=label;input.id='mqSensor'+i+key;input.type='text';input.maxLength=max;input.value=entry[key]||'';caption.append(input);group.append(caption);
+      }list.append(group);
+    }
+    document.getElementById('mqttStatus').textContent=!d.storageReady?'Zuerst den Datenspeicher unter Eigene Animationen / Speicher einrichten.':!d.enabled?'MQTT ist ausgeschaltet.':d.connected?'MQTT ist verbunden.':'MQTT ist nicht verbunden. Broker, Port und Zugang prüfen.';
+  }catch(error){document.getElementById('mqttStatus').textContent='MQTT-Status nicht verfügbar: '+error.message}
+}
+async function saveMqtt(){
+  const message=document.getElementById('mqttMessage');
+  try{
+    const values={};Object.entries(mqttFields).forEach(([key,id])=>values[key]=document.getElementById(id).value);
+    values.enabled=document.getElementById('mqEnabled').checked?1:0;values.discovery=document.getElementById('mqDiscovery').checked?1:0;
+    values.password=document.getElementById('mqPassword').value;values.clearPassword=document.getElementById('mqClearPassword').checked?1:0;
+    for(let i=0;i<4;i++)for(const [field,suffix] of [['topic','Topic'],['label','Label'],['unit','Unit']])values['sensor'+i+suffix]=document.getElementById('mqSensor'+i+field).value;
+    if(values.enabled&&!values.host)throw Error('Bitte den MQTT-Broker angeben.');
+    const {token}=await readJson('/api/session'),r=await fetch('/api/mqtt',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRF-Token':token},body:new URLSearchParams(values)});
+    if(!r.ok)throw Error(await r.text());message.textContent='MQTT-Konfiguration gespeichert. Die Verbindung wird neu aufgebaut.';await loadMqtt();
+  }catch(error){message.textContent='MQTT konnte nicht gespeichert werden: '+error.message}
 }
 async function exportSettings(){
   const message=document.getElementById('backupMessage');
   try{
     const current=await readJson('/api/status');
     const storage=current.animationUploads?await readJson('/api/animations'):{uploads:[]};
-    const settings=Object.fromEntries(backupKeys.map(key=>[key,current[key]??0]));
+    const settings=Object.fromEntries(backupKeys.map(key=>[key,current[key]??currentOptions[key]??0]));
     const uploads=storage.uploads.filter(upload=>upload.valid).map(upload=>({id:upload.id,sha256:upload.sha256}));
-    const backup={format:'chaosuhr-settings',version:1,firmware:current.version,settings,uploads};
+    const backup={format:'chaosuhr-settings',version:2,firmware:current.version,settings,uploads};
     const blob=new Blob([JSON.stringify(backup,null,2)+'\n'],{type:'application/json'}),url=URL.createObjectURL(blob),link=document.createElement('a');
     link.href=url;link.download='chaosuhr-einstellungen-'+current.version+'.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
     message.textContent='Einstellungen gesichert. Eigene Animationen bitte zusätzlich als .chaos herunterladen.';
   }catch(error){message.textContent='Sicherung fehlgeschlagen: '+error.message}
 }
 function validateSettingsBackup(backup,currentUploads){
-  if(!backup || typeof backup!=='object' || Array.isArray(backup) || Object.keys(backup).some(key=>!['format','version','firmware','settings','uploads'].includes(key)) || backup.format!=='chaosuhr-settings' || backup.version!==1 || typeof backup.firmware!=='string' || backup.firmware.length>32)throw Error('Keine unterstützte ChaosUhr-Sicherung.');
-  const settings=backup.settings;
-  if(!settings || typeof settings!=='object' || Array.isArray(settings) || Object.keys(settings).length!==backupKeys.length || backupKeys.some(key=>!Object.hasOwn(settings,key) || !Number.isInteger(settings[key])))throw Error('Einstellungen unvollständig oder ungültig.');
-  const bounds={mode:[0,2],effect:[1,38],brightness:[1,100],speed:[1,100],duration:[5,120],nightOn:[0,1],nightFrom:[0,23],nightUntil:[0,23],nightBrightness:[1,100],corner:[0,3],vertical:[0,1],zigzag:[0,1],autoOrder:[0,1],autoEffects:[0,1073741823],autoUploads:[0,255]};
-  for(const key of backupKeys)if(settings[key]<bounds[key][0]||settings[key]>bounds[key][1])throw Error('Ungültiger Einstellungswert.');
+  if(!backup || typeof backup!=='object' || Array.isArray(backup) || Object.keys(backup).some(key=>!['format','version','firmware','settings','uploads'].includes(key)) || backup.format!=='chaosuhr-settings' || ![1,2].includes(backup.version) || typeof backup.firmware!=='string' || backup.firmware.length>32)throw Error('Keine unterstützte ChaosUhr-Sicherung.');
+  const settings=backup.settings,keys=backup.version===1?legacyBackupKeys:backupKeys;
+  if(!settings || typeof settings!=='object' || Array.isArray(settings) || Object.keys(settings).length!==keys.length || keys.some(key=>!Object.hasOwn(settings,key) || !Number.isInteger(settings[key])))throw Error('Einstellungen unvollständig oder ungültig.');
+  const bounds={mode:[0,2],effect:[1,38],brightness:[1,100],speed:[1,100],duration:[5,120],nightOn:[0,1],nightFrom:[0,23],nightUntil:[0,23],nightBrightness:[1,100],corner:[0,3],vertical:[0,1],zigzag:[0,1],autoOrder:[0,1],autoEffects:[0,1073741823],autoUploads:[0,255],secondsBar:[0,1],weekdayStyle:[0,1],showClock:[0,1],showAnimations:[0,1],showWeather:[0,1],showSensors:[0,1]};
+  for(const key of keys)if(settings[key]<bounds[key][0]||settings[key]>bounds[key][1])throw Error('Ungültiger Einstellungswert.');
   if(!settings.autoEffects&&!settings.autoUploads)throw Error('Die Animationsauswahl ist leer.');
   if(!Array.isArray(backup.uploads)||backup.uploads.length>8)throw Error('Ungültige Upload-Zuordnung.');
   const mapping=new Map();
@@ -427,7 +576,9 @@ function validateSettingsBackup(backup,currentUploads){
     if(!upload || Object.keys(upload).length!==2 || !Number.isInteger(upload.id) || upload.id<31 || upload.id>38 || typeof upload.sha256!=='string' || !/^[a-f0-9]{64}$/.test(upload.sha256) || mapping.has(upload.id))throw Error('Ungültige Upload-Zuordnung.');
     const match=currentUploads.find(current=>current.valid&&current.sha256===upload.sha256);mapping.set(upload.id,match?.id);
   }
-  const result={...settings};result.autoUploads=0;
+  const {ledPin,...displayDefaults}=currentOptions;
+  const result={...displayDefaults,...settings};result.autoUploads=0;
+  if(!result.showClock&&!result.showAnimations&&!result.showWeather&&!result.showSensors)throw Error('Die Auswahl der Anzeigearten ist leer.');
   for(let bit=0;bit<8;bit++)if(settings.autoUploads&2**bit){const mapped=mapping.get(31+bit);if(!mapped)throw Error('Eine benötigte Animation fehlt. Lade zuerst die passende .chaos-Datei hoch.');result.autoUploads+=2**(mapped-31)}
   if(settings.effect>30){const mapped=mapping.get(settings.effect);if(!mapped)throw Error('Die gewählte Einzelanimation fehlt. Lade zuerst die passende .chaos-Datei hoch.');result.effect=mapped}
   return result;
@@ -450,6 +601,7 @@ function applySettingsImport(){
   if(!pendingImport)return;
   const d=pendingImport;ids.forEach(key=>{const element=document.getElementById(key);element[element.type==='checkbox'?'checked':'value']=element.type==='checkbox'?!!d[key]:d[key]});
   buildAutomaticChoices(effectChoices,d.autoEffects,d.autoUploads);
+  optionIds.filter(key=>key!=='ledPin').forEach(key=>{document.getElementById(key)[optionFlags.includes(key)?'checked':'value']=optionFlags.includes(key)?!!d[key]:d[key]});
   bVal.value=d.brightness+' %';sVal.value=d.speed+' %';dVal.value=d.duration+' s';nVal.value=d.nightBrightness+' %';
   document.getElementById('backupMessage').textContent='Vorschau übernommen. Zum dauerhaften Anwenden Einstellungen speichern.';document.getElementById('applyBackup').hidden=true;pendingImport=null;
 }
@@ -529,14 +681,33 @@ static void effectsApi(){
   server.sendHeader("Cache-Control","no-store");
   server.send(200,"application/json; charset=utf-8",result);
 }
+#include "mqtt_api.h"
+static String gpioChoicesJson(){
+  struct Pin {uint8_t gpio;const char* label;};
+#if defined(ESP32)
+  const Pin pins[]={{13,"GPIO13"},{14,"GPIO14"},{18,"GPIO18"},{19,"GPIO19"},{21,"GPIO21"},{22,"GPIO22"},{23,"GPIO23"},{25,"GPIO25"},{26,"GPIO26"},{27,"GPIO27"},{32,"GPIO32 (Standard)"},{33,"GPIO33"}};
+#else
+  const Pin pins[]={{4,"D2 / GPIO4"},{5,"D1 / GPIO5"},{12,"D6 / GPIO12 (Standard)"},{13,"D7 / GPIO13"},{14,"D5 / GPIO14"}};
+#endif
+  String result="[";bool first=true;
+  for(const auto& pin:pins){if(!first)result+=',';first=false;
+    result+="{\"gpio\":"+String(pin.gpio)+",\"label\":\""+String(pin.label)+"\"}";}
+  return result+"]";
+}
 static void statusApi(){
   if(!auth()) return;
   String s="{";
   s+="\"version\":\""+String(VERSION)+"\",\"ip\":\""+WiFi.localIP().toString()+"\",";
   s+="\"rssi\":"+String(WiFi.RSSI())+",\"heap\":"+String(ESP.getFreeHeap());
   s+=",\"flash\":"+String(deviceFlashSize())+",\"ota\":"+String(ESP.getFreeSketchSpace());
-  s+=",\"platform\":\""+String(DEVICE_FAMILY)+"\",\"ledPin\":"+String(LED_PIN);
+  s+=",\"platform\":\""+String(DEVICE_FAMILY)+"\",\"ledPin\":"+String(displayOptions.ledPin);
+  s+=",\"secondsBar\":"+String((displayOptions.flags&DISPLAY_SECONDS)?1:0)+",\"weekdayStyle\":"+String(displayOptions.weekdayStyle);
+  s+=",\"showClock\":"+String((displayOptions.flags&DISPLAY_CLOCK)?1:0)+",\"showAnimations\":"+String((displayOptions.flags&DISPLAY_ANIMATIONS)?1:0);
+  s+=",\"showWeather\":"+String((displayOptions.flags&DISPLAY_WEATHER)?1:0)+",\"showSensors\":"+String((displayOptions.flags&DISPLAY_SENSORS)?1:0);
+  s+=",\"optionsSaved\":"+String(optionsPersisted?"true":"false")+",\"mqttAvailable\":true,\"mqttConnected\":"+String(clockMqtt.connected()?"true":"false");
+  s+=",\"ledPins\":"+gpioChoicesJson();
   s+=",\"otaProduct\":\""+String(FIRMWARE_PRODUCT)+"\"";
+  s+=",\"otaMaxBytes\":"+String(FIRMWARE_MAX_BYTES);
 #ifdef CHAOSUHR_PUBLIC_BUILD
   s+=",\"credentialsMigrationPending\":"+String(publicAccess.migrationPending()?"true":"false");
 #endif
@@ -572,17 +743,23 @@ static void saveApi(){
   if(!publicAccess.validMutationToken()){server.send(403,"text/plain","Sitzungstoken fehlt oder fremde Webseite.");return;}
 #endif
   if(!server.args()){server.send(400,"text/plain; charset=utf-8","Keine Einstellungen angegeben");return;}
-  Settings next=cfg;
+  Settings next=cfg;DisplayOptions nextOptions=displayOptions;
   for(int i=0;i<server.args();i++){
     const String key=server.argName(i);
     for(int j=0;j<i;j++){
       if(key==server.argName(j)){server.send(400,"text/plain; charset=utf-8","Doppelter Parameter: "+key);return;}
     }
-    if(!applySetting(next,key.c_str(),server.arg(i).c_str())){
+    const bool accepted=displayOptionKey(key.c_str())?applyDisplayOption(nextOptions,key.c_str(),server.arg(i).c_str(),TARGET_ESP32):applySetting(next,key.c_str(),server.arg(i).c_str());
+    if(!accepted){
       server.send(400,"text/plain; charset=utf-8","Unbekannter Parameter oder ungueltiger Wert: "+key);return;
     }
   }
-  if(!next.autoEffects && !next.autoUploads){server.send(400,"text/plain; charset=utf-8","Mindestens eine Animation auswaehlen.");return;}
+  sealDisplayOptions(nextOptions);
+  if(!validDisplayOptions(nextOptions,TARGET_ESP32)){server.send(400,"text/plain","Mindestens eine Anzeigeart auswaehlen.");return;}
+  if(!next.autoEffects && !next.autoUploads){
+    if(nextOptions.flags&DISPLAY_ANIMATIONS){server.send(400,"text/plain","Mindestens eine Animation auswaehlen.");return;}
+    next.autoEffects=cfg.autoEffects;next.autoUploads=cfg.autoUploads;
+  }
 #ifdef CHAOSUHR_HAS_UPLOADS
   if((next.autoUploads&~animations.available()) || (next.effect>EFFECT_COUNT && !animations.playable(next.effect))){
     server.send(400,"text/plain; charset=utf-8","Ausgewaehlter Upload ist nicht verfuegbar. Seite neu laden.");return;
@@ -590,34 +767,52 @@ static void saveApi(){
 #else
   if(next.autoUploads || next.effect>EFFECT_COUNT){server.send(400,"text/plain","Uploads sind auf diesem Build nicht verfuegbar.");return;}
 #endif
-  const bool changed=memcmp(&cfg,&next,sizeof cfg)!=0;
+  const bool pinChanged=displayOptions.ledPin!=nextOptions.ledPin;
+  const bool changed=memcmp(&cfg,&next,sizeof cfg)!=0 || memcmp(&displayOptions,&nextOptions,sizeof nextOptions)!=0;
   const bool restartAutomatic=cfg.mode!=next.mode || cfg.autoEffects!=next.autoEffects || cfg.autoOrder!=next.autoOrder || cfg.autoUploads!=next.autoUploads;
-  if(!persistSettings(clockStorage,cfg,next,settingsPersisted)){
+  if(!persistClockOptions(clockStorage,cfg,next,displayOptions,nextOptions,settingsPersisted,optionsPersisted)){
     server.send(500,"text/plain; charset=utf-8","Einstellungen konnten nicht gespeichert werden");return;
   }
   if(changed){
     if(restartAutomatic) autoPlayback.reset();
     scene.reset(millis(),cfg.effect);resetAnimation();
   }
-  server.send(200,"application/json","{\"ok\":true}");
+  server.send(200,"application/json",pinChanged?"{\"ok\":true,\"restarting\":true}":"{\"ok\":true}");
+  if(pinChanged)publicAccess.restartAfterUpdate();
 }
 
 #ifdef CHAOSUHR_HAS_UPLOADS
 static String animationDigest(uint8_t id){
   auto file=animations.openDownload(id);if(!file)return "";
-  br_sha256_context hash;br_sha256_init(&hash);uint8_t buffer[128];
-  for(;;){const size_t length=file.read(buffer,sizeof buffer);if(!length)break;br_sha256_update(&hash,buffer,length);yield();}
-  file.close();uint8_t digest[32];br_sha256_out(&hash,digest);char text[65];
+  Sha256Stream hash;uint8_t buffer[128];
+  for(;;){const size_t length=file.read(buffer,sizeof buffer);if(!length)break;hash.add(buffer,length);yield();}
+  file.close();uint8_t digest[32];char text[65];if(!hash.digest(digest))return "";
   for(size_t i=0;i<32;++i)snprintf(text+2*i,3,"%02x",digest[i]);
   return String(text);
 }
 static bool animationMutationAllowed(){
   return publicAccess.authenticate() && publicAccess.validMutationToken();
 }
+static bool animationSpaceAvailable(size_t additional){
+  size_t used=0,total=0;
+#if defined(ESP32)
+  used=LittleFS.usedBytes();total=LittleFS.totalBytes();
+#else
+  FSInfo info={};if(!LittleFS.info(info))return false;used=info.usedBytes;total=info.totalBytes;
+#endif
+  return total>=used && total-used>=additional+12288;
+}
 static void animationStatusApi(){
   if(!auth())return;
-  FSInfo info={};if(animations.ready())LittleFS.info(info);
-  String result="{\"ready\":"+String(animations.ready()?"true":"false")+",\"used\":"+String(info.usedBytes)+",\"total\":"+String(info.totalBytes)+",\"uploads\":[";
+  size_t usedBytes=0,totalBytes=0;
+  if(animations.ready()){
+#if defined(ESP32)
+    usedBytes=LittleFS.usedBytes();totalBytes=LittleFS.totalBytes();
+#else
+    FSInfo info={};LittleFS.info(info);usedBytes=info.usedBytes;totalBytes=info.totalBytes;
+#endif
+  }
+  String result="{\"ready\":"+String(animations.ready()?"true":"false")+",\"used\":"+String(usedBytes)+",\"total\":"+String(totalBytes)+",\"uploads\":[";
   bool first=true;
   for(uint8_t i=0;i<UPLOAD_SLOTS;++i){
     const auto& slot=animations.slot(i);if(!slot.present)continue;
@@ -679,18 +874,29 @@ static void animationDownloadApi(){
 }
 #endif
 
-#if defined(CHAOSUHR_PUBLIC_BUILD) && defined(ESP8266)
+#if defined(CHAOSUHR_PUBLIC_BUILD)
 struct OtaBackend {
   bool begin(){
     const size_t available=ESP.getFreeSketchSpace();
+#if defined(ESP32)
+    if(available<FIRMWARE_MAX_BYTES)return false;
+    return Update.begin(available,U_FLASH);
+#else
     if(available<=FIRMWARE_MAX_BYTES+4096)return false;
     // Keep the reserved capacity strictly larger than any accepted payload, so
     // end(false) can never accidentally finalize an aborted complete-size file.
     return Update.begin((available-4096)&0xfffff000,U_FLASH);
+#endif
   }
   size_t write(const uint8_t* data,size_t size){return Update.write(const_cast<uint8_t*>(data),size);}
   bool finish(){return Update.end(true);}
-  void cancel(){Update.end(false);}
+  void cancel(){
+#if defined(ESP32)
+    Update.abort();
+#else
+    Update.end(false);
+#endif
+  }
 } otaBackend;
 FirmwareUpload<OtaBackend> firmwareUpload(otaBackend);
 static void setupSecureOta(){
@@ -718,10 +924,18 @@ static bool portalRequestAllowed(ClockWebServer& target,bool mutation){
 }
 static void setupSecurePortal(){
   auto& portal=*wifiManager.server;collectClockHeaders(portal);
+#if defined(ESP32)
+  portal.setConnectionGuard([](){
+    auto& current=*wifiManager.server;
+    if(current.client().localIP()==WiFi.softAPIP())return true;
+    current.send(403,"text/plain","Einrichtung nur ueber das Einrichtungs-WLAN.");return false;
+  });
+#else
   portal.addHook([](const String&,const String&,WiFiClient* client,ClockWebServer::ContentTypeFunction){
     if(client->localIP()==WiFi.softAPIP())return ClockWebServer::CLIENT_REQUEST_CAN_CONTINUE;
     wifiManager.server->send(403,"text/plain","Einrichtung nur ueber das Einrichtungs-WLAN.");return ClockWebServer::CLIENT_MUST_STOP;
   });
+#endif
   portal.setBodyGuard([](){
     auto& current=*wifiManager.server;
     if((current.uri()=="/wifisave" || current.uri()=="/exit") && portalRequestAllowed(current,true))return true;
@@ -773,7 +987,7 @@ static void serviceNetwork(){
   if(WiFi.status()==WL_CONNECTED){
     if(portalActive){wifiManager.stopConfigPortal();WiFi.persistent(false);return;}
     if(!webStarted){
-      server.begin(); webStarted=true;
+      server.begin(); webStarted=true;ipAnnouncement.start(WiFi.localIP().toString().c_str(),now);
       if(MDNS.begin(HOSTNAME)) MDNS.addService("http","tcp",80);
       Serial.printf("ChaosUhr %s at http://%s/\n",VERSION,WiFi.localIP().toString().c_str());
     }
@@ -807,15 +1021,17 @@ static void serviceNetwork(){
 void setup(){
   Serial.begin(115200);
 #ifdef CHAOSUHR_HAS_UPLOADS
+#if defined(ESP8266)
   LittleFSConfig filesystemConfig;filesystemConfig.setAutoFormat(false);LittleFS.setConfig(filesystemConfig);
 #endif
+#endif
   loadSettings();
-  FastLED.addLeds<WS2812B,LED_PIN,GRB>(leds,LED_COUNT);
+  setupLedController();
   FastLED.setMaxPowerInVoltsAndMilliamps(5,1500); // estimated software power limit
   clear(); FastLED.show();
 #ifdef CHAOSUHR_PUBLIC_BUILD
 #ifdef CHAOSUHR_HAS_UPLOADS
-  animations.begin();publicAccess.setResetStorage([](){return animations.factoryReset();});
+  animations.begin();animations.setReserveGuard(animationSpaceAvailable);publicAccess.setResetStorage([](){return animations.factoryReset();});
 #endif
   publicAccess.begin();
 #endif
@@ -843,17 +1059,9 @@ void setup(){
   // These handlers precede the library routes, so its configuration portal
   // cannot bypass the application's admin-protected firmware updater.
   wifiManager.setWebServerCallback([](){
-#if defined(ESP8266)
     setupSecurePortal();
-#else
-    for(const char* path:{"/update","/u"}) wifiManager.server->on(path,HTTP_ANY,[](){
-      wifiManager.server->send(403,"text/plain; charset=utf-8","Firmware-Updates nur ueber den angemeldeten Admin-Zugang.");
-    });
-#endif
   });
-#if defined(ESP8266)
   wifiManager.setCustomHeadElement(PORTAL_HEAD);
-#endif
 #endif
   wifiAttemptStarted=millis();
 #ifdef CHAOSUHR_PUBLIC_BUILD
@@ -879,6 +1087,8 @@ void setup(){
   server.on("/api/status",HTTP_GET,statusApi);
   server.on("/api/effects",HTTP_GET,effectsApi);
   server.on("/api/settings",HTTP_POST,saveApi);
+  server.on("/api/mqtt",HTTP_GET,mqttConfigApi);
+  server.on("/api/mqtt",HTTP_POST,mqttSaveApi);
 #ifdef CHAOSUHR_HAS_UPLOADS
   server.on("/api/animations",HTTP_GET,animationStatusApi);
   server.on("/api/animations/initialize",HTTP_POST,animationInitApi);
@@ -893,9 +1103,7 @@ void setup(){
   });
 #endif
 #ifdef CHAOSUHR_PUBLIC_BUILD
-#if defined(ESP8266)
   setupSecureOta();
-#endif
   if(publicAccess.provisioning()) publicAccess.startInitialPortal();
 #else
   updater.setup(&server,"/update",OTA_USER,OTA_PASS);
@@ -907,7 +1115,8 @@ void setup(){
 void loop(){
   serviceNetwork();
   uint32_t now=millis();
-  if(scene.due(now,cfg.mode,cfg.duration)) nextScene();
+  clockMqtt.loop(WiFi.status()==WL_CONNECTED && publicAccess.ready() && !publicAccess.pending());
+  if(scene.due(now,cfg.mode,cfg.duration) || (cfg.mode==0 && !(availableScenePages()&(1<<scene.page)))) nextScene();
   uint16_t interval=(isLegacyEffect(activeEffect()) || activeEffect()>EFFECT_COUNT)?20:map(cfg.speed,1,100,150,25);
   if(now-lastFrame>=interval){ lastFrame=now; tick++; render(); }
   yield();

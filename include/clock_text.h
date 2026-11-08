@@ -13,15 +13,17 @@ static constexpr uint16_t DATE_SCROLL_MS=125;
 static_assert(CLOCK_TIME_Y+FONT_HEIGHT<CLOCK_DATE_Y,"Clock rows overlap");
 static_assert(CLOCK_DATE_Y+FONT_HEIGHT<MATRIX_HEIGHT,"Keep the seconds row free");
 
-inline bool formatGermanDate(const tm& local,char* output,size_t capacity) {
+inline bool formatGermanDate(const tm& local,char* output,size_t capacity,uint8_t weekdayStyle=0) {
   if(!output || !capacity) return false;
   output[0]='\0';
   if(local.tm_wday<0 || local.tm_wday>6 || local.tm_mon<0 || local.tm_mon>11 ||
-     local.tm_mday<1 || local.tm_mday>31 || local.tm_year<0 || local.tm_year>8099) return false;
+     local.tm_mday<1 || local.tm_mday>31 || local.tm_year<0 || local.tm_year>8099 || weekdayStyle>1) return false;
   static constexpr const char* weekdays[]={
     "Sonntag","Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag"
   };
-  const int length=snprintf(output,capacity,"%s %02d.%02d.%04d",weekdays[local.tm_wday],
+  static constexpr const char* shortWeekdays[]={"so","mo","di","mi","do","fr","sa"};
+  const char* weekday=weekdayStyle?shortWeekdays[local.tm_wday]:weekdays[local.tm_wday];
+  const int length=snprintf(output,capacity,"%s %02d.%02d.%04d",weekday,
                             local.tm_mday,local.tm_mon+1,local.tm_year+1900);
   if(length<0 || static_cast<size_t>(length)>=capacity){output[0]='\0';return false;}
   return true;

@@ -1,4 +1,4 @@
 #include "clock_storage.h"
-#if defined(ARDUINO) && defined(ESP8266)
+#if defined(ARDUINO)
 ClockStorage clockStorage(EEPROM,LittleFS);
 #endif

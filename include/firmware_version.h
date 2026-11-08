@@ -1,2 +1,2 @@
 #pragma once
-#define CHAOSUHR_VERSION "2.0.8"
+#define CHAOSUHR_VERSION "2.0.10"

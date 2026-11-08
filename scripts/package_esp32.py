@@ -15,6 +15,8 @@ import subprocess
 import tempfile
 import warnings
 from zipfile import ZipFile, ZIP_DEFLATED
+from release_safety import ReleaseSafety
+from public_sources import collect_public_sources
 
 
 def main():
@@ -38,6 +40,7 @@ def main():
         raise SystemExit("Build dependencies missing or personal header included")
 
     # Verify both actual personal passwords and their HTTP Basic representation.
+    safety=ReleaseSafety(project)
     forbidden = []
     secret_path = project/"include/secrets.local.h"
     if secret_path.exists():
@@ -53,6 +56,7 @@ def main():
             forbidden.extend((secret, base64.b64encode(b"admin:"+secret)))
 
     def check_clean(data, label):
+        safety.check(data,label)
         if any(secret and secret in data for secret in forbidden):
             raise SystemExit("Personal credential found in "+label)
 
@@ -75,27 +79,8 @@ def main():
     if entries != expected:
         raise SystemExit("Unexpected 4-MiB/dual-OTA partition layout")
 
-    source = {}
-    patterns = ("src/*.cpp", "src/*.h", "include/*.h", "scripts/*.py", "tests/*.cpp",
-                "tests/*.in", "tests/*.py", "tests/*.js", "tests/*.json", "tests/public_stubs/*.h",
-                "partitions/*.csv", "third_party/*")
-    for pattern in patterns:
-        for path in project.glob(pattern):
-            if path.name != "secrets.local.h":
-                source[path.relative_to(project).as_posix()] = path.read_bytes()
-    for filename in ("LICENSE", "THIRD_PARTY.md", ".gitignore", "docs/PUBLIC_FIRMWARE.md",
-                     "docs/ESP32_FIRMWARE.md", "docs/AUTOMATIK_2_0_7.md"):
-        source[filename] = (project/filename).read_bytes()
-    config = (project/"platformio.ini").read_text()
-    if len(re.findall(r'^default_envs = (?:d1_mini_public|esp32dev_public)$',config,re.M))!=1:
-        raise SystemExit("Unexpected project default; review the release build selection")
-    source["platformio.ini"] = re.sub(r'^default_envs = (?:d1_mini_public|esp32dev_public)$',
-                                      'default_envs = esp32dev_public',config,count=1,flags=re.M).encode()
-    manual = source["docs/ESP32_FIRMWARE.md"]
-    source["README.md"] = ("# ChaosUhr "+version+" – ESP32\n\nBuild: `pio run`\n\n"
-                            "Paket: `python3 scripts/package_esp32.py`\n\n"
-                            "[Anleitung](docs/ESP32_FIRMWARE.md), [Automatik](docs/AUTOMATIK_2_0_7.md), "
-                            "[ESP8266](docs/PUBLIC_FIRMWARE.md).\n").encode()
+    source=collect_public_sources(project,"esp32dev_public")
+    manual=source["docs/ESP32_FIRMWARE.md"].replace(b"../THIRD_PARTY.md", b"THIRD_PARTY.md")
     for path, data in source.items():
         check_clean(data, path)
 
@@ -127,6 +112,10 @@ def main():
         "version": version, "board": "esp32dev", "chip": "esp32", "led_gpio": 32,
         "flash_bytes": 4194304, "factory_flash_offset": "0x0", "application_flash_offset": "0x10000",
         "ota_slot_bytes": 0x1e0000, "hardware_tested": False,
+        "ota_image_reserve_bytes":0x1e0000-len(raw),
+        "configurable_led_pin":True,"supported_led_gpio":[13,14,18,19,21,22,23,25,26,27,32,33],
+        "mqtt":True,"sensor_slots":4,"credentials_format":2,"password_rounds":10000,
+        "settings_backup":"chaosuhr-settings/2","ota_signature_required":False,"tls":False,
         "binary_bytes": len(raw), "factory_bytes": len(factory),
         "platformio_platform": "espressif32@8.0.0", "arduino_core": "3.3.12",
         "sha256": {path: hashlib.sha256(data).hexdigest() for path, data in artifacts.items()},
@@ -135,6 +124,14 @@ def main():
     artifacts["BUILD_INFO.json"] = (json.dumps(manifest, indent=2)+"\n").encode()
     artifacts["LIESMICH.md"] = manual
     artifacts["AUTOMATIK_2_0_7.md"] = source["docs/AUTOMATIK_2_0_7.md"]
+    for doc in ("MQTT_2_0_10.md","UPGRADE_2_0_10.md","RELEASE_v2.0.10.md","ANIMATIONEN_FORMAT.md","PUBLIC_FIRMWARE.md","SICHERHEIT_2_0_8.md","GITHUB_UPDATES.md","CHATGPT_ANIMATION_PROMPT.txt"):
+        artifacts[doc]=source["docs/"+doc]
+    for path,data in source.items():
+        if path.startswith("docs/"):
+            artifacts[Path(path).name]=data.replace(b"../THIRD_PARTY.md", b"THIRD_PARTY.md")
+    artifacts["examples/Herz.chaos"]=source["examples/Herz.chaos"]
+    for key,data in source.items():
+        if key.startswith('third_party/') or key in ('lib/ChaosUhrWebServer/LICENSE','lib/ChaosUhrESP32WebServer/LICENSE'):artifacts[key]=data
     artifacts["LICENSE"] = source["LICENSE"]
     artifacts["THIRD_PARTY.md"] = source["THIRD_PARTY.md"]
     artifacts["third_party/FastLED-LICENSE"] = source["third_party/FastLED-LICENSE"]
@@ -154,8 +151,16 @@ def main():
             archive.writestr("source/"+path, data)
     with ZipFile(zip_path) as archive:
         assert archive.testzip() is None
+        assert len(archive.namelist()) == len(set(archive.namelist()))
         assert archive.read(name+"-ota.bin") == raw
     (output/"SHA256SUMS").write_text(checksums+hashlib.sha256(zip_path.read_bytes()).hexdigest()+"  "+zip_path.name+"\n")
+    channel=output/"update-channel";channel.mkdir(exist_ok=True)
+    update={"format":"chaosuhr-update","schema":1,"version":version,"prerelease":True,
+            "board":"esp32dev","chip":"esp32","flash_bytes":4194304,"led_gpio":32,
+            "binary":name+"-ota.bin","bytes":len(raw),"sha256":hashlib.sha256(raw).hexdigest(),
+            "configurable_led_pin":True,"supported_led_gpio":[13,14,18,19,21,22,23,25,26,27,32,33]}
+    (channel/"preview-esp32.json").write_text(json.dumps(update,indent=2)+"\n")
+    (channel/(name+"-ota.bin")).write_bytes(raw)
     print(f"ESP32 package: {zip_path.relative_to(project)}")
     print(f"OTA: {len(raw)} bytes; USB factory: {len(factory)} bytes; hardware tested: NO")
     print("Verified image hash/chip, both OTA slots, merged offsets, empty NVS, credentials absent, source/licenses included.")

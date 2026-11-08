@@ -17,7 +17,7 @@ bool PublicAccess::authenticate(){
   if(failedLogins_>=5){error(429,"Zu viele Anmeldeversuche. Bitte fuenf Sekunden warten.");return false;}
   const String& header=server_.header("Authorization");uint8_t fingerprint[32];
   if(header.length()<=102){
-    hmac256(cacheKey_,sizeof cacheKey_,header.c_str(),header.length(),fingerprint);
+    if(!hmac256(cacheKey_,sizeof cacheKey_,header.c_str(),header.length(),fingerprint)){error(503,"Anmeldepruefung nicht verfuegbar.");return false;}
     if(cacheValid_ && static_cast<uint32_t>(now-cachedAt_)<60000 && constantEqual(fingerprint,cachedAuth_,32))return true;
     char password[65]={};
     const bool ok=decodeAdminBasic(header.c_str(),header.length(),password) && verifyAdminPassword(credentials_,password,
@@ -56,9 +56,6 @@ bool PublicAccess::bodyAllowed(){
   return true;
 }
 bool PublicAccess::migrate(){
-#if defined(ARDUINO) && defined(ESP32)
-  return false; // ESP32 persistence migration is deferred with its release.
-#else
   if(!migrationPending())return false;
   uint8_t salt[16];deviceRandomBytes(salt,sizeof salt);
   const bool ok=migrateCredentials(clockStorage,credentials_,salt,
@@ -70,7 +67,6 @@ bool PublicAccess::migrate(){
   );
   if(ok)cacheValid_=false;
   return ok;
-#endif
 }
 bool PublicAccess::tokenMatches(){
   const String& submitted=server_.header("X-CSRF-Token");
@@ -100,7 +96,7 @@ void PublicAccess::begin(){
   server_.on("/api/setup",HTTP_POST,[this](){provisionApi();});
   server_.on("/api/factory-reset",HTTP_POST,[this](){resetApi();});
   server_.on("/setup",HTTP_GET,[this](){serveSetup();});
-#if defined(ARDUINO) && defined(ESP8266)
+#if defined(ARDUINO)
   server_.setBodyGuard([this](){return bodyAllowed();});
 #endif
 }
@@ -162,7 +158,7 @@ void PublicAccess::loop(){
   if(!pending() || static_cast<uint32_t>(millis()-actionStarted_)<actionDelay_) return;
   if(action_==Action::Restart){ESP.restart();return;}
   if(eraseDeviceWifi()){
-#if defined(ARDUINO) && defined(ESP8266)
+#if defined(ARDUINO)
     const bool cleared=clockStorage.clearForReset();
 #else
     for(size_t i=0;i<clockStorage.length();++i)clockStorage.write(i,0xff);

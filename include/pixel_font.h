@@ -7,7 +7,7 @@ constexpr uint16_t fontBits(uint8_t a,uint8_t b,uint8_t c,uint8_t d,uint8_t e) {
   return (a<<12)|(b<<9)|(c<<6)|(d<<3)|e;
 }
 
-// Three-bit rows, digits followed by A..Z. Lowercase uses the same glyphs.
+// Three-bit rows; lowercase has its own shorter glyphs for readable weekdays.
 inline uint8_t fontRow(char character,uint8_t row) {
   if(row>=FONT_HEIGHT) return 0;
   static constexpr uint16_t glyphs[]={
@@ -25,12 +25,28 @@ inline uint8_t fontRow(char character,uint8_t row) {
     fontBits(5,5,5,5,2),fontBits(5,5,7,7,5),fontBits(5,5,2,5,5),
     fontBits(5,5,2,2,2),fontBits(7,1,2,4,7)
   };
-  if(character>='a' && character<='z') character-=('a'-'A');
+  static constexpr uint16_t lowercase[]={
+    fontBits(0,6,1,7,7),fontBits(4,4,6,5,6),fontBits(0,3,4,4,3),
+    fontBits(1,1,3,5,3),fontBits(0,2,5,6,3),fontBits(3,2,7,2,2),
+    fontBits(0,3,5,3,6),fontBits(4,4,6,5,5),fontBits(2,0,2,2,2),
+    fontBits(1,0,1,1,6),fontBits(4,5,6,5,5),fontBits(6,2,2,2,3),
+    fontBits(0,5,7,7,5),fontBits(0,6,5,5,5),fontBits(0,2,5,5,2),
+    fontBits(0,6,5,6,4),fontBits(0,3,5,3,1),fontBits(0,6,5,4,4),
+    fontBits(0,3,6,1,6),fontBits(2,7,2,2,3),fontBits(0,5,5,5,3),
+    fontBits(0,5,5,5,2),fontBits(0,5,7,7,5),fontBits(0,5,2,2,5),
+    fontBits(0,5,5,3,6),fontBits(0,7,1,2,7)
+  };
   uint16_t bits=0;
   if(character>='0' && character<='9') bits=glyphs[character-'0'];
   else if(character>='A' && character<='Z') bits=glyphs[10+character-'A'];
+  else if(character>='a' && character<='z') bits=lowercase[character-'a'];
   else if(character=='.') bits=fontBits(0,0,0,0,2);
   else if(character==':') bits=fontBits(0,2,0,2,0);
   else if(character=='-') bits=fontBits(0,0,7,0,0);
+  else if(character=='+') bits=fontBits(0,2,7,2,0);
+  else if(character=='%') bits=fontBits(5,1,2,4,5);
+  else if(character=='~') bits=fontBits(2,5,2,0,0); // degree sign after UTF-8 normalization
+  else if(character=='/') bits=fontBits(1,1,2,4,4);
+  else if(character=='?') bits=fontBits(6,1,2,0,2);
   return (bits>>(3*(FONT_HEIGHT-1-row)))&7;
 }

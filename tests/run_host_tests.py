@@ -53,6 +53,22 @@ subprocess.run([
 ],check=True)
 subprocess.run([str(clock_binary)],check=True)
 
+json_headers=next(iter((project/'.pio/libdeps').glob('*/ArduinoJson/src/ArduinoJson.h')),None)
+if json_headers is None:raise SystemExit('Install pinned dependencies first: pio pkg install -e d1_mini_public')
+for name in ('options','telemetry','mqtt_api'):
+    target=build_dir/('test_'+name)
+    subprocess.run(['g++','-std=c++17','-Wall','-Wextra','-Werror','-pedantic',
+                    '-fsanitize=address,undefined','-fno-omit-frame-pointer',
+                    '-I',str(project/'include'),'-I',str(project/'tests'),'-I',str(json_headers.parent),
+                    str(project/'tests'/('test_'+name+'.cpp')),'-o',str(target)],check=True)
+    subprocess.run([str(target)],check=True)
+
+esp32_ota=build_dir/'test_esp32_ota'
+subprocess.run(['g++','-std=c++17','-Wall','-Wextra','-Werror','-pedantic',
+                '-fsanitize=address,undefined','-fno-omit-frame-pointer','-DESP32=1',
+                '-I',str(project/'include'),str(project/'tests/test_esp32_ota.cpp'),'-o',str(esp32_ota),'-lcrypto'],check=True)
+subprocess.run([str(esp32_ota)],check=True)
+
 legacy_binary = build_dir / "test_legacy"
 subprocess.run([
     "g++", "-std=c++17", "-Wall", "-Wextra", "-Werror", "-pedantic",
@@ -85,6 +101,7 @@ subprocess.run(["node",str(project/"tests"/"test_public_ui.js")], check=True)
 subprocess.run(["node",str(project/"tests"/"test_backup_ui.js")], check=True)
 subprocess.run(["node",str(project/"tests"/"test_ota_ui.js")], check=True)
 subprocess.run(["node",str(project/"tests"/"test_github_update_ui.js")], check=True)
+subprocess.run(["node",str(project/"tests"/"test_display_mqtt_ui.js")], check=True)
 
 source = (project / "src" / "main.cpp").read_text()
 example=(project/"examples/Herz.chaos").read_text()
@@ -106,6 +123,7 @@ subprocess.run(["g++","-std=c++17","-Wall","-Wextra","-Werror","-pedantic","-DCH
 subprocess.run([str(animation_api_binary),str(project/"examples/Herz.chaos")],check=True)
 automatic_source=(project/"tests/test_automatic.cpp.in").read_text()
 for marker,name,result in (("@ACTIVE_EFFECT@","activeEffect","uint8_t"),
+                           ("@AVAILABLE_PAGES@","availableScenePages","uint8_t"),
                            ("@NEXT_SCENE@","nextScene","void"),("@SAVE_API@","saveApi","void")):
     function=re.search(r"static "+result+" "+name+r"\(\)\{.*?\n\}",source,re.DOTALL).group(0)
     automatic_source=automatic_source.replace(marker,function)

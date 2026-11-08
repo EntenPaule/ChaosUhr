@@ -1,0 +1,104 @@
+// Production ESP32 request/line/length/header code; deterministic socket adapter.
+#include <algorithm>
+#include <cassert>
+#include <cctype>
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <functional>
+#include <memory>
+#include <string>
+#define F(x) x
+#define FPSTR(x) x
+#define PROGMEM
+#define log_e(...) ((void)0)
+#define log_v(...) ((void)0)
+#define WEBSERVER_MAX_LINE_LEN 1024
+#define WEBSERVER_MAX_URI_LEN 1024
+#define WEBSERVER_MAX_LINE_WAIT 5000
+#define WEBSERVER_MAX_HEADER_WAIT 10000
+#define HTTP_MAX_POST_WAIT 5000
+#define HTTP_RAW_BUFLEN 256
+static unsigned long fakeTime=0;
+static unsigned long millis(){return fakeTime;}
+static void yield(){++fakeTime;}
+static void delay(unsigned n){fakeTime+=n;}
+class String:public std::string {
+ public:
+  using std::string::string;String(const std::string& s):std::string(s){}
+  bool isEmpty()const{return empty();}
+  int indexOf(char c,size_t at=0)const{auto n=find(c,at);return n==npos?-1:static_cast<int>(n);}
+  String substring(size_t at,size_t end=npos)const{return at>=size()?String():String(substr(at,end<at?0:end-at));}
+  void trim(){auto first=find_first_not_of(" \t\r\n"),last=find_last_not_of(" \t\r\n");*this=first==npos?String():String(substr(first,last-first+1));}
+  bool equalsIgnoreCase(const String& s)const{if(size()!=s.size())return false;for(size_t i=0;i<size();++i)if(std::tolower((*this)[i])!=std::tolower(s[i]))return false;return true;}
+  bool startsWith(const String& s)const{return compare(0,s.size(),s)==0;}
+  void replace(const char* from,const char* to){size_t at=0;while((at=find(from,at))!=npos){std::string::replace(at,strlen(from),to);at+=strlen(to);}}
+};
+struct NetworkClient {
+  String input,response;size_t position=0;
+  int read(){return position<input.size()?static_cast<uint8_t>(input[position++]):-1;}
+  int peek(){return position<input.size()?static_cast<uint8_t>(input[position]):-1;}
+  int available(){return input.size()-position;}
+  unsigned long getTimeout(){return 5000;}
+  size_t readBytes(char* out,size_t count){count=std::min(count,input.size()-position);memcpy(out,input.data()+position,count);position+=count;return count;}
+  int read(uint8_t* out,size_t count){return readBytes(reinterpret_cast<char*>(out),count);}
+  void printf(const char*,const char* status){response=status;}
+  void clear(){position=input.size();}
+};
+enum HTTPMethod {HTTP_ANY,HTTP_GET,HTTP_HEAD,HTTP_POST,HTTP_PUT,HTTP_PATCH,HTTP_DELETE,HTTP_OPTIONS};
+static const char* _http_method_str[]={"ANY","GET","HEAD","POST","PUT","PATCH","DELETE","OPTIONS"};
+static const char Content_Type[]="Content-Type";
+enum {RAW_START,RAW_WRITE,RAW_ABORTED,RAW_END};
+struct HTTPRaw {int status=0;size_t totalSize=0,currentSize=0;char buf[HTTP_RAW_BUFLEN];};
+namespace mime {enum {txt};struct Entry{const char* mimeType;};static const Entry mimeTable[]={{"text/plain"}};}
+class WebServer;
+struct RequestHandler {
+  bool canHandle(WebServer&,HTTPMethod,const String&){return true;}
+  bool canRaw(WebServer&,const String&){return false;}
+  void raw(WebServer&,const String&,HTTPRaw&){}
+  RequestHandler* next(){return nullptr;}
+};
+class WebServer {
+ public:
+  struct RequestArgument {String key,value;RequestArgument* next=nullptr;};
+  RequestArgument headers[4]={{"Host","",nullptr},{"Origin","",nullptr},{"Authorization","",nullptr},{"X-CSRF-Token","",nullptr}};
+  RequestArgument* _currentHeaders=headers;int _headerKeysCount=4;bool _collectAllHeaders=false;
+  RequestArgument *_postArgs=nullptr,*_currentArgs=nullptr;int _postArgsLen=0,_currentArgCount=0;
+  std::unique_ptr<int> _currentUpload;std::unique_ptr<HTTPRaw> _currentRaw;
+  RequestHandler handler,*_firstHandler=&handler,*_currentHandler=nullptr;
+  std::function<bool()> _chaosBodyGuard,_chaosConnectionGuard;
+  unsigned long _chaosRequestStarted=0;uint8_t _currentVersion=0;HTTPMethod _currentMethod=HTTP_ANY;
+  int _clientContentLength=0;bool _chunked=false;String _currentUri,_hostHeader,arguments;
+  unsigned parsedBodies=0;
+  WebServer(){for(int i=0;i<3;++i)headers[i].next=&headers[i+1];}
+  ~WebServer(){delete[] _postArgs;delete[] _currentArgs;}
+  void collectAllHeaders(){}
+  const String& header(size_t i){return headers[i].value;}
+  void _parseArguments(const String& text){delete[] _currentArgs;_currentArgs=new RequestArgument[2];_currentArgCount=0;arguments=text;}
+  bool _parseForm(NetworkClient&,const String&,uint32_t){++parsedBodies;return true;}
+  bool _parseRequest(NetworkClient&);
+  bool _collectHeader(const char*,const char*);
+};
+@HELPERS@
+@PARSE_REQUEST@
+@COLLECT_HEADER@
+static String request(const String& body,const String& extra="",const String& length=""){
+  return String("POST /api/settings HTTP/1.1\r\nHost: chaosuhr.local\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: ")+
+    (length.empty()?String(std::to_string(body.size())):length)+"\r\n"+extra+"\r\n"+body;
+}
+int main(){
+  {WebServer s;NetworkClient c;bool guard=false;s._chaosBodyGuard=[&](){guard=true;return false;};
+   c.input=request(String(3000,'x'));assert(!s._parseRequest(c)&&guard&&c.position==c.input.find("\r\n\r\n")+4&&!s._currentArgs);}
+  {WebServer s;NetworkClient c;c.input=request("brightness=30");s._chaosBodyGuard=[](){return true;};assert(s._parseRequest(c)&&s.arguments=="brightness=30");}
+  {WebServer s;NetworkClient c;c.input=request("x=1");s._chaosConnectionGuard=[](){return false;};assert(!s._parseRequest(c)&&c.position==0);}
+  {WebServer s;NetworkClient c;c.input=request(String(4097,'x'));assert(!s._parseRequest(c)&&c.response=="413 Content Too Large");}
+  for(const auto& extra:{String("Content-Length: 3\r\n"),String("Transfer-Encoding: chunked\r\n")}){
+   WebServer s;NetworkClient c;c.input=request("x=1",extra);assert(!s._parseRequest(c)&&!s._currentArgs);}
+  {WebServer s;NetworkClient c;c.input=request("x=1","","1974273");assert(!s._parseRequest(c));}
+  {WebServer s;NetworkClient c;String extra;for(int i=0;i<33;++i)extra+="X: a\r\n";c.input=request("x=1",extra);assert(!s._parseRequest(c));}
+  {WebServer s;NetworkClient c;c.input=request("x=1",String("X: ")+String(1025,'a')+"\r\n");assert(!s._parseRequest(c)&&c.response=="431 Request Header Fields Too Large");}
+  {WebServer s;NetworkClient c;c.input="GET / HTTP/1.1\rX";assert(!s._parseRequest(c)&&c.response=="400 Bad Request");}
+  {WebServer s;NetworkClient c;c.input=request("abcMORE","","3");assert(s._parseRequest(c)&&s.arguments=="abc");}
+  puts("PASS actual ESP32 HTTP ingress: pre-body and connection guards, declared-length read cap, header/body limits, duplicate length/TE rejection and strict CRLF (ASan/UBSan)");
+}

@@ -2,7 +2,9 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <string.h>
-#if defined(ARDUINO)
+#if defined(ARDUINO) && defined(ESP32)
+#include <mbedtls/md.h>
+#elif defined(ARDUINO)
 #include <bearssl/bearssl.h>
 #else
 #include <openssl/hmac.h>
@@ -15,13 +17,16 @@ inline bool constantEqual(const void* a,const void* b,size_t size){
   const auto* x=static_cast<const uint8_t*>(a);const auto* y=static_cast<const uint8_t*>(b);
   uint8_t diff=0;for(size_t i=0;i<size;++i)diff|=x[i]^y[i];return diff==0;
 }
-inline void hmac256(const void* key,size_t keySize,const void* data,size_t size,uint8_t out[32]){
-#if defined(ARDUINO)
+inline bool hmac256(const void* key,size_t keySize,const void* data,size_t size,uint8_t out[32]){
+#if defined(ARDUINO) && defined(ESP32)
+  return mbedtls_md_hmac(mbedtls_md_info_from_type(MBEDTLS_MD_SHA256),static_cast<const uint8_t*>(key),keySize,
+                        static_cast<const uint8_t*>(data),size,out)==0;
+#elif defined(ARDUINO)
   br_hmac_key_context kc;br_hmac_context ctx;
   br_hmac_key_init(&kc,&br_sha256_vtable,key,keySize);br_hmac_init(&ctx,&kc,32);
-  br_hmac_update(&ctx,data,size);br_hmac_out(&ctx,out);eraseSecret(&kc,sizeof kc);eraseSecret(&ctx,sizeof ctx);
+  br_hmac_update(&ctx,data,size);br_hmac_out(&ctx,out);eraseSecret(&kc,sizeof kc);eraseSecret(&ctx,sizeof ctx);return true;
 #else
-  unsigned length=32;HMAC(EVP_sha256(),key,static_cast<int>(keySize),static_cast<const uint8_t*>(data),size,out,&length);
+  unsigned length=32;return HMAC(EVP_sha256(),key,static_cast<int>(keySize),static_cast<const uint8_t*>(data),size,out,&length)!=nullptr && length==32;
 #endif
 }
 // Standard PBKDF2-HMAC-SHA256, one 32-byte block. No allocation and bounded input.
@@ -29,9 +34,11 @@ inline bool passwordKdf(const char* password,size_t length,const uint8_t salt[16
                         uint8_t out[32],void(*tick)()=nullptr){
   if(!password || length>64 || !rounds || rounds>600000)return false;
   uint8_t first[20],u[32],next[32];memcpy(first,salt,16);first[16]=first[17]=first[18]=0;first[19]=1;
-  hmac256(password,length,first,sizeof first,u);memcpy(out,u,32);
+  if(!hmac256(password,length,first,sizeof first,u))return false;
+  memcpy(out,u,32);
   for(uint32_t i=1;i<rounds;++i){
-    hmac256(password,length,u,32,next);memcpy(u,next,32);
+    if(!hmac256(password,length,u,32,next)){eraseSecret(u,sizeof u);eraseSecret(next,sizeof next);return false;}
+    memcpy(u,next,32);
     for(size_t j=0;j<32;++j)out[j]^=u[j];
     if(tick && !(i&31))tick();
   }

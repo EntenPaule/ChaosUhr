@@ -3,9 +3,15 @@
 #include <stddef.h>
 #include <string.h>
 #include "sha256_stream.h"
+#if defined(ESP32)
+#include "esp32_image.h"
+static constexpr char FIRMWARE_PRODUCT[]="ChaosUhr|ESP32|4M192K|OTA2";
+static constexpr uint32_t FIRMWARE_MAX_BYTES=0x1e0000;
+#else
 
 static constexpr char FIRMWARE_PRODUCT[]="ChaosUhr|ESP8266|4M1M|OTA2";
 static constexpr uint32_t FIRMWARE_MAX_BYTES=1044464;
+#endif
 
 class FirmwareValidator {
  public:
@@ -20,30 +26,44 @@ class FirmwareValidator {
     sha_.add(data,size);
     for(size_t i=0;i<size;++i){
       const uint8_t byte=data[i];
+#if defined(ESP32)
+      if(!image_.feed(byte))return false;
+#else
       if((count_==0 || count_==0x1000) && byte!=0xe9)return false;
       if(count_==2 && byte!=2)return false;
       if(count_==3 && byte!=0x40)return false;
       if(count_>=0x1010 && count_<0x1018)metadata_[count_-0x1010]=byte;
+#endif
       if(byte==static_cast<uint8_t>(FIRMWARE_PRODUCT[matched_])){
         if(++matched_==sizeof FIRMWARE_PRODUCT-1){product_=true;matched_=0;}
       }else matched_=byte==FIRMWARE_PRODUCT[0]?1:0;
+#if !defined(ESP32)
       const uint8_t value=count_>=0x1010 && count_<0x1018?0:byte;
       crc_^=static_cast<uint32_t>(value)<<24;
       for(unsigned b=0;b<8;++b)crc_=(crc_<<1)^((crc_&0x80000000)?0x04c11db7:0);
+#endif
       ++count_;
     }
     return true;
   }
   bool complete()const{
+#if defined(ESP32)
+    uint8_t digest[32];return product_ && image_.complete() &&
+      (!checkSha_ || (sha_.digest(digest) && !memcmp(digest,expectedSha_,32)));
+#else
     uint32_t length,crc;memcpy(&length,metadata_,4);memcpy(&crc,metadata_+4,4);
     uint8_t digest[32];
     return count_>=0x1018 && count_==length && crc_==crc && product_ &&
       (!checkSha_ || (sha_.digest(digest) && !memcmp(digest,expectedSha_,32)));
+#endif
   }
   size_t size()const{return count_;}
  private:
   uint32_t count_=0,crc_=0xffffffff;uint8_t metadata_[8]={};size_t matched_=0;bool product_=false;
   Sha256Stream sha_;uint8_t expectedSha_[32]={};bool checkSha_=false;
+#if defined(ESP32)
+  Esp32ImageValidator image_;
+#endif
 };
 
 template<typename Backend>class FirmwareUpload {

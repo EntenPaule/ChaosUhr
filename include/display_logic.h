@@ -25,11 +25,12 @@ inline bool isNightHour(uint8_t hour, const Settings& settings) {
 
 struct SceneState {
   bool clock = true;
-  uint8_t effect = 1, previousEffect = 0;
+  uint8_t effect = 1, previousEffect = 0, page = 0;
   uint32_t startedAt = 0;
 
   void reset(uint32_t now, uint8_t selectedEffect) {
     clock = true;
+    page = 0;
     effect = selectedEffect;
     startedAt = now;
   }

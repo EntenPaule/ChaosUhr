@@ -13,6 +13,7 @@ import struct
 import warnings
 from zipfile import ZipFile, ZIP_DEFLATED
 from release_safety import ReleaseSafety
+from public_sources import collect_public_sources
 
 project=Path(__file__).resolve().parents[1]
 safety=ReleaseSafety(project)
@@ -59,27 +60,8 @@ def check_clean(data,label):
         raise SystemExit("Personal credential detected in "+label)
 
 check_clean(raw,"public firmware")
-source={}
-for pattern in ("src/*.cpp","src/*.h","include/*.h","scripts/*.py","tests/*.cpp",
-                "tests/*.in","tests/*.py","tests/*.js","tests/*.json","tests/*.h","tests/public_stubs/*.h",
-                "examples/*.chaos","partitions/*.csv","third_party/*"):
-    for path in project.glob(pattern):
-        if path.name=="secrets.h" or path.name.startswith("secrets."):continue
-        source[path.relative_to(project).as_posix()]=path.read_bytes()
-for path in (project/"lib/ChaosUhrWebServer").rglob("*"):
-    if path.is_file() and (path.suffix in (".h",".cpp") or path.name in ("library.json","UPSTREAM_SHA256.json","LICENSE")):
-        source[path.relative_to(project).as_posix()]=path.read_bytes()
-for filename in ("LICENSE","THIRD_PARTY.md","CHANGELOG.md",".gitignore","docs/RELEASE_v2.0.7.md","docs/RELEASE_v2.0.8.md","docs/UPGRADE_2_0_8.md","docs/SICHERHEIT_2_0_8.md","docs/GITHUB_UPDATES.md","docs/ESP32_FIRMWARE.md","docs/AUTOMATIK_2_0_7.md",
-                 "docs/ANIMATIONEN_FORMAT.md","docs/CHATGPT_ANIMATION_PROMPT.txt"):
-    source[filename]=(project/filename).read_bytes()
-source["platformio.ini"]=re.sub(r'^default_envs = (?:d1_mini_public|esp32dev_public)$',
-                               'default_envs = d1_mini_public',
-                               (project/"platformio.ini").read_text(),count=1,flags=re.M).encode()
-manual=(project/"docs"/"PUBLIC_FIRMWARE.md").read_bytes()
-# Keep the reviewed public project overview intact; apply the same credential
-# scan below as for every other published source file.
-source["README.md"]=(project/"README.md").read_bytes()
-source["docs/PUBLIC_FIRMWARE.md"]=manual
+source=collect_public_sources(project,"d1_mini_public")
+manual=source["docs/PUBLIC_FIRMWARE.md"]
 for path,data in source.items():check_clean(data,path)
 if any("secrets.local.h"==Path(path).name or ".pio" in Path(path).parts for path in source):
     raise SystemExit("Private artifact in source allowlist")
@@ -101,18 +83,26 @@ extras={"ANIMATIONEN_FORMAT.md":source["docs/ANIMATIONEN_FORMAT.md"],
         "UPGRADE_2_0_8.md":source["docs/UPGRADE_2_0_8.md"],
         "SICHERHEIT_2_0_8.md":source["docs/SICHERHEIT_2_0_8.md"],
         "RELEASE_v2.0.7.md":source["docs/RELEASE_v2.0.7.md"],
+        "RELEASE_v2.0.10.md":source["docs/RELEASE_v2.0.10.md"],
+        "UPGRADE_2_0_10.md":source["docs/UPGRADE_2_0_10.md"],
+        "MQTT_2_0_10.md":source["docs/MQTT_2_0_10.md"],
         "RELEASE_v2.0.8.md":source["docs/RELEASE_v2.0.8.md"],
         "ESP32_FIRMWARE.md":source["docs/ESP32_FIRMWARE.md"],
         "CHATGPT_ANIMATION_PROMPT.txt":source["docs/CHATGPT_ANIMATION_PROMPT.txt"],
         "examples/Herz.chaos":source["examples/Herz.chaos"]}
+for path, data in source.items():
+    if path.startswith("docs/"):
+        extras[Path(path).name] = data.replace(b"../THIRD_PARTY.md", b"THIRD_PARTY.md")
 for path,data in extras.items():
     destination=output/path;destination.parent.mkdir(parents=True,exist_ok=True);destination.write_bytes(data)
 metadata={"version":version,"board":"d1_mini","chip":"esp8266","led_gpio":12,
           "flash_bytes":4194304,"binary_bytes":len(raw),"hardware_tested":False,
           "animation_uploads":True,"upload_format":"chaos/1","max_uploads":8,"max_upload_bytes":24576,
           "sha256":{name+".bin":digest}}
-metadata.update(credentials_format=2,password_kdf="PBKDF2-HMAC-SHA256",password_rounds=10000,
-                legacy_migration_requires_readable_filesystem=True,settings_backup="chaosuhr-settings/1",
+metadata.update(configurable_led_pin=True,supported_led_gpio=[4,5,12,13,14],mqtt=True,sensor_slots=4,settings_backup_schema=2,
+                ota_max_bytes=1044464,ota_image_reserve_bytes=1044464-len(raw),
+                credentials_format=2,password_kdf="PBKDF2-HMAC-SHA256",password_rounds=10000,
+                legacy_migration_requires_readable_filesystem=True,settings_backup="chaosuhr-settings/2",
                 ota_integrity="ESP8266 core CRC and product check",ota_signature_required=False,tls=False)
 metadata["github_update_channel"]="https://raw.githubusercontent.com/EntenPaule/ChaosUhr/firmware-updates/"
 build_info=(json.dumps(metadata,indent=2)+"\n").encode()
@@ -121,15 +111,19 @@ zip_path=output/(name+".zip")
 with ZipFile(zip_path,"w",ZIP_DEFLATED) as archive:
     archive.writestr(name+".bin",raw)
     archive.writestr("LIESMICH.md",manual)
-    archive.writestr("AUTOMATIK_2_0_7.md",automatic)
     archive.writestr("BUILD_INFO.json",build_info)
     for path,data in extras.items():archive.writestr(path,data)
     archive.writestr("SHA256SUMS",digest+"  "+name+".bin\n")
     archive.writestr("LICENSE",source["LICENSE"])
     archive.writestr("THIRD_PARTY.md",source["THIRD_PARTY.md"])
-    archive.writestr("third_party/FastLED-LICENSE",source["third_party/FastLED-LICENSE"])
-    archive.writestr("third_party/BearSSL-LICENSE",source["third_party/BearSSL-LICENSE"])
+    for path,data in source.items():
+        if path.startswith("third_party/") or path in ("lib/ChaosUhrWebServer/LICENSE", "lib/ChaosUhrESP32WebServer/LICENSE"):
+            archive.writestr(path,data)
     for path,data in sorted(source.items()):archive.writestr("source/"+path,data)
+with ZipFile(zip_path) as archive:
+    assert archive.testzip() is None
+    assert len(archive.namelist()) == len(set(archive.namelist()))
+    assert archive.read(name+".bin") == raw
 zip_digest=hashlib.sha256(zip_path.read_bytes()).hexdigest()
 (output/"SHA256SUMS").write_text(digest+"  "+name+".bin\n"+zip_digest+"  "+name+".zip\n")
 print(f"Public release: {name}.bin ({len(raw)} bytes), {name}.zip ({zip_path.stat().st_size} bytes)")
@@ -140,7 +134,8 @@ print("Checked: personal passwords absent, private header absent from build/sour
 channel=output/"update-channel";channel.mkdir(exist_ok=True)
 manifest={"format":"chaosuhr-update","schema":1,"version":version,"prerelease":True,
           "board":"d1_mini","chip":"esp8266","flash_bytes":4194304,"led_gpio":12,
-          "binary":name+".bin","bytes":len(raw),"sha256":digest}
+          "binary":name+".bin","bytes":len(raw),"sha256":digest,
+          "configurable_led_pin":True,"supported_led_gpio":[4,5,12,13,14]}
 (channel/"preview.json").write_text(json.dumps(manifest,indent=2)+"\n")
 (channel/(name+".bin")).write_bytes(raw)
 print("Prepared update-channel/preview.json and matching BIN locally; not published.")

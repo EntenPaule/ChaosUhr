@@ -1,0 +1,10 @@
+{
+  "name": "ChaosUhrESP32WebServer",
+  "version": "3.3.12-hardened.1",
+  "platforms": [
+    "espressif32"
+  ],
+  "frameworks": [
+    "arduino"
+  ]
+}

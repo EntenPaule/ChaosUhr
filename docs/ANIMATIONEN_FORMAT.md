@@ -1,8 +1,8 @@
 # Eigene ChaosUhr-Animationen teilen – Format .chaos, Version 1
 
-Auch Wemos **2.0.8** verwendet dieses unveränderte Dateiformat. Der aktuelle Geräte- und Teststand steht im [Releasebericht 2.0.8](RELEASE_v2.0.8.md); Angaben zu 2.0.7 unten sind historisch. Die zusätzliche Einstellungssicherung enthält keine Animationsdateien.
+**2.0.10** verwendet auf Wemos und klassischem ESP32 dieses unveränderte Dateiformat. Die neuen Builds sind noch nicht am Gerät getestet; siehe [Releasebericht 2.0.10](RELEASE_v2.0.10.md). Bisherige Wemos-Dateien aus 2.0.7/2.0.8 bleiben kompatibel. Die Einstellungssicherung enthält keine Animationsdateien.
 
-Für die **Wemos-Versionen 2.0.7 mit Upload-Verwaltung und 2.0.8**. Das Format beschreibt Pixelbilder und ihre Anzeigedauer; es enthält keinen auszuführenden Programmcode. Für jede neue Animation ist damit kein Firmware-Flashen nötig.
+Das Format beschreibt Pixelbilder und ihre Anzeigedauer; es enthält keinen auszuführenden Programmcode. Für jede neue Animation ist damit kein Firmware-Flashen nötig.
 
 ## In der GUI benutzen
 
@@ -12,7 +12,7 @@ Für die **Wemos-Versionen 2.0.7 mit Upload-Verwaltung und 2.0.8**. Das Format b
 4. Den neuen Eintrag oben für die Automatik ankreuzen oder als Einzelanimation auswählen; **Einstellungen speichern** drücken. Neue Uploads sind zunächst nicht für die Automatik ausgewählt.
 5. Ein fehlendes Häkchen nimmt eine Animation aus der Automatik. Fest eingebaute Effekte bleiben im Firmware-Speicher und für den Einzelmodus verfügbar. Eigene Uploads lassen sich zusätzlich herunterladen oder nach Bestätigung vollständig löschen.
 
-Maximal **acht eigene Dateien**, jeweils **24 KiB (24576 Byte)**. Anzeige: **20×15 Pixel**, bis zu **16 Farben**, **1–64 Bilder**. Das aktuelle Layout hat ein eigenes LittleFS-Dateisystem von ungefähr 1 MiB; der benötigte Dateisystemspeicher wird in der GUI angezeigt. Jeder belegte Upload-Platz zählt, auch wenn er für die Automatik deaktiviert ist. Bei vollem Speicher oder acht Dateien zuerst einen eigenen Upload löschen.
+Maximal **acht eigene Dateien**, jeweils **24 KiB (24576 Byte)**. Anzeige: **20×15 Pixel**, bis zu **16 Farben**, **1–64 Bilder**. LittleFS umfasst beim Wemos ungefähr **1 MiB**, beim klassischen ESP32 **192 KiB**. 2.0.10 hält bei Uploads **12 KiB Reserve** für Einstellungen, Zugangsjournal und MQTT frei. Dateisystem-Verwaltung benötigt zusätzlichen Platz; acht maximal große Dateien passen beim ESP32 daher nicht gleichzeitig. Die GUI zeigt den Speicherverbrauch. Jeder belegte Upload-Platz zählt, auch wenn er für die Automatik deaktiviert ist. Bei vollem Speicher oder acht Dateien zuerst einen eigenen Upload löschen.
 
 Nach dem Löschen wird der zugehörige Eintrag aus den gespeicherten Auswahlwerten entfernt. War er die letzte ausgewählte Animation, schaltet die Uhr in **Nur Uhrzeit**; als Auswahl für einen späteren Automatikstart wird Effekt 1 vorgemerkt. Andere zuvor deaktivierte Effekte werden nicht pauschal eingeschaltet. Ein beschädigter Upload wird nicht abgespielt, bleibt aber in der Verwaltung zum Herunterladen oder Löschen sichtbar.
 

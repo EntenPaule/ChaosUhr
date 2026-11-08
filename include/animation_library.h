@@ -10,6 +10,7 @@ struct UploadedAnimation {
 template<typename Filesystem,typename File>class AnimationLibrary {
  public:
   explicit AnimationLibrary(Filesystem& fs,void(*tick)()=nullptr):fs_(fs),tick_(tick){}
+  void setReserveGuard(bool(*guard)(size_t)){reserveGuard_=guard;}
   void begin(){ready_=fs_.begin();if(ready_){fs_.remove(tempPath());scan();}}
   bool ready()const{return ready_;}
   const UploadedAnimation& slot(uint8_t index)const{return slots_[index];}
@@ -45,6 +46,7 @@ template<typename Filesystem,typename File>class AnimationLibrary {
   void writeUpload(const uint8_t* data,size_t length){
     if(status_!=200)return;
     if(!pending_ || length>CHAOS_MAX_BYTES-bytes_){setError(413,"Datei darf hoechstens 24 KiB gross sein.");return;}
+    if(reserveGuard_ && !reserveGuard_(length)){setError(507,"Datenspeicher voll; Reserve fuer Einstellungen und Zugang bleibt erhalten.");return;}
     if(pending_.write(data,length)!=length){setError(507,"Animationsspeicher voll oder Schreibfehler.");return;}
     bytes_+=length;
   }
@@ -99,7 +101,7 @@ template<typename Filesystem,typename File>class AnimationLibrary {
     return true;
   }
  private:
-  Filesystem& fs_;void(*tick_)();bool ready_=false,complete_=false;
+  Filesystem& fs_;void(*tick_)();bool(*reserveGuard_)(size_t)=nullptr;bool ready_=false,complete_=false;
   UploadedAnimation slots_[UPLOAD_SLOTS];File pending_,playing_;
   ChaosAnimation playback_;uint8_t pixels_[300]={},playingId_=0,cachedFrame_=255;
   uint8_t parts_=0,target_=0;uint32_t bytes_=0;int status_=200;char error_[96]={};

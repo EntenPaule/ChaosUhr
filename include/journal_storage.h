@@ -48,6 +48,12 @@ template<typename Storage,typename Filesystem,typename File>class JournalStorage
   // caller format LittleFS. A reboot before formatting recovers the marker.
   bool clearForReset(){
     if(fault_)return false;
+    // This path is reached only after an explicit, persistently marked reset.
+    // If the old FS was unreadable, establish the marker journal before erasing
+    // EEPROM; a failed format must leave the EEPROM reset marker intact.
+    if(!fs_.begin()){
+      if(!fs_.format() || !fs_.begin() || !commit())return false;
+    }
     for(size_t i=0;i<length();++i)storage_.write(i,0xff);
     return storage_.commit();
   }

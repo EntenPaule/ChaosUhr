@@ -1,4 +1,13 @@
-# Übernommene Bestandteile
+# Bestandteile und Lizenzen
+
+## Neue Bestandteile in 2.0.10
+
+- **espMqttClient 1.7.3**, Bert Melis, MIT: https://github.com/bertmelis/espMqttClient/tree/v1.7.3, vollständiger Text `third_party/espMqttClient-LICENSE`.
+- **ArduinoJson 7.4.3**, Benoit Blanchon, MIT: https://github.com/bblanchon/ArduinoJson/tree/v7.4.3, `third_party/ArduinoJson-LICENSE`.
+- **ESPAsyncTCP 2.0.0** und **AsyncTCP 3.5.0**, ESP32Async, LGPL-3.0: https://github.com/ESP32Async/ESPAsyncTCP und https://github.com/ESP32Async/AsyncTCP. Texte unter `third_party/ESPAsyncTCP-LICENSE` und `third_party/AsyncTCP-LICENSE`.
+- **ESP32-Webserver**, aus Arduino-ESP32 3.3.12: `lib/ChaosUhrESP32WebServer`, LGPL 2.1 oder neuer. Originalhinweise und vollständige Lizenz enthalten; ursprüngliche Dateihashes in `UPSTREAM_SHA256.json`. Projektänderungen: Zugriffsprüfung vor dem Body und für Portal-Verbindungen, Header-/Feld-/Argument-/Body-Grenzen, strenge Content-Length und Antwort-Schutzheader. Globale Framework-Dateien werden nicht geändert.
+- ESP32 verwendet für SHA-256/HMAC die mit seinem Arduino-Core gelieferte **Mbed TLS 3.6.6**-Implementierung, Apache-2.0 oder GPL-2.0-or-later nach Wahl. Vollständige Lizenztexte und Originalhinweise: `third_party/MbedTLS-LICENSE`, Quelle https://github.com/Mbed-TLS/mbedtls/tree/mbedtls-3.6.6. ESP8266 verwendet weiter BearSSL. Die gespeicherten PBKDF2-Parameter bleiben kompatibel.
+- `include/weather_icons.h` und die Kleinbuchstaben-Glyphen wurden für dieses Projekt erstellt; sie gehören zur GPL-3.0-Codebasis.
 
 ## BearSSL
 

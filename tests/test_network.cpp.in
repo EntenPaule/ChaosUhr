@@ -83,6 +83,7 @@ struct TestMDNS {
 struct TestSerial {
   template<typename... Args> void printf(const char*,Args...){}
 } Serial;
+struct {void start(const char*,uint32_t){}} ipAnnouncement;
 
 @SERVICE_NETWORK@
 

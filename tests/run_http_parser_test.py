@@ -14,3 +14,14 @@ subprocess.run(['g++', '-std=c++17', '-Wall', '-Wextra', '-Werror', '-pedantic',
                 '-I', str(root / 'include'),
                 '-x', 'c++', '-', '-o', str(binary)], input=fixture, text=True, check=True)
 subprocess.run([str(binary)], check=True)
+
+esp32=(root/'lib/ChaosUhrESP32WebServer/src/Parsing.cpp').read_text()
+helpers=esp32[esp32.index('static char *readBytesWithTimeout'):esp32.index('bool WebServer::_parseRequest')]
+request=esp32[esp32.index('bool WebServer::_parseRequest'):esp32.index('bool WebServer::_collectHeader')]
+collect=esp32[esp32.index('bool WebServer::_collectHeader'):esp32.index('void WebServer::_parseArguments')]
+fixture=(root/'tests/test_esp32_ingress.cpp.in').read_text().replace('@HELPERS@',helpers).replace('@PARSE_REQUEST@',request).replace('@COLLECT_HEADER@',collect)
+binary=root/'.pio/host-tests/test_esp32_ingress'
+subprocess.run(['g++','-std=c++17','-Wall','-Wextra','-Werror','-pedantic',
+                '-fsanitize=address,undefined','-fno-omit-frame-pointer',
+                '-x','c++','-','-o',str(binary)],input=fixture,text=True,check=True)
+subprocess.run([str(binary)],check=True)

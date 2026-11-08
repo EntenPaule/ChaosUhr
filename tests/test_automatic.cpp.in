@@ -1,6 +1,8 @@
 // Actual scene/API functions are inserted by run_host_tests.py. No device I/O.
 #include "auto_playback.h"
 #include "display_logic.h"
+#include "scene_pages.h"
+#include "mqtt_config.h"
 #include <array>
 #include <cassert>
 #include <cstdio>
@@ -18,6 +20,13 @@ static uint8_t random8(uint8_t count){
 }
 static void resetAnimation(){++resets;}
 static Settings cfg=defaultSettings();
+static constexpr bool TARGET_ESP32=false;
+static DisplayOptions displayOptions=defaultDisplayOptions();
+static bool optionsPersisted=false;
+static MqttConfig mqttConfig=defaultMqttConfig();
+static uint8_t currentSensor=SENSOR_SLOTS-1;
+struct SensorStub {bool fresh(uint32_t,uint32_t){return false;}};
+struct {SensorStub sensors[SENSOR_SLOTS];bool weatherAvailable(uint32_t,uint32_t){return false;}bool sensorsAvailable(uint32_t,uint32_t){return false;}} telemetry;
 static SceneState scene;
 static AutoPlayback autoPlayback;
 #define CHAOSUHR_HAS_UPLOADS
@@ -40,7 +49,7 @@ struct MemoryStorage {
 } EEPROM;
 #define clockStorage EEPROM
 #define CHAOSUHR_PUBLIC_BUILD 1
-struct {bool token=true;bool validMutationToken(){return token;}} publicAccess;
+struct {bool token=true;unsigned restarts=0;bool validMutationToken(){return token;}void restartAfterUpdate(){++restarts;}} publicAccess;
 static constexpr int HTTP_POST=1;
 static bool auth(){return true;}
 struct TestServer {
@@ -54,6 +63,7 @@ struct TestServer {
 } server;
 
 @ACTIVE_EFFECT@
+@AVAILABLE_PAGES@
 @NEXT_SCENE@
 @SAVE_API@
 
@@ -135,6 +145,7 @@ static void testShuffle(){
 }
 
 static void testSettingsApi(){
+  displayOptions=defaultDisplayOptions();optionsPersisted=false;
   cfg=defaultSettings();cfg.effect=16;sealSettings(cfg);
   EEPROM=MemoryStorage();EEPROM.buffer.fill(0xa5);EEPROM.put(0,cfg);
   assert(EEPROM.commit());settingsPersisted=true;
@@ -145,7 +156,7 @@ static void testSettingsApi(){
   server.arguments={{"autoEffects",std::to_string(mask)},{"autoOrder","1"}};
   saveApi();assert(server.status==200 && cfg.autoEffects==mask && cfg.autoOrder==1);
   assert(cfg.effect==16 && validSettings(cfg));
-  for(size_t i=32;i<128;++i)assert(EEPROM.flash[i]==original[i]);
+  for(size_t i=32;i<120;++i)assert(EEPROM.flash[i]==original[i]);
   scene.reset(0,cfg.effect);now=5000;nextScene();assert(autoPlayback.last==2);
   const unsigned commits=EEPROM.commits,resetCount=resets;
   saveApi();assert(server.status==200 && EEPROM.commits==commits && resets==resetCount);
@@ -167,7 +178,7 @@ static void testSettingsApi(){
   EEPROM.fail=false;saveApi();
   assert(server.status==200 && cfg.autoEffects==1 && cfg.autoOrder==0 && autoPlayback.last==0);
   assert(settingsPersisted);
-  for(size_t i=32;i<128;++i)assert(EEPROM.flash[i]==original[i]);
+  for(size_t i=32;i<120;++i)assert(EEPROM.flash[i]==original[i]);
   server.arguments={{"autoEffects","0"},{"autoUploads","129"},{"autoOrder","1"}};
   saveApi();assert(server.status==200 && cfg.autoEffects==0 && cfg.autoUploads==129);
   now+=5000;nextScene();assert(activeEffect()==31);
@@ -176,6 +187,13 @@ static void testSettingsApi(){
   animations.mask=1;assert(activeEffect()==0);
   server.arguments={{"autoUploads","128"}};saveApi();assert(server.status==400);
   animations.mask=255;
+  server.arguments={{"secondsBar","0"},{"weekdayStyle","1"},{"showClock","1"},{"showAnimations","0"},{"showWeather","1"}};
+  saveApi();assert(server.status==200&&displayOptions.weekdayStyle==1&&!(displayOptions.flags&DISPLAY_SECONDS));
+  now+=5000;nextScene();assert(activeEffect()==0); // No weather data: clock, never an animation.
+  const auto accessBefore=EEPROM.flash;
+  server.arguments={{"ledPin","4"}};saveApi();assert(server.status==200&&displayOptions.ledPin==4&&publicAccess.restarts==1);
+  for(size_t i=32;i<120;++i)assert(EEPROM.flash[i]==accessBefore[i]);
+  const auto newCommits=EEPROM.commits;server.arguments={{"ledPin","0"}};saveApi();assert(server.status==400&&EEPROM.commits==newCommits);
   puts("PASS actual settings API: atomic automatic selection/order, rejects empty/out-of-range/duplicate values, no-op saves, failed commit rollback and retained admin bytes");
 }
 

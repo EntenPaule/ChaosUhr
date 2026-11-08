@@ -79,7 +79,13 @@ static void migration(){
   DeviceCredentials initial;direct.get(32,initial);assert(!credentialsReady(initial));
   assert(provisionCredentials(direct,initial,password,password,"123456789012",salt));assert(initial.version==2&&verifyAdminPassword(initial,password));
   Flash corrupt;MemoryAnimationFS damaged;damaged.begin();damaged.put(Journal::path(),"truncated");Journal bad(corrupt,damaged);bad.begin(128);assert(bad.fault()&&!bad.commit());
-  std::cout<<"PASS upgrades: actual 2.0.5 fixture, legacy 20-byte settings, deferred migration without formatting, hash/login/AP preservation, all 128 torn EEPROM writes, FS failures, reset journal and blank original-sketch storage\n";
+  Flash noFsFlash;memcpy(noFsFlash.flash.data(),UPGRADE_205,128);MemoryAnimationFS noFs;noFs.mountable=false;noFs.formatFails=true;
+  Journal resetStorage(noFsFlash,noFs);resetStorage.begin(128);DeviceCredentials resetting;resetStorage.get(32,resetting);
+  assert(markFactoryReset(resetStorage,resetting));assert(!resetStorage.clearForReset());
+  DeviceCredentials stillPending;resetStorage.get(32,stillPending);assert(resetPending(stillPending));
+  noFs.formatFails=false;assert(resetStorage.clearForReset());
+  Journal recoveredReset(noFsFlash,noFs);recoveredReset.begin(128);recoveredReset.get(32,stillPending);assert(resetPending(stillPending));
+  std::cout<<"PASS upgrades: actual 2.0.5 fixture, legacy settings, deferred migration, hash/login/AP preservation, all 128 torn EEPROM writes, FS failures, reset journal including unreadable-FS/failed-format recovery\n";
 }
 static std::vector<uint8_t> image(){
   std::vector<uint8_t> bytes(0x1200,0);bytes[0]=bytes[0x1000]=0xe9;bytes[2]=2;bytes[3]=0x40;

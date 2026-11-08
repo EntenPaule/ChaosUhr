@@ -15,6 +15,10 @@ int main(){
     local.tm_wday=(day+1)%7;local.tm_mday=day+2;
     assert(formatGermanDate(local,text,sizeof text));
     assert(!strcmp(text,expected[day]));
+    const char* shortNames[]={"mo","di","mi","do","fr","sa","so"};
+    char abbreviated[CLOCK_DATE_CAPACITY];
+    assert(formatGermanDate(local,abbreviated,sizeof abbreviated,1));
+    assert(!strncmp(abbreviated,shortNames[day],2) && !strcmp(abbreviated+2,strchr(text,' ')));
     for(const char* character=text;*character;character++){
       if(*character==' ') continue;
       uint8_t combined=0;
@@ -45,8 +49,12 @@ int main(){
   assert(dateScrollX(1000,0)==MATRIX_WIDTH);
   assert(dateScrollX(1000,CLOCK_DATE_CAPACITY)==MATRIX_WIDTH);
   assert(fontRow('.',4)==2 && !fontRow(' ',0));
-  for(char letter='a';letter<='z';letter++)
-    for(uint8_t row=0;row<FONT_HEIGHT;row++) assert(fontRow(letter,row)==fontRow(letter-'a'+'A',row));
+  for(char letter='a';letter<='z';letter++){
+    uint8_t combined=0;for(uint8_t row=0;row<FONT_HEIGHT;row++)combined|=fontRow(letter,row);
+    assert(combined);
+  }
+  assert(fontRow('o',0)==0 && fontRow('O',0)!=0);
+  assert(!formatGermanDate(local,text,sizeof text,2));
   for(int character=0;character<128;character++)
     for(uint8_t row=0;row<7;row++) assert(fontRow(character,row)<=7);
   assert(CLOCK_TIME_Y+FONT_HEIGHT<CLOCK_DATE_Y && CLOCK_DATE_Y+FONT_HEIGHT<MATRIX_HEIGHT);
