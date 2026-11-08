@@ -2,7 +2,7 @@
   "format": "chaosuhr-update",
   "schema": 1,
   "version": "2.0.10",
-  "prerelease": true,
+  "prerelease": false,
   "board": "d1_mini",
   "chip": "esp8266",
   "flash_bytes": 4194304,

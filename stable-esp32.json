@@ -1,0 +1,28 @@
+{
+  "format": "chaosuhr-update",
+  "schema": 1,
+  "version": "2.0.10",
+  "prerelease": false,
+  "board": "esp32dev",
+  "chip": "esp32",
+  "flash_bytes": 4194304,
+  "led_gpio": 32,
+  "binary": "chaosuhr-2.0.10-esp32-ota.bin",
+  "bytes": 1853040,
+  "sha256": "3740317a2a8c146a090161a8596be3e383e78392991ed7143cff3b1f286a19f1",
+  "configurable_led_pin": true,
+  "supported_led_gpio": [
+    13,
+    14,
+    18,
+    19,
+    21,
+    22,
+    23,
+    25,
+    26,
+    27,
+    32,
+    33
+  ]
+}
