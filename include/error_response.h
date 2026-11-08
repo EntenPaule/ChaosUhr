@@ -17,9 +17,9 @@ inline String errorJsonText(const char* text){
   }
   return result+"\"";
 }
-inline String errorJson(ErrorCode code,int status=0){
+inline String errorJson(ErrorCode code,int status=0,const char* field=nullptr){
   const auto d=errorDefinition(code);char number[16];snprintf(number,sizeof number,"%d",status);
-  return String("{\"code\":")+errorJsonText(d.code)+",\"component\":"+errorJsonText(d.component)+",\"message\":"+errorJsonText(d.message)+",\"details\":"+errorJsonText(d.details)+",\"action\":"+errorJsonText(d.action)+",\"status\":"+number+"}";
+  return String("{\"code\":")+errorJsonText(d.code)+",\"component\":"+errorJsonText(d.component)+",\"message\":"+errorJsonText(d.message)+",\"details\":"+errorJsonText(d.details)+",\"action\":"+errorJsonText(d.action)+",\"status\":"+number+(field?String(",\"field\":")+errorJsonText(field):String(""))+"}";
 }
 template<typename Server>inline void sendError(Server& server,int status,ErrorCode code){recordError(code);server.send(status,"application/json; charset=utf-8",errorJson(code,status));}
 // Logging must remain usable when heap allocation itself has failed.

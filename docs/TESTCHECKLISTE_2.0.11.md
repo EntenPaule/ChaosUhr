@@ -1,3 +1,5 @@
+> Historischer unnummerierter 2.0.11-Teststand. Aktuell: [2.0.11-beta.1](BERICHT_2.0.11-beta.1.md); dessen Testumfang und ausschließliches Wemos-Paket sind maßgeblich. Kein offizielles 2.0.11-Release.
+
 # ChaosUhr 2.0.11 – Checkliste für Tester
 
 Bitte Boardmodell, vorherige Version, Installationsart (OTA/USB), Version nach dem Start und Ergebnisse notieren. Passwörter, WLAN-Namen, Brokeradressen und Tokens nicht öffentlich teilen. Für Fehlermeldungen die bereinigte Supportdiagnose aus der GUI kopieren.

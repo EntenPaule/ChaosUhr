@@ -1,3 +1,5 @@
+> Historischer unnummerierter 2.0.11-Teststand. Aktuell: [2.0.11-beta.1](BERICHT_2.0.11-beta.1.md); dessen Testumfang und ausschließliches Wemos-Paket sind maßgeblich. Kein offizielles 2.0.11-Release.
+
 # ChaosUhr 2.0.11 – Entwicklungsbericht, Sitzungen und Testpaket
 
 Aktueller lokaler Entwicklungsbranch: `fix/2.0.11-diagnostics`, Worktree `.pio/dev-2.0.11/`. Produktive Quellbasis unverändert auf `0f06cd6f5fcb394b8873f154c848b1cbfe1f14e8`, Kanal-Checkout unverändert auf `907d954040752ce5c23c15aa869bae0a7c6e4043`. Kein Release, kein Tag, kein Push, keine Änderung eines produktiven Updatekanals und kein Kontakt zu Uhr, Router oder Broker. Die BINs sind Testartefakte und keine Hardwarefreigabe.

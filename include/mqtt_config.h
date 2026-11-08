@@ -34,18 +34,32 @@ template<size_t N>inline bool boundedText(const char (&text)[N],bool ascii=false
 template<size_t N>inline bool validMqttTopic(const char (&text)[N]){
   return boundedText(text,true) && !strchr(text,'#') && !strchr(text,'+');
 }
-inline bool validMqttConfig(const MqttConfig& value){
-  if(value.magic!=0x4d513130 || value.version!=1 || value.enabled>1 || value.discovery>1 ||
-     value.reserved || value.reserved2 || value.crc!=mqttConfigChecksum(value) || !value.port ||
-     value.staleSeconds<60 || value.staleSeconds>86400 || !boundedText(value.host,true) ||
-     !boundedText(value.user) || !boundedText(value.password) || !validMqttTopic(value.base) ||
-     !validMqttTopic(value.discoveryPrefix) || !validMqttTopic(value.weatherTopic) ||
-     !validMqttTopic(value.temperatureTopic) || (value.enabled&&!value.host[0]) || !value.discoveryPrefix[0])return false;
-  for(const char* c=value.host;*c;++c)if(!((*c>='a'&&*c<='z')||(*c>='A'&&*c<='Z')||(*c>='0'&&*c<='9')||strchr(".-_:",*c)))return false;
-  for(const auto& sensor:value.sensors)
-    if(!validMqttTopic(sensor.topic)||!boundedText(sensor.label)||!boundedText(sensor.unit))return false;
-  return true;
+// Return only fixed field identifiers, never configuration contents.
+// Keep the persisted v1 layout and every existing validation rule unchanged.
+inline const char* mqttConfigInvalidField(const MqttConfig& value){
+  if(value.magic!=0x4d513130 || value.version!=1)return "format";
+  if(value.enabled>1)return "enabled";
+  if(value.discovery>1)return "discovery";
+  if(value.reserved || value.reserved2)return "reserved";
+  if(value.crc!=mqttConfigChecksum(value))return "checksum";
+  if(!value.port)return "port";
+  if(value.staleSeconds<60 || value.staleSeconds>86400)return "staleSeconds";
+  if(!boundedText(value.host,true) || (value.enabled&&!value.host[0]))return "host";
+  if(!boundedText(value.user))return "user";
+  if(!boundedText(value.password))return "password";
+  if(!validMqttTopic(value.base))return "base";
+  if(!validMqttTopic(value.discoveryPrefix) || !value.discoveryPrefix[0])return "discoveryPrefix";
+  if(!validMqttTopic(value.weatherTopic))return "weatherTopic";
+  if(!validMqttTopic(value.temperatureTopic))return "temperatureTopic";
+  for(const char* c=value.host;*c;++c)if(!((*c>='a'&&*c<='z')||(*c>='A'&&*c<='Z')||(*c>='0'&&*c<='9')||strchr(".-_:",*c)))return "host";
+  for(const auto& sensor:value.sensors){
+    if(!validMqttTopic(sensor.topic))return "sensorTopic";
+    if(!boundedText(sensor.label))return "sensorLabel";
+    if(!boundedText(sensor.unit))return "sensorUnit";
+  }
+  return nullptr;
 }
+inline bool validMqttConfig(const MqttConfig& value){return mqttConfigInvalidField(value)==nullptr;}
 template<typename Filesystem,typename File>class MqttConfigStorage {
  public:
   explicit MqttConfigStorage(Filesystem& fs):fs_(fs){}
@@ -65,8 +79,8 @@ template<typename Filesystem,typename File>class MqttConfigStorage {
     value=saved;return true;
   }
   bool save(MqttConfig& current,MqttConfig next){
-    error_=ErrorCode::None;sealMqttConfig(next);
-    if(!validMqttConfig(next))return fail(ErrorCode::MQTT_CONFIG_INVALID);
+    error_=ErrorCode::None;invalidField_=nullptr;sealMqttConfig(next);
+    if((invalidField_=mqttConfigInvalidField(next)))return fail(ErrorCode::MQTT_CONFIG_FIELD);
     if(!fs_.begin())return fail(ErrorCode::FS_MOUNT);
     if(!memcmp(&current,&next,sizeof next) && fs_.exists(path()))return true;
     File file=fs_.open(temporary(),"w");if(!file)return fail(ErrorCode::FS_OPEN_WRITE);
@@ -83,9 +97,11 @@ template<typename Filesystem,typename File>class MqttConfigStorage {
   }
   static const char* path(){return "/.chaosuhr-mqtt.bin";}
   ErrorCode errorCode()const{return error_;}
+  const char* invalidField()const{return invalidField_;}
  private:
   Filesystem& fs_;
   ErrorCode error_=ErrorCode::None;
+  const char* invalidField_=nullptr;
   bool fail(ErrorCode code){error_=code;recordError(code);return false;}
   bool cleanup(ErrorCode code){if(!fs_.remove(temporary()))recordError(ErrorCode::FS_REMOVE);return fail(code);}
   static const char* temporary(){return "/.chaosuhr-mqtt.pending";}

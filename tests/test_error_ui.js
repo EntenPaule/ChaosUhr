@@ -31,6 +31,10 @@ const response=(status,body)=>({ok:status>=200&&status<300,status,text:async()=>
   await assert.rejects(a.context.chaosJson(r),e=>e.message.includes(code)&&!e.message.includes('fixture-private-secret'));
  }
  await assert.rejects(a.context.chaosJson({ok:true,status:200,text:async()=>{throw Error('fixture-private-secret')}}),e=>e.message.includes('HTTP-012')&&!e.message.includes('fixture-private-secret'));
+ for(const field of ['checksum','discoveryPrefix','fixture-private-secret']){
+  const body=JSON.stringify({code:'MQTT-022',message:'Abgelehnt',details:'Regel verletzt',action:'Feld prüfen',field});
+  await assert.rejects(a.context.chaosCheck(response(400,body)),e=>e.message.includes('MQTT-022')&&!e.message.includes('fixture-private-secret')&&(field==='fixture-private-secret'||e.message.includes('Feld: '+field)));
+ }
  // A failed shared script still produces a coded message without any helper loaded.
  const attribute=main.match(/src="\/errors\.js[^\"]*" onerror="([^\"]*)"/)[1];
  const handler=attribute.replaceAll('&quot;','"').replaceAll('&#x27;',"'").replaceAll('&amp;','&').replaceAll('&lt;','<').replaceAll('&gt;','>');

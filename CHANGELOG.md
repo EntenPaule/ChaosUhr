@@ -1,3 +1,7 @@
+# 2.0.11-beta.1 (lokale Diagnose-/Testversion)
+
+MQTT: vollständige Browser-/Parser-Regression und sichere Feldkennung MQTT-022; gemeldete Hardwareursache weiterhin offen. Sitzungsverwaltung erhalten. Hinweis zur Sekundenleiste ergänzt. Nur Wemos-Testpaket, keine ESP32-Firmware und keine Veröffentlichung. Details: [Bericht](docs/BERICHT_2.0.11-beta.1.md).
+
 # Änderungen
 
 ## 2.0.11 – lokale Entwicklung, nicht veröffentlicht

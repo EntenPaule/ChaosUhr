@@ -1,3 +1,5 @@
+> Historischer unnummerierter 2.0.11-Teststand. Aktuell: [2.0.11-beta.1](BERICHT_2.0.11-beta.1.md); dessen Testumfang und ausschließliches Wemos-Paket sind maßgeblich. Kein offizielles 2.0.11-Release.
+
 # ChaosUhr 2.0.11 – lokale Versionsinformationen
 
 Dieser Entwicklungsstand ist **nicht veröffentlicht**. Kein Release, kein neuer Versions-Tag, keine Änderung am produktiven Branch oder an Updatekanälen. Firmware für Wemos D1 mini / ESP8266 und klassischen ESP32-WROOM-32, jeweils 4 MiB Flash und 20×15 WS2812B.

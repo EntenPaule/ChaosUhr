@@ -74,8 +74,11 @@ static void mqttSaveApi(){
   if(!topics){sendError(server,400,ErrorCode::CFG_TOPIC);return;}
   for(const char* c=next.host;*c;++c)if(!((*c>='a'&&*c<='z')||(*c>='A'&&*c<='Z')||(*c>='0'&&*c<='9')||strchr(".-_:",*c))){sendError(server,400,ErrorCode::CFG_HOST);return;}
   sealMqttConfig(next);
-  if(!validMqttConfig(next)){sendError(server,400,ErrorCode::MQTT_CONFIG_INVALID);return;}
+  if(const char* field=mqttConfigInvalidField(next)){recordError(ErrorCode::MQTT_CONFIG_FIELD);server.send(400,"application/json",errorJson(ErrorCode::MQTT_CONFIG_FIELD,400,field));return;}
   if(!animations.ready()){sendError(server,503,ErrorCode::FS_MOUNT);return;}
-  if(!mqttStorage.save(mqttConfig,next)){sendError(server,507,mqttStorage.errorCode());return;}
+  if(!mqttStorage.save(mqttConfig,next)){
+    const auto code=mqttStorage.errorCode();recordError(code);
+    server.send(507,"application/json",errorJson(code,507,mqttStorage.invalidField()));return;
+  }
   telemetry.clear();clockMqtt.reconfigure();server.send(200,"application/json","{\"ok\":true}");
 }

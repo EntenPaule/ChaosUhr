@@ -85,13 +85,14 @@ int main(){
   for(unsigned i=1;i<30;++i){fakeMillis+=60000;assert(session()==csrf&&remaining()==1800-i*60);}
   fakeMillis+=59999;assert(session()==csrf&&remaining()==1);
   ++fakeMillis;server.dispatch("/api/session",HTTP_GET);expect(401,"AUTH-020");
-  assert(server.responseHeaders.at("Set-Cookie").find("Max-Age=0")!=std::string::npos);
+  assert(!server.responseHeaders.count("Set-Cookie")); // late background 401 cannot delete a newer login cookie
   save(csrf);expect(401,"AUTH-020");assert(filesystem.files==files);
   // Successful explicit relogin rotates both identifiers. Logout revokes on
   // the server, even if a client keeps the previous cookie and Basic header.
   csrf=login();assert(server.headers["Cookie"]!=originalCookie);
   save(csrf);assert(server.status==200);
   server.headers["X-CSRF-Token"]=csrf;server.dispatch("/api/logout",HTTP_POST);assert(server.status==200);
+  assert(server.responseHeaders.at("Set-Cookie").find("Max-Age=0")!=std::string::npos);
   server.dispatch("/api/session",HTTP_GET);expect(401,"AUTH-021");
   server.dispatch("/api/diagnostics",HTTP_GET);expect(401,"AUTH-021");
   save(csrf);expect(401,"AUTH-021");assert(filesystem.files==files);

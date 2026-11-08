@@ -206,7 +206,10 @@ def main():
         for name in ("FLASHANLEITUNG", "TESTCHECKLISTE", "BEKANNTE_EINSCHRAENKUNGEN"):
             artifacts[name + "_" + VERSION + ".md"] = source["docs/" + name + "_" + VERSION + ".md"]
         artifacts["FEHLERCODES_" + VERSION + ".md"] = source["docs/FEHLERCODES.md"]
-        artifacts["SITZUNGEN_" + VERSION + ".md"] = source["docs/SITZUNGEN_2_0_11.md"]
+        artifacts["SITZUNGEN_" + VERSION + ".md"] = source["docs/SITZUNGEN_2_0_11.md"].replace(
+            b"(FEHLERCODES.md)", ("(FEHLERCODES_" + VERSION + ".md)").encode()).replace(
+            b"[Entwicklungsbericht](ENTWICKLUNGSBERICHT_2_0_11.md)",
+            ("[Quellcode-ZIP mit Entwicklungsbericht unter docs/](" + PREFIX + "_Quellcode.zip)").encode())
         artifacts[PREFIX + "_Quellcode.zip"] = zip_bytes(source)
         artifacts["LICENSE_" + VERSION + ".txt"] = source["LICENSE"]
         artifacts["DRITTANBIETER_" + VERSION + ".md"] = ("# ChaosUhr " + VERSION + " – Lizenzhinweise\n\nVollständige Drittanbieter-Lizenztexte liegen im beigefügten Quellcode-ZIP unter `third_party/` und `lib/`.\n\n").encode() + source["THIRD_PARTY.md"]
@@ -231,6 +234,11 @@ def main():
         for name, data in artifacts.items():
             require(VERSION in name, "Unversioned distribution filename")
             safety.check(data, name)
+            if name.endswith(".md"):
+                for target in re.findall(r'(?<!!)\[[^\]]+\]\(([^\s)]+)\)', data.decode()):
+                    if "://" in target or target.startswith(("#", "mailto:")):
+                        continue
+                    require(target.split("#")[0] in artifacts, "Broken distribution document link: " + name)
         checksums_name = "SHA256SUMS_" + VERSION + ".txt"
         checksums = "".join(sha(data) + "  " + name + "\n" for name, data in sorted(artifacts.items()))
         artifacts[checksums_name] = checksums.encode()

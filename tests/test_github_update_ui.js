@@ -17,6 +17,14 @@ function fixture(stable=manifest(),preview=null,current={version:'2.0.8',platfor
  return {context,elements,calls,accept(){accepted=true},truncate(){downloadSize=4999}};
 }
 (async()=>{
+ const ordered=['2.0.11-beta.1','2.0.11-beta.2','2.0.11-beta.10','2.0.11-rc.1','2.0.11'];
+ for(let i=0;i<ordered.length-1;i++)assert(fixture().context.compareUpdateVersions(ordered[i],ordered[i+1])<0);
+ assert(fixture().context.compareUpdateVersions('2.0.11-dev.1','2.0.11-dev.2')<0);
+ for(const currentVersion of ['2.0.11','2.0.11-beta.2','2.0.12']){
+  const noDowngrade=fixture(null,manifest('2.0.11-beta.1',true),{version:currentVersion,platform:'esp8266',flash:4194304,ledPin:12});
+  noDowngrade.context.document.getElementById('includePreview').checked=true;
+  await noDowngrade.context.checkOnlineUpdates();assert.equal(noDowngrade.elements.installOnline.hidden,true);
+ }
  const a=fixture();assert(a.context.compareUpdateVersions('2.0.10','2.0.9')>0);assert(a.context.compareUpdateVersions('2.0.9-beta.2','2.0.9-beta.10')<0);assert(a.context.compareUpdateVersions('2.0.9','2.0.9-rc.1')>0);
  await a.context.checkOnlineUpdates();assert.equal(a.elements.installOnline.hidden,false);assert(!a.calls.some(call=>call.url==='/update'));
  await a.context.installOnlineUpdate();assert(!a.calls.some(call=>call.url.endsWith('.bin')));a.accept();await a.context.installOnlineUpdate();

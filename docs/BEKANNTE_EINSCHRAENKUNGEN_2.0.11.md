@@ -1,3 +1,5 @@
+> Historischer unnummerierter 2.0.11-Teststand. Aktuell: [2.0.11-beta.1](BERICHT_2.0.11-beta.1.md); dessen Testumfang und ausschließliches Wemos-Paket sind maßgeblich. Kein offizielles 2.0.11-Release.
+
 # ChaosUhr 2.0.11 – Bekannte Einschränkungen der Testversion
 
 - **Keine neue Hardwarefreigabe.** Frische Builds, native Firmwarevalidatoren, simulierte WLAN-/MQTT-/Dateifehler und Hosttests sind geprüft. Drei echte ESP32-Kaltstarts, realer Routerausfall mit Wiederverbindung, Wemos-MQTT-Speichern/Laden nach Neustart, reale Brokerfehler, serielle Ausgabe am Gerät, weiteres OTA sowie Last-/Langzeitbetrieb stehen aus.

@@ -23,9 +23,13 @@ async function chaosCheck(response){
   if(typeof response.text==='function'){const text=await response.text();if(text)data=JSON.parse(text)}
   else if(typeof response.json==='function')data=await response.json();
  }catch(_){/* Empty/non-JSON error bodies use status-specific fallbacks. */}
- if(response.status===401)chaosSessionLost(data?.code||'AUTH_REQUIRED');
+ if(response.status===401)chaosSessionLost(Object.values(CHAOS_CODES).includes(data?.code)?data.code:'AUTH_REQUIRED');
  if(data&&Object.values(CHAOS_CODES).includes(data.code)&&['message','details','action'].every(k=>typeof data[k]==='string'&&data[k].length>0&&data[k].length<=512))
-  throw chaosFailure(data.code,response.status,data);
+  {
+   const fields=['format','enabled','discovery','reserved','checksum','port','staleSeconds','host','user','password','base','discoveryPrefix','weatherTopic','temperatureTopic','sensorTopic','sensorLabel','sensorUnit'];
+   const definition=data.code===CHAOS_CODES.MQTT_CONFIG_FIELD&&fields.includes(data.field)?{...data,details:data.details+' Feld: '+data.field+'.'}:data;
+   throw chaosFailure(data.code,response.status,definition);
+  }
  throw chaosFailure(response.status===401?'AUTH_REQUIRED':response.status===403?'AUTH_FORBIDDEN':response.status===413?'HTTP_BODY_LIMIT':'HTTP_STATUS',response.status);
 }
 
@@ -89,6 +93,7 @@ async function chaosUserActivity(event){
 }
 async function chaosSessionStart(onReady=null){
  chaosAdmin.started=true;chaosAdmin.onReady=onReady;
+ document.getElementById('adminLoginButton').disabled=true;
  document.getElementById('adminLogin').addEventListener('submit',chaosLogin);
  document.getElementById('adminLogout').addEventListener('click',chaosLogout);
  for(const name of ['pointerdown','keydown','input','change'])document.addEventListener(name,chaosUserActivity,true);
@@ -96,6 +101,7 @@ async function chaosSessionStart(onReady=null){
  globalThis.addEventListener?.('pageshow',async event=>{if(event.persisted){try{await chaosSessionRead()}catch(error){document.getElementById('adminMessage').textContent=chaosMessage(error)}}});
  try{await chaosSessionRead();if(onReady)await onReady()}
  catch(error){document.getElementById('adminMessage').textContent=chaosMessage(error)}
+ finally{document.getElementById('adminLoginButton').disabled=false}
  // This GET deliberately does not renew the server's idle deadline.
  setInterval(async()=>{if(!chaosAdmin.active)return;try{await chaosSessionRead()}catch(error){document.getElementById('adminMessage').textContent=chaosMessage(error)}},60000);
 }

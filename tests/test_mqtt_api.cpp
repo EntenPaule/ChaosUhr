@@ -45,6 +45,15 @@ int main(){
   for(const auto& bad:std::vector<std::vector<std::pair<String,String>>>{{{"port","0"}},{{"weatherTopic","x/#"}},{{"host","x"},{"host","y"}},{{"sensor4Topic","x"}},{{"password",String(65,'a')}},{{"clearPassword","1"},{"password","new-password"}}}){
     server.values=bad;mqttSaveApi();assert(server.status==400&&!memcmp(&mqttConfig,&good,sizeof good));
   }
+  // Safe field-level diagnostics, without changing the persisted v1 rules.
+  for(const auto& entry:std::vector<std::pair<String,String>>{{"discoveryPrefix",""},{"host",""}}){
+    server.values={entry};mqttSaveApi();assert(server.status==400);
+    assert(server.response.find("MQTT-022")!=String::npos&&server.response.find(entry.first)!=String::npos);
+    assert(server.response.find("fixture-previous-password")==String::npos);
+    assert(!memcmp(&mqttConfig,&good,sizeof good));
+  }
+  auto invalid=good;invalid.crc^=1;assert(!strcmp(mqttConfigInvalidField(invalid),"checksum"));
+  invalid=good;invalid.reserved=1;sealMqttConfig(invalid);assert(!strcmp(mqttConfigInvalidField(invalid),"reserved"));
   server.values={{"clearPassword","1"}};filesystem.renameFails=true;mqttSaveApi();assert(server.status==507&&!memcmp(&mqttConfig,&good,sizeof good));filesystem.renameFails=false;
   MqttConfig rebooted;assert(mqttStorage.load(rebooted)&&!memcmp(&rebooted,&good,sizeof good));
   animations.readyValue=false;mqttSaveApi();assert(server.status==503&&filesystem.formats==0);animations.readyValue=true;

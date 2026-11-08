@@ -31,7 +31,9 @@ int PublicAccess::sessionSlot(bool report){
     }
   }
   eraseSecret(sid,sizeof sid);eraseSecret(digest,sizeof digest);
-  if(report){clearCookie();error(code==ErrorCode::AUTH_CRYPTO?503:401,code);}
+  // A late background 401 must not delete a newer cookie from another tab's
+  // login. Only explicit logout sends cookie deletion; retired IDs stay invalid.
+  if(report)error(code==ErrorCode::AUTH_CRYPTO?503:401,code);
   return -1;
 }
 bool PublicAccess::authenticate(){
@@ -216,7 +218,7 @@ void PublicAccess::sessionApi(){
     const int slot=sessionSlot(false);if(slot<0){error(401,ErrorCode::AUTH_SESSION_INVALID);return;}
     const auto& entry=sessions_.get(slot);
     const uint32_t elapsed=static_cast<uint32_t>(millis()-entry.lastActivity);
-    if(elapsed>=AdminSessions::IDLE_MS){sessions_.expire(millis());clearCookie();error(401,ErrorCode::AUTH_SESSION_EXPIRED);return;}
+    if(elapsed>=AdminSessions::IDLE_MS){sessions_.expire(millis());error(401,ErrorCode::AUTH_SESSION_EXPIRED);return;}
     char token[33];AdminSessions::hex(entry.csrf,token);
     const unsigned long remaining=(AdminSessions::IDLE_MS-elapsed+999)/1000;
     server_.sendHeader("Cache-Control","no-store");

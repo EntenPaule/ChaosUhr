@@ -11,15 +11,19 @@ import runpy
 import stat
 import struct
 import subprocess
+import sys
 import tempfile
 import time
 
 project = Path(__file__).resolve().parents[1]
+test_esp32 = "--esp32" in sys.argv
+parser_args = ["--esp32"] if test_esp32 else []
 subprocess.run(["node",str(project/"tests/test_session_ui.js")],check=True)
 subprocess.run(["node",str(project/"tests/test_error_ui.js")],check=True)
 subprocess.run(["python3",str(project/"scripts/generate_error_docs.py"),"--check"],check=True)
 subprocess.run(["python3",str(project/"tests/test_release_safety.py")],check=True)
-subprocess.run(["python3",str(project/"tests/run_http_parser_test.py")],check=True)
+subprocess.run(["python3",str(project/"tests/run_http_parser_test.py"),*parser_args],check=True)
+subprocess.run(["python3",str(project/"tests/run_mqtt_browser_test.py")],check=True)
 build_dir = project / ".pio" / "host-tests"
 build_dir.mkdir(parents=True, exist_ok=True)
 binary = build_dir / "test_logic"
@@ -39,6 +43,7 @@ for name,sources,flags in (
     ("public_access_esp32",[project/"tests"/"test_public_access.cpp",project/"src"/"public_access.cpp"],
       ["-DCHAOSUHR_PUBLIC_BUILD=1","-DESP32=1","-I",str(project/"tests"/"public_stubs")]),
 ):
+    if name.endswith("_esp32") and not test_esp32:continue
     target=build_dir/("test_"+name)
     subprocess.run(["g++","-std=c++17","-Wall","-Wextra","-Werror","-pedantic",
                     "-fsanitize=address,undefined","-fno-omit-frame-pointer",
@@ -58,7 +63,7 @@ subprocess.run([str(clock_binary)],check=True)
 
 json_headers=next(iter((project/'.pio/libdeps').glob('*/ArduinoJson/src/ArduinoJson.h')),None)
 if json_headers is None:raise SystemExit('Install pinned dependencies first: pio pkg install -e d1_mini_public')
-for chip in ('esp8266','esp32'):
+for chip in (('esp8266','esp32') if test_esp32 else ('esp8266',)):
     target=build_dir/('test_admin_sessions_'+chip)
     flags=['-DESP32=1'] if chip=='esp32' else []
     subprocess.run(['g++','-std=c++17','-Wall','-Wextra','-Werror','-pedantic','-fsanitize=address,undefined','-fno-omit-frame-pointer',
@@ -77,18 +82,19 @@ mqtt_target=build_dir/'test_clock_mqtt'
 subprocess.run(['g++','-std=c++17','-Wall','-Wextra','-Werror','-pedantic','-fsanitize=address,undefined','-fno-omit-frame-pointer','-I',str(project/'tests/mqtt_stubs'),'-I',str(project/'tests/public_stubs'),'-I',str(project/'include'),'-I',str(json_headers.parent),str(project/'tests/test_clock_mqtt.cpp'),'-o',str(mqtt_target)],check=True)
 subprocess.run([str(mqtt_target)],check=True)
 
-policy=(project/'include/device_platform.h').read_text()
-policy=policy[policy.index('inline void configureWifiPersistence'):policy.index('inline uint32_t deviceIdentifier')]
-fixture=(project/'tests/test_wifi_coldstart.cpp.in').read_text().replace('@POLICY@',policy)
-wifi_target=build_dir/'test_wifi_coldstart'
-subprocess.run(['g++','-std=c++17','-Wall','-Wextra','-Werror','-pedantic','-fsanitize=address,undefined','-fno-omit-frame-pointer','-DESP32=1','-x','c++','-','-o',str(wifi_target)],input=fixture,text=True,check=True)
-subprocess.run([str(wifi_target)],check=True)
+if test_esp32:
+    policy=(project/'include/device_platform.h').read_text()
+    policy=policy[policy.index('inline void configureWifiPersistence'):policy.index('inline uint32_t deviceIdentifier')]
+    fixture=(project/'tests/test_wifi_coldstart.cpp.in').read_text().replace('@POLICY@',policy)
+    wifi_target=build_dir/'test_wifi_coldstart'
+    subprocess.run(['g++','-std=c++17','-Wall','-Wextra','-Werror','-pedantic','-fsanitize=address,undefined','-fno-omit-frame-pointer','-DESP32=1','-x','c++','-','-o',str(wifi_target)],input=fixture,text=True,check=True)
+    subprocess.run([str(wifi_target)],check=True)
 
-esp32_ota=build_dir/'test_esp32_ota'
-subprocess.run(['g++','-std=c++17','-Wall','-Wextra','-Werror','-pedantic',
-                '-fsanitize=address,undefined','-fno-omit-frame-pointer','-DESP32=1',
-                '-I',str(project/'include'),str(project/'tests/test_esp32_ota.cpp'),'-o',str(esp32_ota),'-lcrypto'],check=True)
-subprocess.run([str(esp32_ota)],check=True)
+    esp32_ota=build_dir/'test_esp32_ota'
+    subprocess.run(['g++','-std=c++17','-Wall','-Wextra','-Werror','-pedantic',
+                    '-fsanitize=address,undefined','-fno-omit-frame-pointer','-DESP32=1',
+                    '-I',str(project/'include'),str(project/'tests/test_esp32_ota.cpp'),'-o',str(esp32_ota),'-lcrypto'],check=True)
+    subprocess.run([str(esp32_ota)],check=True)
 
 legacy_binary = build_dir / "test_legacy"
 subprocess.run([
@@ -166,11 +172,12 @@ subprocess.run(["g++","-std=c++17","-Wall","-Wextra","-Werror","-pedantic",
                 "-I",str(project/"include"),"-DCHAOSUHR_PUBLIC_BUILD=1","-x","c++","-","-o",str(public_network_binary)],
                input=network_source,text=True,check=True)
 subprocess.run([str(public_network_binary)],check=True)
-esp32_network_binary=build_dir/"test_esp32_network"
-subprocess.run(["g++","-std=c++17","-Wall","-Wextra","-Werror","-pedantic",
-                "-I",str(project/"include"),"-DCHAOSUHR_PUBLIC_BUILD=1","-DESP32=1","-x","c++","-","-o",str(esp32_network_binary)],
-               input=network_source,text=True,check=True)
-subprocess.run([str(esp32_network_binary)],check=True)
+if test_esp32:
+    esp32_network_binary=build_dir/"test_esp32_network"
+    subprocess.run(["g++","-std=c++17","-Wall","-Wextra","-Werror","-pedantic",
+                    "-I",str(project/"include"),"-DCHAOSUHR_PUBLIC_BUILD=1","-DESP32=1","-x","c++","-","-o",str(esp32_network_binary)],
+                   input=network_source,text=True,check=True)
+    subprocess.run([str(esp32_network_binary)],check=True)
 
 configured_zones = re.findall(r'config(?:Tz)?Time\("([^"]+)"', source)
 assert len(configured_zones)==2 and len(set(configured_zones))==1

@@ -394,6 +394,7 @@ small{color:#abb9d0}output{float:right;color:#8bd5ff}.flex{display:flex;gap:10px
 <p><small>Bei aktivierter Anzeigeart Animationen mindestens eine Animation auswählen. Für eine dauerhafte Uhranzeige den Modus „Nur Uhrzeit“ verwenden.</small></p></details>
 <h2>Uhranzeige</h2>
 <label><input id="secondsBar" type="checkbox" checked> Sekundenleiste unten anzeigen</label>
+<p><small>Die Sekundenleiste wird bei einer Helligkeit unter 5 % nicht angezeigt. Dies gilt auch bei aktiviertem Nachtmodus.</small></p>
 <label for="weekdayStyle">Wochentag</label><select id="weekdayStyle"><option value="0">Ausgeschrieben: Montag, Dienstag …</option><option value="1">Kurzform: mo, di, mi, do, fr, sa, so</option></select>
 <h2>Matrixverdrahtung</h2>
 <label for="ledPin">LED-Datenpin</label><select id="ledPin"></select>
@@ -445,7 +446,7 @@ small{color:#abb9d0}output{float:right;color:#8bd5ff}.flex{display:flex;gap:10px
 R"HTML(<article><h2>Werkseinstellungen</h2><p>Alle Uhr-Einstellungen, eigene Animationen, der Admin-Zugang und die gespeicherten WLAN-Daten werden gelöscht. Danach beginnt die Ersteinrichtung erneut.</p><label><input id="resetConfirm" type="checkbox" onchange="document.getElementById('resetButton').disabled=!this.checked"> Ich möchte alle Einstellungen, Uploads und Zugangsdaten löschen.</label><button id="resetButton" onclick="factoryReset()" disabled>Auf Werkseinstellungen zurücksetzen</button><p id="resetMessage" role="status"></p></article>)HTML"
 #endif
 R"HTML(
-</main><script src="/errors.js?v=2.0.11" onerror="document.addEventListener(&#x27;DOMContentLoaded&#x27;,()=&gt;{document.body.textContent=&quot;Fehler HTTP-018\nDiagnoseskript konnte nicht geladen werden\nDer Browser konnte das gemeinsame lokale Skript nicht laden; die genauere Ursache ist nicht erkennbar.\nMaßnahmen: Uhradresse und Netzwerk prüfen und Seite neu laden.&quot;})"></script><script>
+</main><script src="/errors.js?v=2.0.11-beta.1" onerror="document.addEventListener(&#x27;DOMContentLoaded&#x27;,()=&gt;{document.body.textContent=&quot;Fehler HTTP-018\nDiagnoseskript konnte nicht geladen werden\nDer Browser konnte das gemeinsame lokale Skript nicht laden; die genauere Ursache ist nicht erkennbar.\nMaßnahmen: Uhradresse und Netzwerk prüfen und Seite neu laden.&quot;})"></script><script>
 const ids=['mode','effect','brightness','speed','duration','nightOn','nightFrom','nightUntil','nightBrightness','corner','vertical','zigzag','autoOrder'];
 let automaticChoices=[];
 let effectChoices=[],pendingImport=null;
@@ -549,7 +550,7 @@ async function saveMqtt(){
     values.enabled=document.getElementById('mqEnabled').checked?1:0;values.discovery=document.getElementById('mqDiscovery').checked?1:0;
     values.password=document.getElementById('mqPassword').value;values.clearPassword=document.getElementById('mqClearPassword').checked?1:0;
     for(let i=0;i<4;i++)for(const [field,suffix] of [['topic','Topic'],['label','Label'],['unit','Unit']])values['sensor'+i+suffix]=document.getElementById('mqSensor'+i+field).value;
-    if(values.enabled&&!values.host)throw chaosFailure('MQTT_CONFIG_INVALID');
+    if(values.enabled&&!values.host)throw chaosFailure('CFG_HOST');
     const {token}=await readJson('/api/session'),r=await chaosFetch('/api/mqtt',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRF-Token':token},body:new URLSearchParams(values)});
     await chaosCheck(r);message.textContent='MQTT-Konfiguration gespeichert. Die Verbindung wird neu aufgebaut.';await loadMqtt();
   }catch(error){message.textContent='MQTT konnte nicht gespeichert werden: '+chaosMessage(error)}

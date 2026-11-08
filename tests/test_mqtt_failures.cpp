@@ -24,6 +24,10 @@ int main(){
   auto current=defaultMqttConfig(),next=current;next.enabled=1;
   strcpy(next.host,"fixture-private-broker");strcpy(next.password,"fixture-mqtt-private-password");sealMqttConfig(next);
   assert(store.save(current,next));const auto saved=current;
+  auto invalid=next;invalid.discoveryPrefix[0]=0;
+  assert(!store.save(current,invalid)&&store.errorCode()==ErrorCode::MQTT_CONFIG_FIELD);
+  assert(!strcmp(store.invalidField(),"discoveryPrefix"));
+  assert(!memcmp(&current,&saved,sizeof saved));
   const auto original=*fs.files.at(store.path());
   strcpy(next.user,"fixture-user");
   auto attempt=[&](bool& flag,ErrorCode expected){

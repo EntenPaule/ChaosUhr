@@ -21,7 +21,7 @@ static bool feedFile(FirmwareValidator& validator, const std::vector<uint8_t>& b
 }
 
 int main(int argc, char** argv) {
-  assert(argc == 4); // matching OTA, other chip's OTA, full ESP32 factory image
+  assert(argc == 2 || argc == 4); // matching OTA, other chip's OTA, full ESP32 factory image
   const auto data = readFile(argv[1]);
   assert(data.size() > 4096);
   Sha256Stream sha;
@@ -46,15 +46,17 @@ int main(int argc, char** argv) {
   FirmwareValidator truncated;
   assert(!feedFile(truncated, shortened) || !truncated.complete());
 
+  if(argc==4){
   FirmwareValidator otherChip;
   assert(!feedFile(otherChip, readFile(argv[2])) || !otherChip.complete());
   FirmwareValidator factory;
   assert(!feedFile(factory, readFile(argv[3])) || !factory.complete());
+  }
 
   hex[0] = hex[0] == '0' ? '1' : '0';
   FirmwareValidator wrongSha;
   assert(wrongSha.expectSha256(hex));
   assert(feedFile(wrongSha, data) && !wrongSha.complete());
-  std::cout << "PASS real OTA file: accepted; mutation, truncation, other chip, factory and wrong SHA rejected: "
+  std::cout << "PASS real OTA file: accepted; mutation, truncation and wrong SHA rejected (cross-chip/factory only with explicit arguments): "
             << FIRMWARE_PRODUCT << '\n';
 }

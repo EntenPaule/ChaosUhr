@@ -14,7 +14,8 @@ function app(){
  for(const name of ['bVal','sVal','dVal','nVal','msg'])context[name]=document.getElementById(name);
  vm.createContext(context);vm.runInContext(require('./shared_error_script')(),context);vm.runInContext(script,context);return {context,elements,posts,blobs,approve(){consent=true}};
 }
-(async()=>{
+if(require.main!==module)module.exports=app;
+else (async()=>{
  const a=app();await a.context.load();assert.equal(a.elements.mqttPanel.hidden,false);assert(a.elements.mqSensor3topic);
  a.context.selectAutomatic(false);a.elements.showAnimations.checked=false;a.elements.showWeather.checked=true;a.elements.secondsBar.checked=false;a.elements.weekdayStyle.value=1;
  await a.context.save();assert.equal(a.posts.length,1);assert.equal(a.posts[0].options.body.get('showAnimations'),'0');assert.equal(a.posts[0].options.body.get('showWeather'),'1');assert.equal(a.posts[0].options.body.get('secondsBar'),'0');assert.equal(a.posts[0].options.headers['X-CSRF-Token'],'fixture-session');

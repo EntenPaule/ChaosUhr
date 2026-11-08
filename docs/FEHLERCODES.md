@@ -6,6 +6,7 @@ HTTP-Status und ChaosUhr-Code sind getrennte Angaben. Meldungen enthalten aussch
 
 | Code | Komponente | Bedeutung | Technische Ursache | Maßnahme |
 | --- | --- | --- | --- | --- |
+| MQTT-022 | MQTT | MQTT-Konfiguration abgelehnt | Eine Konfigurationsregel ist verletzt; das Feld wird ohne Inhalt genannt. | Betroffenes Feld prüfen. Bei format, reserved oder checksum die Supportdiagnose melden; nicht zurücksetzen. |
 | AUTH-020 | AUTH | Admin-Sitzung abgelaufen | Seit der letzten bestätigten Aktivität sind mindestens 30 Minuten vergangen; Sitzung und CSRF sind ungültig. | Erneut über das Anmeldeformular anmelden; Hintergrundabfragen verlängern die Sitzung nicht. |
 | AUTH-021 | AUTH | Admin-Sitzung ungültig | Die Sitzung wurde abgemeldet, ersetzt oder durch einen Geräteneustart ungültig. | Erneut anmelden und die gewünschte Aktion anschließend bewusst wiederholen. |
 | AUTH-022 | AUTH | Sitzungs-Cookie ungültig | Der Cookie ist zu lang, mehrfach angegeben oder enthält kein gültiges Sitzungsformat. | Seite neu öffnen und erneut anmelden; keine Sitzungstokens manuell ändern. |
