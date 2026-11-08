@@ -37,7 +37,7 @@ Dieser Schritt löscht vorhandene Konfiguration. Danach SETUP-Code auf der Matri
 
 Gleiches Funktionsangebot wie beim Wemos: 30 Effekte, Datum/Wochentag mit Kleinbuchstaben oder Kurzform, abschaltbare Sekundenleiste, Anzeigearten-Auswahl, eigene .chaos-Dateien, MQTT-Wetter und vier Sensorplätze. Standard GPIO32 bleibt bei der Übernahme alter Daten erhalten; eine Pinänderung über die GUI benötigt Bestätigung und Neustart.
 
-Der GitHub-Updater liest getrennte ESP32-Manifeste `stable-esp32.json` / `preview-esp32.json`. Die 2.0.10 ist im Preview-Kanal veröffentlicht. Ein Update wird erst nach Bestätigung installiert. Vorabversionen über das entsprechende Häkchen berücksichtigen. Der frühere ESP32-2.0.6-Basisstand benötigt für diesen Wechsel zunächst den manuellen OTA-Upload.
+Der GitHub-Updater liest getrennte ESP32-Manifeste `stable-esp32.json` / `preview-esp32.json`. Die 2.0.10 ist im stabilen Kanal veröffentlicht; das Häkchen für Vorabversionen ist dafür nicht erforderlich. Ein Update wird erst nach Bestätigung installiert. Der frühere ESP32-2.0.6-Basisstand benötigt für diesen Wechsel zunächst den manuellen OTA-Upload.
 
 ## Selbst bauen
 

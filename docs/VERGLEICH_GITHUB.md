@@ -1,6 +1,6 @@
 # Michas Referenzsketch und ChaosUhr 2.0.10
 
-Verglichen wird der Sketch `ChaosBlinkiBuntiUhr.ino`, Versionsangabe **0.18**, aus [oOmicha1986Oo/ChaosUhr](https://github.com/oOmicha1986Oo/ChaosUhr/blob/51aef401db22ef0fba3e5e334f141bf794d7505a/ChaosBlinkiBuntiUhr.ino), Referenz-Commit `51aef401db22ef0fba3e5e334f141bf794d7505a`, mit dieser **2.0.10-Vorabversion**. Aussagen beziehen sich auf diesen Quellstand, nicht auf beliebige ältere BINs oder angepasste Fremdversionen.
+Verglichen wird der Sketch `ChaosBlinkiBuntiUhr.ino`, Versionsangabe **0.18**, aus [oOmicha1986Oo/ChaosUhr](https://github.com/oOmicha1986Oo/ChaosUhr/blob/51aef401db22ef0fba3e5e334f141bf794d7505a/ChaosBlinkiBuntiUhr.ino), Referenz-Commit `51aef401db22ef0fba3e5e334f141bf794d7505a`, mit der als stabil freigegebenen **2.0.10**. Aussagen beziehen sich auf diesen Quellstand, nicht auf beliebige ältere BINs oder angepasste Fremdversionen.
 
 | Bereich | Referenzsketch 0.18 | ChaosUhr 2.0.10 |
 | --- | --- | --- |

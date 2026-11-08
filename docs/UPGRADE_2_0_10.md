@@ -1,6 +1,6 @@
 # Wechsel auf ChaosUhr 2.0.10
 
-Vorabversion für **Wemos D1 mini / ESP8266** und **klassischen ESP32-WROOM-32 / esp32dev**, jeweils 4 MiB Flash und 20×15 WS2812B. Gerätetest der neuen BINs steht aus. Passenden Zielchip und ausreichenden OTA-Platz vor dem Upload prüfen.
+Stabile Freigabe für **Wemos D1 mini / ESP8266** und **klassischen ESP32-WROOM-32 / esp32dev**, jeweils 4 MiB Flash und 20×15 WS2812B. Der dokumentierte Gerätetest der neuen BINs steht weiter aus. Passenden Zielchip und ausreichenden OTA-Platz vor dem Upload prüfen.
 
 ## Welche Datei?
 
@@ -13,7 +13,7 @@ Vorabversion für **Wemos D1 mini / ESP8266** und **klassischen ESP32-WROOM-32 /
 
 Vor dem Update eigene `.chaos`-Dateien herunterladen. Ab 2.0.8 zusätzlich JSON-Einstellungssicherung anlegen. Ein normales passendes Anwendungs-OTA behält das Flash-/Dateisystemlayout und löscht WLAN oder gespeicherte Konfiguration nicht absichtlich.
 
-**Auf einer Wemos-Uhr mit 2.0.8:** OTA-Menü öffnen, **Vorabversionen berücksichtigen** aktivieren und **Auf Updates prüfen** wählen. Die angebotene 2.0.10 erst nach Sicherung bewusst installieren; die Uhr startet danach neu. Ältere Versionen ohne GitHub-Updater verwenden das bisherige Uploadformular und die passende BIN aus dem Release. Ein ESP32 auf dem früheren 2.0.6-Basisstand verwendet ebenfalls zunächst den manuellen OTA-Upload.
+**Auf einer Wemos-Uhr mit 2.0.8:** OTA-Menü öffnen und **Auf Updates prüfen** wählen. Das Häkchen für Vorabversionen ist nicht nötig. Die angebotene 2.0.10 erst nach Sicherung bewusst installieren; die Uhr startet danach neu. Ältere Versionen ohne GitHub-Updater verwenden das bisherige Uploadformular und die passende BIN aus dem Release. Ein ESP32 auf dem früheren 2.0.6-Basisstand verwendet ebenfalls zunächst den manuellen OTA-Upload.
 
 Die bisherigen 32 Einstellungsbytes und der Admin-Bereich ab Offset 32 bleiben erhalten. Neue Anzeigeoptionen liegen in den bisher unbenutzten acht Bytes 120–127. Standard nach Migration: **D6/GPIO12 beim Wemos**, **GPIO32 beim ESP32**, Sekundenleiste an, ausgeschriebener Wochentag, Uhr/Animationen im Wechsel. Wetter und Sensoren sind zunächst ausgeschaltet.
 
@@ -34,6 +34,6 @@ Michas Referenzsketch benötigt erstmals die Admin-Ersteinrichtung; fest im Sket
 
 Neue Einstellungssicherungen verwenden Schema 2; Schema-1-Sicherungen aus 2.0.8 bleiben importierbar. Neue Felder bleiben beim Import einer alten Sicherung auf den am Zielgerät geladenen Werten. LED-Pin, MQTT-Zugang und Animationsdateien werden separat eingerichtet/gesichert. Eine Vorschau schreibt nichts; erst Speichern übernimmt die Anzeigeeinstellungen.
 
-Wemos verwendet weiter `stable.json`/`preview.json`; ESP32 verwendet eigene Kanäle `stable-esp32.json`/`preview-esp32.json`. 2.0.10 wird als Vorabversion in beiden Preview-Kanälen angeboten. Der Browser lädt über HTTPS und sendet Zugangsdaten ausschließlich zur lokalen Uhr.
+Wemos verwendet weiter `stable.json`/`preview.json`; ESP32 verwendet eigene Kanäle `stable-esp32.json`/`preview-esp32.json`. 2.0.10 wird als stabile Version in beiden Stable-Kanälen angeboten; die Preview-Kanäle zeigen derzeit auf dieselbe Freigabe. Der Browser lädt über HTTPS und sendet Zugangsdaten ausschließlich zur lokalen Uhr.
 
 Ein Downgrade auf unveränderte 2.0.5/2.0.7 nach Passwortmigration ist ungeeignet. Auch 2.0.8 kennt die neuen Anzeigeoptionen und einen abweichend eingestellten LED-Pin nicht. Ein Rückweg muss Passwortformat, Pin und Speicherlayout berücksichtigen.

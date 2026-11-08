@@ -1,6 +1,6 @@
 # ChaosUhr 2.0
 
-**Aktuelle Vorabversion: [2.0.10 für Wemos / ESP8266 und klassischen ESP32](https://github.com/EntenPaule/ChaosUhr/releases/tag/v2.0.10).** MQTT-Wetter und Sensoren, wählbare Anzeigearten, konfigurierbarer LED-Pin, Sekundenleisten-Schalter und Wochentag-Auswahl. Beide Builds und die ZIP-Quellen sind lokal geprüft; die neuen BINs sind **noch nicht am Gerät getestet**. [Teststand](docs/RELEASE_v2.0.10.md), [MQTT-Anleitung](docs/MQTT_2_0_10.md), [Upgrade](docs/UPGRADE_2_0_10.md).
+**Aktuelle stabile Version: [2.0.10 für Wemos / ESP8266 und klassischen ESP32](https://github.com/EntenPaule/ChaosUhr/releases/tag/v2.0.10).** MQTT-Wetter und Sensoren, wählbare Anzeigearten, konfigurierbarer LED-Pin, Sekundenleisten-Schalter und Wochentag-Auswahl. Beide Builds und die ZIP-Quellen sind lokal geprüft; die neuen BINs sind **noch nicht am Gerät getestet**. [Teststand](docs/RELEASE_v2.0.10.md), [MQTT-Anleitung](docs/MQTT_2_0_10.md), [Upgrade](docs/UPGRADE_2_0_10.md).
 
 Eine bunte LED-Uhr für die **20×15-WS2812B-Matrix**: Uhrzeit, deutscher Wochentag und Datum, Animationen sowie Wetter- und Sensorwerte aus Home Assistant oder ioBroker. Über die Weboberfläche lassen sich Anzeige, Automatik und eigene Animationen einstellen – direkt im lokalen WLAN. Auch ausschließlich Uhr/Wetter ist möglich.
 
@@ -95,7 +95,7 @@ Der Zahlencode für das Einrichtungs-WLAN und das Admin-Passwort sind getrennt. 
 
 ## Vorhandene Uhr aktualisieren
 
-**Von 2.0.8:** Zuerst Einstellungen als JSON und eigene `.chaos`-Dateien sichern. Im OTA-Menü **Vorabversionen berücksichtigen** aktivieren, **Auf Updates prüfen** und anschließend 2.0.10 bewusst installieren. Alternativ die passende Anwendungs-BIN manuell hochladen. Der bisherige Wemos-Pin D6/GPIO12 bleibt Standard; Wetter und Sensoren sind nach der Migration zunächst ausgeschaltet.
+**Von 2.0.8:** Zuerst Einstellungen als JSON und eigene `.chaos`-Dateien sichern. Im OTA-Menü **Auf Updates prüfen** und anschließend 2.0.10 bewusst installieren. Das Häkchen für Vorabversionen ist dafür nicht erforderlich. Alternativ die passende Anwendungs-BIN manuell hochladen. Der bisherige Wemos-Pin D6/GPIO12 bleibt Standard; Wetter und Sensoren sind nach der Migration zunächst ausgeschaltet.
 
 **Von 2.0.5 oder 2.0.7:** Einstellungen notieren und eigene `.chaos`-Dateien herunterladen. Die neue BIN über den bisherigen geschützten Web-Updater installieren. Gültige Uhreinstellungen und der vorhandene Admin-Zugang werden übernommen; das Admin-Passwort bleibt gleich.
 
@@ -109,7 +109,7 @@ Bei bereits lesbarem LittleFS wird das alte Passwortformat migriert. Ohne lesbar
 
 Unter **OTA-Upload öffnen** bleibt der manuelle Upload einer passenden BIN verfügbar. Ab 2.0.8 kann **Auf Updates prüfen** zusätzlich den GitHub-Kanal abfragen.
 
-Für 2.0.10 **Vorabversionen berücksichtigen** aktivieren; eine stabile Version wird noch nicht angeboten. Der Browser braucht Internetzugang; das lokale Admin-Passwort wird nicht an GitHub gesendet. Nur eine neuere passende Version wird zur bestätigten Installation angeboten – keine unbeaufsichtigten Updates und keine erneute Installation derselben Version. ESP32 verwendet einen eigenen Kanal mit passendem Zielchip. [So funktioniert der Updatekanal](docs/GITHUB_UPDATES.md).
+2.0.10 wird im stabilen Kanal angeboten; **Vorabversionen berücksichtigen** ist dafür nicht erforderlich. Der Browser braucht Internetzugang; das lokale Admin-Passwort wird nicht an GitHub gesendet. Nur eine neuere passende Version wird zur bestätigten Installation angeboten – keine unbeaufsichtigten Updates und keine erneute Installation derselben Version. ESP32 verwendet einen eigenen Kanal mit passendem Zielchip. [So funktioniert der Updatekanal](docs/GITHUB_UPDATES.md).
 
 ## Automatik einstellen
 

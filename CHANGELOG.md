@@ -1,6 +1,6 @@
 # Änderungen
 
-## 2.0.10 – Vorabversion für Wemos und klassischen ESP32
+## 2.0.10 – stabile Freigabe für Wemos und klassischen ESP32
 
 - MQTT-Wetter und vier Sensorplätze für HA/ioBroker; wählbare Anzeigearten einschließlich nur Uhr/Wetter.
 - LED-Datenpin über GUI mit gespeichertem Wert und bestätigtem Neustart.

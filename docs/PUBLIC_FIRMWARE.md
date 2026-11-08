@@ -52,7 +52,7 @@ Zum Import Datei auswählen, Vorschau prüfen und **Vorschau übernehmen**. Das 
 
 **Auf Updates prüfen** liest den GitHub-Kanal. Standardmäßig werden freigegebene Versionen geprüft; **Vorabversionen berücksichtigen** ergänzt den Testkanal. Der Browser braucht Internet und lädt über HTTPS, ohne das lokale Admin-Passwort an GitHub zu schicken. Nach ausdrücklicher Bestätigung wird eine neuere passende Version lokal übertragen. Die Uhr prüft zusätzlich SHA-256. Keine unbeaufsichtigten Updates.
 
-Für die veröffentlichte 2.0.10 **Vorabversionen berücksichtigen** aktivieren. [Updatekanal und Veröffentlichung](GITHUB_UPDATES.md). Fehlender Kanal oder fehlendes Internet verhindert kein manuelles OTA. HTTP zur lokalen Uhr bleibt unverschlüsselt. SHA-256 ist keine Herausgebersignatur; Signaturpflicht und geräteeigenes HTTPS sind nicht aktiviert.
+Die veröffentlichte 2.0.10 ist im stabilen Kanal verfügbar; **Vorabversionen berücksichtigen** ist dafür nicht nötig. [Updatekanal und Veröffentlichung](GITHUB_UPDATES.md). Fehlender Kanal oder fehlendes Internet verhindert kein manuelles OTA. HTTP zur lokalen Uhr bleibt unverschlüsselt. SHA-256 ist keine Herausgebersignatur; Signaturpflicht und geräteeigenes HTTPS sind nicht aktiviert.
 
 ## Werkseinstellungen
 
@@ -72,6 +72,6 @@ Plattform espressif8266 4.2.1, Arduino-Core 3.1.2, FastLED 3.10.9, WiFiManager 2
 
 Ausgabe unter `dist/2.0.10/esp8266/`: BIN, ZIP mit derselben BIN, Anleitung, passenden Quellen/Lizenzen, SHA256SUMS und vorbereitete Kanaldateien. Kein automatischer Upload oder Git-Push.
 
-**2.0.10 ist eine Vorabversion ohne Gerätetest.** Der bisherige 2.0.8-Gerätetest gilt nicht automatisch für diese BIN. Lokale Tests prüfen zusätzlich neue Anzeige-/GPIO-Optionen, MQTT-Daten, atomare Speicherung und die GUI. Details und offene Prüfungen im [Releasebericht 2.0.10](RELEASE_v2.0.10.md). Für klassischen ESP32 gibt es einen getrennten [Build und eine eigene Anleitung](ESP32_FIRMWARE.md).
+**2.0.10 wurde als stabile Version freigegeben; der dokumentierte Gerätetest steht weiter aus.** Der bisherige 2.0.8-Gerätetest gilt nicht automatisch für diese BIN. Lokale Tests prüfen zusätzlich neue Anzeige-/GPIO-Optionen, MQTT-Daten, atomare Speicherung und die GUI. Details und offene Prüfungen im [Releasebericht 2.0.10](RELEASE_v2.0.10.md). Für klassischen ESP32 gibt es einen getrennten [Build und eine eigene Anleitung](ESP32_FIRMWARE.md).
 
 Original: https://github.com/oOmicha1986Oo/ChaosUhr. Herkunft in THIRD_PARTY.md; GPL Version 3, LGPL für den übernommenen Webserver und MIT-Hinweise für FastLED.

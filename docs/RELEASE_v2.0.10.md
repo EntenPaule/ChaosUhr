@@ -1,6 +1,8 @@
-# ChaosUhr 2.0.10 – Vorabversion
+# ChaosUhr 2.0.10 – stabile Freigabe
 
-Vorabversion für Wemos D1 mini / ESP8266 und klassischen ESP32-WROOM-32, 4 MiB Flash, 20×15 WS2812B. **Neue BINs noch nicht am Gerät getestet.** Bestehender Wemos-Release 2.0.8 bleibt unverändert. Beide neuen Builds sind über diesen Release verfügbar; der Webseiten-Updater bietet 2.0.10 bei aktivierter Option **Vorabversionen berücksichtigen** an.
+Stabile Freigabe für Wemos D1 mini / ESP8266 und klassischen ESP32-WROOM-32, 4 MiB Flash, 20×15 WS2812B. **Neue BINs noch nicht am Gerät getestet.** Bestehender Wemos-Release 2.0.8 bleibt unverändert. Beide Builds sind über diesen Release und die stabilen Updatekanäle verfügbar; das Häkchen **Vorabversionen berücksichtigen** ist für 2.0.10 nicht erforderlich.
+
+Auf Wunsch des Projektbetreibers vom Vorabrelease zur stabilen Version hochgestuft. Firmwaredateien, ZIPs, Prüfsummen und Tag bleiben unverändert. Die beigelegten Quellen und `BUILD_INFO.json` dokumentieren den ursprünglichen Vorabstand; der aktuelle Freigabestatus steht hier und in den Updatekanälen. Der dokumentierte Testumfang bleibt unverändert.
 
 ## Neue Funktionen
 
