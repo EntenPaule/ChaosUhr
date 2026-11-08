@@ -1,0 +1,22 @@
+{
+  "version": "2.0.11-beta.1",
+  "source_commit": "7434dbb075ef54e51426533999ab10aba53a8615",
+  "board": "d1_mini",
+  "chip": "esp8266",
+  "binary_bytes": 684624,
+  "ota_limit_bytes": 1044464,
+  "ota_reserve_bytes": 359840,
+  "static_ram_bytes": 50772,
+  "static_ram_limit": 81920,
+  "linker_flash_bytes": 680471,
+  "host_pass_groups": 50,
+  "firmware_sha256": "5f88706a4bab9e75c4ea767523c99554c5a3144d238d306642c39a5d02e7a34f",
+  "hardware_tested": false,
+  "mqtt007_hardware_root_cause_confirmed": false,
+  "esp32_built": false,
+  "known_limitations": [
+    "MQTT-007 on the reported Wemos remains unconfirmed; field-level diagnostic beta",
+    "Local HTTP has no TLS confidentiality"
+  ],
+  "validation": "PASS real OTA file: accepted; mutation, truncation and wrong SHA rejected (cross-chip/factory only with explicit arguments): ChaosUhr|ESP8266|4M1M|OTA2"
+}
