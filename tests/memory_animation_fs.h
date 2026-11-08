@@ -21,6 +21,8 @@ struct AnimationFile {
 };
 struct MemoryAnimationFS {
   bool mountable=true,mounted=false,formatFails=false,writeFails=false,renameFails=false,removeFails=false;
+  bool openWriteFails=false,openReadFails=false,readFails=false,corruptRead=false;
+  unsigned writeCalls=0;
   unsigned formats=0;size_t capacity=1024*1024;
   std::map<std::string,std::shared_ptr<std::vector<uint8_t>>> files;
   std::set<std::string> directories;
@@ -37,6 +39,7 @@ struct MemoryAnimationFS {
   AnimationFile open(const char* path,const char* mode){
     if(!mounted)return {};
     const bool writable=std::string(mode)=="w";
+    if(writable?openWriteFails:openReadFails)return {};
     if(writable)files[path]=std::make_shared<std::vector<uint8_t>>();
     if(!files.count(path))return {};
     AnimationFile file;file.handle=std::make_shared<AnimationFile::Handle>(AnimationFile::Handle{this,files[path],0,true,writable});return file;
@@ -46,12 +49,14 @@ struct MemoryAnimationFS {
 };
 inline AnimationFile::operator bool()const{return handle && handle->open && handle->fs->mounted;}
 inline size_t AnimationFile::read(uint8_t* output,size_t count){
-  if(!*this)return 0;
+  if(!*this||handle->fs->readFails)return 0;
   count=std::min(count,handle->bytes->size()-handle->position);
   if(count)memcpy(output,handle->bytes->data()+handle->position,count);
+  if(count && handle->fs->corruptRead)output[0]^=1;
   handle->position+=count;return count;
 }
 inline size_t AnimationFile::write(const uint8_t* input,size_t count){
+  if(handle)++handle->fs->writeCalls;
   if(!*this || !handle->writable || handle->fs->writeFails)return 0;
   const size_t end=handle->position+count,extra=end>size()?end-size():0;
   if(handle->fs->used()+extra>handle->fs->capacity)return 0;

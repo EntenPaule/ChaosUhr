@@ -12,7 +12,7 @@ function app(){
    return {ok:true,json:async()=>route==='/api/status'?status:route==='/api/effects'?Array.from({length:30},(_,i)=>({id:i+1,name:'Effekt '+(i+1)})):route==='/api/mqtt'?mqtt:route==='/api/session'?{token:'fixture-session'}:{ready:true,uploads:[]}};
   }};
  for(const name of ['bVal','sVal','dVal','nVal','msg'])context[name]=document.getElementById(name);
- vm.createContext(context);vm.runInContext(script,context);return {context,elements,posts,blobs,approve(){consent=true}};
+ vm.createContext(context);vm.runInContext(require('./shared_error_script')(),context);vm.runInContext(script,context);return {context,elements,posts,blobs,approve(){consent=true}};
 }
 (async()=>{
  const a=app();await a.context.load();assert.equal(a.elements.mqttPanel.hidden,false);assert(a.elements.mqSensor3topic);

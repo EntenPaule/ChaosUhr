@@ -20,6 +20,7 @@
 */
 
 #include <Arduino.h>
+#include "../../../include/error_response.h"
 #include <esp32-hal-log.h>
 #include <new>
 #include "NetworkServer.h"
@@ -80,8 +81,10 @@ static char *readBytesWithTimeout(NetworkClient &client, size_t maxLength, size_
 // discards the response we just queued. Drain what already arrived first so the
 // status actually reaches the client. The drain is bounded: a peer that keeps
 // streaming is cut off.
-static void sendErrorResponse(NetworkClient &client, const char *status) {
-  client.printf("HTTP/1.1 %s\r\nContent-Length: 0\r\nConnection: close\r\n\r\n", status);
+static void sendErrorResponse(NetworkClient &client, const char *status,ErrorCode code=ErrorCode::HTTP_REQUEST) {
+  const int http=atoi(status);if(code==ErrorCode::HTTP_REQUEST){if(http==408)code=ErrorCode::HTTP_TIMEOUT;else if(http==414)code=ErrorCode::HTTP_URI;else if(http==431)code=ErrorCode::HTTP_HEADERS;else if(http==413)code=ErrorCode::HTTP_BODY_LIMIT;}
+  recordError(code);const String body=errorJson(code,http);
+  client.printf("HTTP/1.1 %s\r\nContent-Type: application/json; charset=utf-8\r\nContent-Length: %u\r\nConnection: close\r\nCache-Control: no-store\r\n\r\n%s",status,static_cast<unsigned>(body.length()),body.c_str());
 
   const size_t maxDrain = 2 * WEBSERVER_MAX_LINE_LEN;
   uint8_t discard[64];
@@ -174,6 +177,7 @@ static bool chaosArgumentLimit(const String& text){
 }
 
 bool WebServer::_parseRequest(NetworkClient &client) {
+  auto chaosReject=[&](ErrorCode code){char status[32];snprintf(status,sizeof status,"%d Bad Request",errorHttpStatus(code));sendErrorResponse(client,status,code);return false;};
   _chaosRequestStarted=millis();
   if(_chaosConnectionGuard && !_chaosConnectionGuard())return false;
   // Upload, raw and multipart field state all belong to a single request. Drop
@@ -216,7 +220,7 @@ bool WebServer::_parseRequest(NetworkClient &client) {
   int addr_end = req.indexOf(' ', addr_start + 1);
   if (addr_start == -1 || addr_end == -1) {
     log_e("Invalid request: %s", req.c_str());
-    return false;
+    return chaosReject(ErrorCode::HTTP_REQUEST);
   }
 
   String methodStr = req.substring(0, addr_start);
@@ -240,7 +244,7 @@ bool WebServer::_parseRequest(NetworkClient &client) {
   if (url.length() + searchStr.length() > WEBSERVER_MAX_URI_LEN) {
     log_e("Request-target too long (%u bytes, max %u)", (unsigned)(url.length() + searchStr.length()), (unsigned)WEBSERVER_MAX_URI_LEN);
     sendErrorResponse(client, "414 URI Too Long");
-    return false;
+    return chaosReject(ErrorCode::HTTP_REQUEST);
   }
 #endif
 
@@ -254,7 +258,7 @@ bool WebServer::_parseRequest(NetworkClient &client) {
   }
   if (method == HTTP_ANY) {
     log_e("Unknown HTTP Method: %s", methodStr.c_str());
-    return false;
+    return chaosReject(ErrorCode::HTTP_REQUEST);
   }
   _currentMethod = method;
 
@@ -293,7 +297,7 @@ bool WebServer::_parseRequest(NetworkClient &client) {
       if (req == "") {
         break;  //no moar headers
       }
-      if(++chaosHeaderCount>32 || (chaosHeaderBytes+=req.length())>8192)return false;
+      if(++chaosHeaderCount>32 || (chaosHeaderBytes+=req.length())>8192)return chaosReject(ErrorCode::HTTP_HEADERS);
       int headerDiv = req.indexOf(':');
       if (headerDiv == -1) {
         break;
@@ -314,25 +318,31 @@ bool WebServer::_parseRequest(NetworkClient &client) {
           boundaryStr = headerValue.substring(headerValue.indexOf('=') + 1);
           boundaryStr.replace("\"", "");
           if (boundaryStr.length() > 70) {  // RFC 2046: max boundary length is 70
-            log_e("Invalid boundary length: %s", boundaryStr.c_str());
-            return false;
+            log_e("Invalid boundary length");
+            return chaosReject(ErrorCode::HTTP_BOUNDARY);
           }
           isForm = true;
         }
       } else if (headerName.equalsIgnoreCase(F("Content-Length"))) {
-        if(chaosHasLength || headerValue.isEmpty() || headerValue.length()>7)return false;
+        if(chaosHasLength || headerValue.isEmpty() || headerValue.length()>7)return chaosReject(ErrorCode::HTTP_LENGTH);
         chaosHasLength=true;_clientContentLength=0;
-        for(size_t i=0;i<headerValue.length();++i){if(headerValue[i]<'0'||headerValue[i]>'9')return false;_clientContentLength=_clientContentLength*10+headerValue[i]-'0';}
-        if(_clientContentLength>1974272)return false;
+        for(size_t i=0;i<headerValue.length();++i){if(headerValue[i]<'0'||headerValue[i]>'9')return chaosReject(ErrorCode::HTTP_LENGTH);_clientContentLength=_clientContentLength*10+headerValue[i]-'0';}
+        if(_clientContentLength>1974272)return chaosReject(ErrorCode::HTTP_BODY_LIMIT);
       } else if(headerName.equalsIgnoreCase("Transfer-Encoding")){
-        return false;
+        return chaosReject(ErrorCode::HTTP_TRANSFER);
       } else if (headerName.equalsIgnoreCase(F("Host"))) {
         _hostHeader = headerValue;
       }
     }
 
-    if(!chaosHasLength)return false;
-    if(_chaosBodyGuard && !_chaosBodyGuard())return false;
+    if(!chaosHasLength)return chaosReject(ErrorCode::HTTP_LENGTH);
+    if(_chaosBodyGuard && !_chaosBodyGuard()){
+      size_t remaining=_clientContentLength<4096?_clientContentLength:4096;const uint32_t started=millis();
+      while(remaining && static_cast<uint32_t>(millis()-started)<50 && client.connected()){
+        if(client.available()){client.read();--remaining;}else yield();
+      }
+      return false;
+    }
     if(!isForm && _clientContentLength>4096){sendErrorResponse(client,"413 Content Too Large");return false;}
     if (!isForm && _currentHandler && _currentHandler->canRaw(*this, _currentUri)) {
       log_v("Parse raw");
@@ -351,7 +361,7 @@ bool WebServer::_parseRequest(NetworkClient &client) {
         if (_currentRaw->currentSize == 0) {
           _currentRaw->status = RAW_ABORTED;
           _currentHandler->raw(*this, _currentUri, *_currentRaw);
-          return false;
+          return chaosReject(ErrorCode::HTTP_REQUEST);
         }
         _currentHandler->raw(*this, _currentUri, *_currentRaw);
       }
@@ -363,7 +373,7 @@ bool WebServer::_parseRequest(NetworkClient &client) {
       char *plainBuf = readBytesWithTimeout(client, _clientContentLength, plainLength, HTTP_MAX_POST_WAIT);
       if (plainLength < (size_t)_clientContentLength) {
         free(plainBuf);
-        return false;
+        return chaosReject(ErrorCode::HTTP_REQUEST);
       }
       if (_clientContentLength > 0) {
         if (isEncoded) {
@@ -373,7 +383,7 @@ bool WebServer::_parseRequest(NetworkClient &client) {
           }
           searchStr += plainBuf;
         }
-        if(!chaosArgumentLimit(searchStr))return false;
+        if(!chaosArgumentLimit(searchStr))return chaosReject(ErrorCode::HTTP_ARGUMENTS);
     _parseArguments(searchStr);
         if (!isEncoded && _currentArgs) {
           //plain post json or other data
@@ -386,15 +396,15 @@ bool WebServer::_parseRequest(NetworkClient &client) {
         free(plainBuf);
       } else {
         // No content - but we can still have arguments in the URL.
-        if(!chaosArgumentLimit(searchStr))return false;
+        if(!chaosArgumentLimit(searchStr))return chaosReject(ErrorCode::HTTP_ARGUMENTS);
     _parseArguments(searchStr);
       }
     } else {
       // it IS a form
-      if(!chaosArgumentLimit(searchStr))return false;
+      if(!chaosArgumentLimit(searchStr))return chaosReject(ErrorCode::HTTP_ARGUMENTS);
     _parseArguments(searchStr);
       if (!_parseForm(client, boundaryStr, _clientContentLength)) {
-        return false;
+        return chaosReject(ErrorCode::HTTP_REQUEST);
       }
     }
   } else {
@@ -411,7 +421,7 @@ bool WebServer::_parseRequest(NetworkClient &client) {
       if (req == "") {
         break;  //no moar headers
       }
-      if(++chaosHeaderCount>32 || (chaosHeaderBytes+=req.length())>8192)return false;
+      if(++chaosHeaderCount>32 || (chaosHeaderBytes+=req.length())>8192)return chaosReject(ErrorCode::HTTP_HEADERS);
       int headerDiv = req.indexOf(':');
       if (headerDiv == -1) {
         break;
@@ -424,7 +434,7 @@ bool WebServer::_parseRequest(NetworkClient &client) {
         _hostHeader = headerValue;
       }
     }
-    if(!chaosArgumentLimit(searchStr))return false;
+    if(!chaosArgumentLimit(searchStr))return chaosReject(ErrorCode::HTTP_ARGUMENTS);
     _parseArguments(searchStr);
   }
   client.clear();

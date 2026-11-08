@@ -15,6 +15,31 @@ using ClockWebServer = ESP8266WebServer;
 static constexpr char DEVICE_FAMILY[]="esp8266";
 #endif
 
+// Arduino-ESP32 chooses FLASH versus RAM at the first low-level radio init.
+// Changing persistent() afterwards does not change an already selected store.
+inline void configureWifiPersistence(){
+#if defined(ESP32)
+  WiFi.persistent(true);
+#else
+  WiFi.persistent(false);
+#endif
+}
+
+enum class SavedWifiState:uint8_t {Missing,Available,Unreadable};
+inline SavedWifiState savedWifiState(){
+#if defined(ESP32)
+  // STA.SSID() in core 3.x reports the connected AP, not saved credentials.
+  wifi_config_t config={};
+  if(esp_wifi_get_config(WIFI_IF_STA,&config)!=ESP_OK)return SavedWifiState::Unreadable;
+  const bool present=config.sta.ssid[0]!=0;
+  volatile uint8_t* bytes=reinterpret_cast<volatile uint8_t*>(&config);
+  for(size_t i=0;i<sizeof config;++i)bytes[i]=0;
+  return present?SavedWifiState::Available:SavedWifiState::Missing;
+#else
+  return WiFi.SSID().length()?SavedWifiState::Available:SavedWifiState::Missing;
+#endif
+}
+
 inline uint32_t deviceIdentifier(){
 #if defined(ESP32)
   return static_cast<uint32_t>(ESP.getEfuseMac()>>24)&0xffffff;

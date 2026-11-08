@@ -40,17 +40,19 @@ class String:public std::string {
 static String operator+(const String& a,const String& b){return String(static_cast<const std::string&>(a)+static_cast<const std::string&>(b));}
 static String operator+(const char* a,const String& b){return String(a)+b;}
 static String operator+(const String& a,const char* b){return a+String(b);}
+#include "error_response.h"
 static uint32_t fakeTime=0;
 static uint32_t millis(){return fakeTime;}
 static void yield(){++fakeTime;}
 struct S2Stream {String& text;explicit S2Stream(String& value):text(value){}};
-struct SocketState {String bytes;size_t position=0;bool alive=true,holdOpen=false;};
+struct SocketState {String bytes,response;size_t position=0;bool alive=true,holdOpen=false;};
 struct FakeClient {
   std::shared_ptr<SocketState> state=std::make_shared<SocketState>();
   int read(){return state->position<state->bytes.size()?static_cast<uint8_t>(state->bytes[state->position++]):-1;}
   bool connected(){return state->alive&&(state->holdOpen||state->position<state->bytes.size());}
   size_t available(){return state->bytes.size()-state->position;}
   void stop(){state->alive=false;}
+  template<typename... Args>void printf(const char* format,Args... args){char text[1536];snprintf(text,sizeof text,format,args...);state->response+=text;}
   void flush(){}
   size_t sendSize(S2Stream& output,size_t count,int){size_t sent=std::min(count,available());output.text+=state->bytes.substr(state->position,sent);state->position+=sent;return sent;}
 };
@@ -131,7 +133,7 @@ int main(){
   {Server s;assert(parse(s,request(multipart(1),"multipart/form-data; boundary="+String(71,'a')))==Server::CLIENT_MUST_STOP);assert(!s.handler.starts);}
   const String file="--boundary\r\nContent-Disposition: form-data; name=\"firmware\"; filename=\"test.bin\"\r\nContent-Type: application/octet-stream\r\n\r\n"+String(100,'X')+"\r\n--boundary--\r\n";
   {Server s;assert(parse(s,request(file))==Server::CLIENT_REQUEST_CAN_CONTINUE);assert(s.handler.starts==1&&s.handler.ends==1&&s.handler.bytes==String(100,'X'));}
-  {Server s;s._chaosBodyGuard=[](){return false;};const String text=request(file);assert(parse(s,text)==Server::CLIENT_MUST_STOP);assert(!s.handler.starts&&s._currentClient.state->position==text.find("\r\n\r\n")+4);}
+  {Server s;s._chaosBodyGuard=[](){return false;};const String text=request(file);assert(parse(s,text)==Server::CLIENT_MUST_STOP);assert(!s.handler.starts&&s._currentClient.state->position==text.size());}
   {Server s;assert(parse(s,request(file).substr(0,request(file).size()-8))==Server::CLIENT_MUST_STOP);assert(s.handler.aborts==1);}
   {Server s;assert(parse(s,request(file.substr(0,100)),true)==Server::CLIENT_MUST_STOP);assert(fakeTime>=5000);}
   {Server s;assert(parse(s,"GET / HTTP/1.1\r\nX-Large: "+String(1025,'x')+"\r\n\r\n")==Server::CLIENT_MUST_STOP);}

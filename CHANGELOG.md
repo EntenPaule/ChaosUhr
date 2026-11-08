@@ -1,5 +1,16 @@
 # Änderungen
 
+## 2.0.11 – lokale Entwicklung, nicht veröffentlicht
+
+- ESP32: Flash/NVS als WLAN-Speicher vor dem ersten Funkstart wählen; gespeicherte Konfiguration statt aktuell verbundener SSID prüfen. Routerausfall löscht keine Zugangsdaten, die 30-Sekunden-Frist und das geschützte Recovery-Portal bleiben erhalten.
+- Einheitliche stabile Fehlercodes mit deutscher Beschreibung, technischer Ursache und Handlungsempfehlung für API, GUI und serielle Diagnose. Acht Einträge im RAM, ohne laufende Flash-Schreibzugriffe; Codevertrag und automatisch geprüfte Referenz.
+- MQTT: keine leeren Fehlermeldungen bei HTTP 401, fehlgeschlagenen Antworten oder Sitzungsfehlern. Speicherfehler getrennt von DNS/TCP/Timeout, Brokerablehnung, Berechtigungen und Verbindungsabbruch melden; unbekannte Ursachen ausdrücklich allgemein lassen.
+- MQTT-Dateispeicherung: einzelne LittleFS-Operationen unterscheiden und vorhandene Konfiguration bei Fehlern erhalten. Keine automatische Formatierung oder Löschung.
+- Bereinigte, kopierbare Supportdiagnose über GUI und authentifiziertes `GET /api/diagnostics`, ohne Passwörter, Tokens, Topics oder Messwerte.
+- Regressionstests für Coldstart-Modell, tatsächlichen MQTT-Controller mit simuliertem Transport, Dateifehler, 401-/GUI-Verhalten, Parser und Fehlercodes. Reale Hardwaretests stehen aus; keine Geräteinstallation oder Veröffentlichung.
+
+[Entwicklungsbericht und Testergebnisse](docs/ENTWICKLUNGSBERICHT_2_0_11.md), [Fehlercodeliste](docs/FEHLERCODES.md).
+
 ## 2.0.10 – stabile Freigabe für Wemos und klassischen ESP32
 
 - MQTT-Wetter und vier Sensorplätze für HA/ioBroker; wählbare Anzeigearten einschließlich nur Uhr/Wetter.

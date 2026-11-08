@@ -1,3 +1,4 @@
+#include "../../../include/error_response.h"
 /*
   Parsing.cpp - HTTP request parsing.
 
@@ -37,20 +38,20 @@ namespace esp8266webserver {
 // Project hardening: bound input before allocating Strings, form arrays or a
 // boundary buffer. A yielding stalled client must not monopolize the clock.
 template<typename Client>
-static bool chaosHttpLine(Client& client,String& line,size_t maximum,uint32_t started,uint32_t* consumed=nullptr,uint32_t limit=0){
+static bool chaosHttpLine(Client& client,String& line,size_t maximum,uint32_t started,uint32_t* consumed=nullptr,uint32_t limit=0,ErrorCode sizeError=ErrorCode::HTTP_HEADERS){
   line.clear();bool cr=false;uint32_t last=millis();
   while(static_cast<uint32_t>(millis()-started)<120000){
     const int ch=client.read();
-    if(ch<0){if(!client.connected() || static_cast<uint32_t>(millis()-last)>=5000)return false;yield();continue;}
+    if(ch<0){if(!client.connected()){recordError(ErrorCode::HTTP_BODY_ABORT);return false;}if(static_cast<uint32_t>(millis()-last)>=5000){recordError(ErrorCode::HTTP_TIMEOUT);return false;}yield();continue;}
     last=millis();
-    if(consumed && ++*consumed>limit)return false;
-    if(ch=='\n')return cr;
-    if(cr || ch==0)return false;
+    if(consumed && ++*consumed>limit){recordError(ErrorCode::HTTP_BODY_LIMIT);return false;}
+    if(ch=='\n'){if(!cr)recordError(ErrorCode::HTTP_REQUEST);return cr;}
+    if(cr || ch==0){recordError(ErrorCode::HTTP_REQUEST);return false;}
     if(ch=='\r'){cr=true;continue;}
-    if(line.length()>=maximum)return false;
+    if(line.length()>=maximum){recordError(sizeError);return false;}
     line+=static_cast<char>(ch);
   }
-  return false;
+  recordError(ErrorCode::HTTP_TIMEOUT);return false;
 }
 static bool chaosHttpLength(const String& text,uint32_t& value){
   if(text.isEmpty() || text.length()>7)return false;
@@ -68,9 +69,16 @@ static bool readBytesWithTimeout(typename ServerType::ClientType& client, size_t
 
 template <typename ServerType>
 typename ESP8266WebServerTemplate<ServerType>::ClientFuture ESP8266WebServerTemplate<ServerType>::_parseRequest(ClientType& client) {
+  const uint32_t errorSequence=errorRegistry().sequence();
+  auto chaosReject=[&](ErrorCode fallback){
+    const auto code=errorRegistry().sequence()!=errorSequence?errorRegistry().last():fallback;
+    recordError(code);const int status=errorHttpStatus(code);const String body=errorJson(code,status);
+    client.printf("HTTP/1.1 %d Bad Request\r\nContent-Type: application/json; charset=utf-8\r\nContent-Length: %u\r\nConnection: close\r\nCache-Control: no-store\r\n\r\n%s",status,static_cast<unsigned>(body.length()),body.c_str());
+    return CLIENT_MUST_STOP;
+  };
   // Read the first line of HTTP request
   _chaosRequestStarted=millis();String req;
-  if(!chaosHttpLine(client,req,1024,_chaosRequestStarted))return CLIENT_MUST_STOP;
+  if(!chaosHttpLine(client,req,1024,_chaosRequestStarted,nullptr,0,ErrorCode::HTTP_URI))return chaosReject(ErrorCode::HTTP_REQUEST);
   DBGWS("request: %s\n", req.c_str());
   //reset header value
   for (int i = 0; i < _headerKeysCount; ++i) {
@@ -85,7 +93,7 @@ typename ESP8266WebServerTemplate<ServerType>::ClientFuture ESP8266WebServerTemp
   int addr_end = req.indexOf(' ', addr_start + 1);
   if (addr_start == -1 || addr_end == -1) {
     DBGWS("Invalid request\n");
-    return CLIENT_MUST_STOP;
+    return chaosReject(ErrorCode::HTTP_REQUEST);
   }
 
   String methodStr = req.substring(0, addr_start);
@@ -121,7 +129,7 @@ typename ESP8266WebServerTemplate<ServerType>::ClientFuture ESP8266WebServerTemp
     method = HTTP_PUT;
   } else if (methodStr == F("PATCH")) {
     method = HTTP_PATCH;
-  } else if(methodStr!=F("GET"))return CLIENT_MUST_STOP;
+  } else if(methodStr!=F("GET"))return chaosReject(ErrorCode::HTTP_METHOD);
   _currentMethod = method;
 
   _keepAlive = _currentVersion > 0; // Keep the connection alive by default
@@ -151,7 +159,7 @@ typename ESP8266WebServerTemplate<ServerType>::ClientFuture ESP8266WebServerTemp
     bool chaosHasLength=false;
     //parse headers
     while(1){
-      if(!chaosHttpLine(client,req,1024,_chaosRequestStarted) || ++chaosHeaderCount>32 || (chaosHeaderBytes+=req.length())>8192)return CLIENT_MUST_STOP;
+      if(!chaosHttpLine(client,req,1024,_chaosRequestStarted) || ++chaosHeaderCount>32 || (chaosHeaderBytes+=req.length())>8192)return chaosReject(ErrorCode::HTTP_HEADERS);
       if (req.isEmpty()) break; //no more headers
       int headerDiv = req.indexOf(':');
       if (headerDiv == -1){
@@ -172,18 +180,18 @@ typename ESP8266WebServerTemplate<ServerType>::ClientFuture ESP8266WebServerTemp
           isForm = false;
           isEncoded = true;
         } else if (headerValue.startsWith(F("multipart/"))){
-          const int boundaryAt=headerValue.indexOf("boundary=");if(boundaryAt<0)return CLIENT_MUST_STOP;
+          const int boundaryAt=headerValue.indexOf("boundary=");if(boundaryAt<0)return chaosReject(ErrorCode::HTTP_BOUNDARY);
           boundaryStr = headerValue.substring(boundaryAt+9);boundaryStr.trim();
           boundaryStr.replace("\"","");
-          if(boundaryStr.isEmpty() || boundaryStr.length()>70)return CLIENT_MUST_STOP;
-          for(size_t i=0;i<boundaryStr.length();++i)if(boundaryStr[i]<33 || boundaryStr[i]>126 || boundaryStr[i]==';')return CLIENT_MUST_STOP;
+          if(boundaryStr.isEmpty() || boundaryStr.length()>70)return chaosReject(ErrorCode::HTTP_BOUNDARY);
+          for(size_t i=0;i<boundaryStr.length();++i)if(boundaryStr[i]<33 || boundaryStr[i]>126 || boundaryStr[i]==';')return chaosReject(ErrorCode::HTTP_BOUNDARY);
           isForm = true;
         }
       } else if (headerName.equalsIgnoreCase(F("Content-Length"))){
-        if(chaosHasLength || !chaosHttpLength(headerValue,contentLength))return CLIENT_MUST_STOP;
+        if(chaosHasLength || !chaosHttpLength(headerValue,contentLength))return chaosReject(ErrorCode::HTTP_LENGTH);
         chaosHasLength=true;
       } else if(headerName.equalsIgnoreCase(F("Transfer-Encoding"))){
-        return CLIENT_MUST_STOP;
+        return chaosReject(ErrorCode::HTTP_TRANSFER);
       } else if (headerName.equalsIgnoreCase(F("Host"))){
         _hostHeader = headerValue;
       } else if (headerName.equalsIgnoreCase(F("Connection"))){
@@ -191,10 +199,18 @@ typename ESP8266WebServerTemplate<ServerType>::ClientFuture ESP8266WebServerTemp
       }
     }
 
-    if(!chaosHasLength)return CLIENT_MUST_STOP;
-    if(_chaosBodyGuard && !_chaosBodyGuard())return CLIENT_MUST_STOP;
+    if(!chaosHasLength)return chaosReject(ErrorCode::HTTP_LENGTH);
+    if(_chaosBodyGuard && !_chaosBodyGuard()){
+      // A bounded discard lets an already-sent 401/403 body reach the peer.
+      // This does not parse fields, allocate an upload or write any storage.
+      size_t remaining=contentLength<4096?contentLength:4096;const uint32_t started=millis();
+      while(remaining && static_cast<uint32_t>(millis()-started)<50 && client.connected()){
+        if(client.available()){client.read();--remaining;}else yield();
+      }
+      return CLIENT_MUST_STOP;
+    }
     String plainBuf;
-    if(!isForm && contentLength>4096)return CLIENT_MUST_STOP;
+    if(!isForm && contentLength>4096)return chaosReject(ErrorCode::HTTP_BODY_LIMIT);
     if (   !isForm
         && // read content into plainBuf
            (   !readBytesWithTimeout<ServerType>(client, contentLength, plainBuf, HTTP_MAX_POST_WAIT)
@@ -202,7 +218,7 @@ typename ESP8266WebServerTemplate<ServerType>::ClientFuture ESP8266WebServerTemp
            )
        )
     {
-        return CLIENT_MUST_STOP;
+        return chaosReject(ErrorCode::HTTP_REQUEST);
     }
 
     if (isEncoded) {
@@ -214,7 +230,7 @@ typename ESP8266WebServerTemplate<ServerType>::ClientFuture ESP8266WebServerTemp
     }
 
     // parse searchStr for key/value pairs
-    if(!_parseArguments(searchStr))return CLIENT_MUST_STOP;
+    if(!_parseArguments(searchStr))return chaosReject(ErrorCode::HTTP_ARGUMENTS);
 
     if (!isForm) {
       if (contentLength) {
@@ -227,7 +243,7 @@ typename ESP8266WebServerTemplate<ServerType>::ClientFuture ESP8266WebServerTemp
     } else { // isForm is true
       // here: content is not yet read (plainBuf is still empty)
       if (!_parseForm(client, boundaryStr, contentLength)) {
-        return CLIENT_MUST_STOP;
+        return chaosReject(ErrorCode::HTTP_REQUEST);
       }
     }
   } else {
@@ -235,7 +251,7 @@ typename ESP8266WebServerTemplate<ServerType>::ClientFuture ESP8266WebServerTemp
     String headerValue;
     //parse headers
     while(1){
-      if(!chaosHttpLine(client,req,1024,_chaosRequestStarted) || ++chaosHeaderCount>32 || (chaosHeaderBytes+=req.length())>8192)return CLIENT_MUST_STOP;
+      if(!chaosHttpLine(client,req,1024,_chaosRequestStarted) || ++chaosHeaderCount>32 || (chaosHeaderBytes+=req.length())>8192)return chaosReject(ErrorCode::HTTP_HEADERS);
       if (req.isEmpty()) break;//no moar headers
       int headerDiv = req.indexOf(':');
       if (headerDiv == -1){
@@ -253,7 +269,7 @@ typename ESP8266WebServerTemplate<ServerType>::ClientFuture ESP8266WebServerTemp
         _keepAlive = headerValue.equalsIgnoreCase(F("keep-alive"));
       }
     }
-    if(!_parseArguments(searchStr))return CLIENT_MUST_STOP;
+    if(!_parseArguments(searchStr))return chaosReject(ErrorCode::HTTP_ARGUMENTS);
   }
   client.flush();
 
@@ -304,7 +320,7 @@ bool ESP8266WebServerTemplate<ServerType>::_parseArguments(const String& data) {
   if (_currentArgs){delete[] _currentArgs;_currentArgs=nullptr;}
 
   _currentArgCount = _parseArgumentsPrivate(data, nullArgHandler());
-  if(_currentArgCount<0){_currentArgCount=0;return false;}
+  if(_currentArgCount<0){_currentArgCount=0;recordError(ErrorCode::HTTP_ARGUMENTS);return false;}
 
   // allocate one more, this is needed because {"plain": plainBuf} is always added
   _currentArgs = new RequestArgument[_currentArgCount + 1];

@@ -15,6 +15,8 @@ import tempfile
 import time
 
 project = Path(__file__).resolve().parents[1]
+subprocess.run(["node",str(project/"tests/test_error_ui.js")],check=True)
+subprocess.run(["python3",str(project/"scripts/generate_error_docs.py"),"--check"],check=True)
 subprocess.run(["python3",str(project/"tests/test_release_safety.py")],check=True)
 subprocess.run(["python3",str(project/"tests/run_http_parser_test.py")],check=True)
 build_dir = project / ".pio" / "host-tests"
@@ -55,13 +57,24 @@ subprocess.run([str(clock_binary)],check=True)
 
 json_headers=next(iter((project/'.pio/libdeps').glob('*/ArduinoJson/src/ArduinoJson.h')),None)
 if json_headers is None:raise SystemExit('Install pinned dependencies first: pio pkg install -e d1_mini_public')
-for name in ('options','telemetry','mqtt_api'):
+for name in ('options','telemetry','mqtt_api','mqtt_failures','errors'):
     target=build_dir/('test_'+name)
     subprocess.run(['g++','-std=c++17','-Wall','-Wextra','-Werror','-pedantic',
                     '-fsanitize=address,undefined','-fno-omit-frame-pointer',
                     '-I',str(project/'include'),'-I',str(project/'tests'),'-I',str(json_headers.parent),
                     str(project/'tests'/('test_'+name+'.cpp')),'-o',str(target)],check=True)
     subprocess.run([str(target)],check=True)
+
+mqtt_target=build_dir/'test_clock_mqtt'
+subprocess.run(['g++','-std=c++17','-Wall','-Wextra','-Werror','-pedantic','-fsanitize=address,undefined','-fno-omit-frame-pointer','-I',str(project/'tests/mqtt_stubs'),'-I',str(project/'tests/public_stubs'),'-I',str(project/'include'),'-I',str(json_headers.parent),str(project/'tests/test_clock_mqtt.cpp'),'-o',str(mqtt_target)],check=True)
+subprocess.run([str(mqtt_target)],check=True)
+
+policy=(project/'include/device_platform.h').read_text()
+policy=policy[policy.index('inline void configureWifiPersistence'):policy.index('inline uint32_t deviceIdentifier')]
+fixture=(project/'tests/test_wifi_coldstart.cpp.in').read_text().replace('@POLICY@',policy)
+wifi_target=build_dir/'test_wifi_coldstart'
+subprocess.run(['g++','-std=c++17','-Wall','-Wextra','-Werror','-pedantic','-fsanitize=address,undefined','-fno-omit-frame-pointer','-DESP32=1','-x','c++','-','-o',str(wifi_target)],input=fixture,text=True,check=True)
+subprocess.run([str(wifi_target)],check=True)
 
 esp32_ota=build_dir/'test_esp32_ota'
 subprocess.run(['g++','-std=c++17','-Wall','-Wextra','-Werror','-pedantic',
@@ -137,17 +150,17 @@ network_source = (project / "tests" / "test_network.cpp.in").read_text().replace
 network_binary = build_dir / "test_network"
 subprocess.run([
     "g++", "-std=c++17", "-Wall", "-Wextra", "-Werror", "-pedantic",
-    "-x", "c++", "-", "-o", str(network_binary),
+    "-I",str(project/"include"),"-x", "c++", "-", "-o", str(network_binary),
 ], input=network_source, text=True, check=True)
 subprocess.run([str(network_binary)], check=True)
 public_network_binary=build_dir/"test_public_network"
 subprocess.run(["g++","-std=c++17","-Wall","-Wextra","-Werror","-pedantic",
-                "-DCHAOSUHR_PUBLIC_BUILD=1","-x","c++","-","-o",str(public_network_binary)],
+                "-I",str(project/"include"),"-DCHAOSUHR_PUBLIC_BUILD=1","-x","c++","-","-o",str(public_network_binary)],
                input=network_source,text=True,check=True)
 subprocess.run([str(public_network_binary)],check=True)
 esp32_network_binary=build_dir/"test_esp32_network"
 subprocess.run(["g++","-std=c++17","-Wall","-Wextra","-Werror","-pedantic",
-                "-DCHAOSUHR_PUBLIC_BUILD=1","-DESP32=1","-x","c++","-","-o",str(esp32_network_binary)],
+                "-I",str(project/"include"),"-DCHAOSUHR_PUBLIC_BUILD=1","-DESP32=1","-x","c++","-","-o",str(esp32_network_binary)],
                input=network_source,text=True,check=True)
 subprocess.run([str(esp32_network_binary)],check=True)
 

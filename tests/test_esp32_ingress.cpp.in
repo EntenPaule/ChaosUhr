@@ -40,10 +40,11 @@ struct NetworkClient {
   int read(){return position<input.size()?static_cast<uint8_t>(input[position++]):-1;}
   int peek(){return position<input.size()?static_cast<uint8_t>(input[position]):-1;}
   int available(){return input.size()-position;}
+  bool connected(){return position<input.size();}
   unsigned long getTimeout(){return 5000;}
   size_t readBytes(char* out,size_t count){count=std::min(count,input.size()-position);memcpy(out,input.data()+position,count);position+=count;return count;}
   int read(uint8_t* out,size_t count){return readBytes(reinterpret_cast<char*>(out),count);}
-  void printf(const char*,const char* status){response=status;}
+  template<typename... Args>void printf(const char* format,Args... args){char text[1536];snprintf(text,sizeof text,format,args...);response=text;}
   void clear(){position=input.size();}
 };
 enum HTTPMethod {HTTP_ANY,HTTP_GET,HTTP_HEAD,HTTP_POST,HTTP_PUT,HTTP_PATCH,HTTP_DELETE,HTTP_OPTIONS};
@@ -52,6 +53,7 @@ static const char Content_Type[]="Content-Type";
 enum {RAW_START,RAW_WRITE,RAW_ABORTED,RAW_END};
 struct HTTPRaw {int status=0;size_t totalSize=0,currentSize=0;char buf[HTTP_RAW_BUFLEN];};
 namespace mime {enum {txt};struct Entry{const char* mimeType;};static const Entry mimeTable[]={{"text/plain"}};}
+#include "error_response.h"
 class WebServer;
 struct RequestHandler {
   bool canHandle(WebServer&,HTTPMethod,const String&){return true;}
@@ -89,16 +91,16 @@ static String request(const String& body,const String& extra="",const String& le
 }
 int main(){
   {WebServer s;NetworkClient c;bool guard=false;s._chaosBodyGuard=[&](){guard=true;return false;};
-   c.input=request(String(3000,'x'));assert(!s._parseRequest(c)&&guard&&c.position==c.input.find("\r\n\r\n")+4&&!s._currentArgs);}
+   c.input=request(String(3000,'x'));assert(!s._parseRequest(c)&&guard&&c.position==c.input.size()&&!s._currentArgs);}
   {WebServer s;NetworkClient c;c.input=request("brightness=30");s._chaosBodyGuard=[](){return true;};assert(s._parseRequest(c)&&s.arguments=="brightness=30");}
   {WebServer s;NetworkClient c;c.input=request("x=1");s._chaosConnectionGuard=[](){return false;};assert(!s._parseRequest(c)&&c.position==0);}
-  {WebServer s;NetworkClient c;c.input=request(String(4097,'x'));assert(!s._parseRequest(c)&&c.response=="413 Content Too Large");}
+  {WebServer s;NetworkClient c;c.input=request(String(4097,'x'));assert(!s._parseRequest(c)&&c.response.find("413 Content Too Large")!=String::npos&&c.response.find("HTTP-005")!=String::npos);}
   for(const auto& extra:{String("Content-Length: 3\r\n"),String("Transfer-Encoding: chunked\r\n")}){
    WebServer s;NetworkClient c;c.input=request("x=1",extra);assert(!s._parseRequest(c)&&!s._currentArgs);}
   {WebServer s;NetworkClient c;c.input=request("x=1","","1974273");assert(!s._parseRequest(c));}
   {WebServer s;NetworkClient c;String extra;for(int i=0;i<33;++i)extra+="X: a\r\n";c.input=request("x=1",extra);assert(!s._parseRequest(c));}
-  {WebServer s;NetworkClient c;c.input=request("x=1",String("X: ")+String(1025,'a')+"\r\n");assert(!s._parseRequest(c)&&c.response=="431 Request Header Fields Too Large");}
-  {WebServer s;NetworkClient c;c.input="GET / HTTP/1.1\rX";assert(!s._parseRequest(c)&&c.response=="400 Bad Request");}
+  {WebServer s;NetworkClient c;c.input=request("x=1",String("X: ")+String(1025,'a')+"\r\n");assert(!s._parseRequest(c)&&c.response.find("431 Request Header Fields Too Large")!=String::npos&&c.response.find("HTTP-003")!=String::npos);}
+  {WebServer s;NetworkClient c;c.input="GET / HTTP/1.1\rX";assert(!s._parseRequest(c)&&c.response.find("400 Bad Request")!=String::npos&&c.response.find("HTTP-002")!=String::npos);}
   {WebServer s;NetworkClient c;c.input=request("abcMORE","","3");assert(s._parseRequest(c)&&s.arguments=="abc");}
   puts("PASS actual ESP32 HTTP ingress: pre-body and connection guards, declared-length read cap, header/body limits, duplicate length/TE rejection and strict CRLF (ASan/UBSan)");
 }

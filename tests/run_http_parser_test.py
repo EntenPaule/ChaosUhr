@@ -23,5 +23,5 @@ fixture=(root/'tests/test_esp32_ingress.cpp.in').read_text().replace('@HELPERS@'
 binary=root/'.pio/host-tests/test_esp32_ingress'
 subprocess.run(['g++','-std=c++17','-Wall','-Wextra','-Werror','-pedantic',
                 '-fsanitize=address,undefined','-fno-omit-frame-pointer',
-                '-x','c++','-','-o',str(binary)],input=fixture,text=True,check=True)
+                '-I',str(root/'include'),'-x','c++','-','-o',str(binary)],input=fixture,text=True,check=True)
 subprocess.run([str(binary)],check=True)

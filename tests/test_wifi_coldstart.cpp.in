@@ -1,0 +1,49 @@
+// Actual application policy against the pinned core's storage-selection model.
+// This is not a physical cold-start or NVS endurance test.
+#include <cassert>
+#include <cstdint>
+#include <cstring>
+#include <cstdio>
+#include <string>
+static constexpr int WIFI_STA=1,WIFI_AP=2,WIFI_IF_STA=0,ESP_OK=0;
+struct wifi_config_t {struct {uint8_t ssid[32],password[64];}sta;};
+struct SdkModel {
+  bool initialized=false,flashStorage=false,persistent=true,router=false,readFails=false;
+  unsigned erases=0;wifi_config_t nvs={},ram={};
+  void coldStart(){initialized=false;flashStorage=false;persistent=true;ram={};}
+  void init(){if(!initialized){initialized=true;flashStorage=persistent;ram=flashStorage?nvs:wifi_config_t{};}}
+  void save(){strcpy(reinterpret_cast<char*>(ram.sta.ssid),"fixture-wifi");strcpy(reinterpret_cast<char*>(ram.sta.password),"fixture-private-password");if(flashStorage)nvs=ram;}
+} sdk;
+struct Wifi {
+  void persistent(bool value){sdk.persistent=value;}
+  void mode(int){sdk.init();}
+  void begin(){sdk.init();}
+  std::string SSID(){return sdk.router?reinterpret_cast<char*>(sdk.ram.sta.ssid):"";}
+} WiFi;
+int esp_wifi_get_config(int,wifi_config_t* value){if(sdk.readFails)return -1;*value=sdk.ram;return ESP_OK;}
+@POLICY@
+int main(){
+  // Negative control reproduces both source-level 2.0.10 defects.
+  sdk={};WiFi.persistent(false);WiFi.mode(WIFI_STA);
+  WiFi.persistent(true);sdk.save();WiFi.persistent(false);
+  assert(sdk.ram.sta.ssid[0] && !sdk.nvs.sta.ssid[0]);
+  sdk.coldStart();WiFi.persistent(false);WiFi.mode(WIFI_STA);WiFi.begin();
+  assert(savedWifiState()==SavedWifiState::Missing);
+  sdk={};configureWifiPersistence();WiFi.mode(WIFI_STA);
+  // WiFiManager toggles the flag after initialization, but FLASH remains selected.
+  WiFi.persistent(true);sdk.save();WiFi.persistent(false);
+  assert(sdk.nvs.sta.ssid[0] && sdk.flashStorage);
+  const auto saved=sdk.nvs;
+  for(unsigned cycle=0;cycle<3;++cycle){
+    sdk.coldStart();configureWifiPersistence();WiFi.mode(WIFI_STA);WiFi.begin();
+    assert(savedWifiState()==SavedWifiState::Available);
+    assert(WiFi.SSID().empty()); // disconnected AP information must not imply missing credentials
+    assert(!memcmp(&saved,&sdk.nvs,sizeof saved));
+    // Router outage and portal mode transitions preserve the stored credentials.
+    WiFi.mode(WIFI_AP);configureWifiPersistence();WiFi.mode(WIFI_STA);WiFi.begin();
+    assert(savedWifiState()==SavedWifiState::Available && sdk.erases==0);
+    assert(!memcmp(&saved,&sdk.nvs,sizeof saved));
+  }
+  sdk.readFails=true;assert(savedWifiState()==SavedWifiState::Unreadable);
+  puts("PASS actual ESP32 WiFi policy: negative controls for RAM init/connected SSID, three simulated cold starts, router outage/mode transitions, NVS preservation and unreadable-state distinction; physical tests open");
+}

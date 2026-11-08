@@ -4,6 +4,8 @@
  */
 #include <Arduino.h>
 #include "device_platform.h"
+#include "error_response.h"
+#include "error_ui.h"
 #if defined(ESP32)
 #include <HTTPUpdateServer.h>
 #include <ESPmDNS.h>
@@ -431,6 +433,7 @@ small{color:#abb9d0}output{float:right;color:#8bd5ff}.flex{display:flex;gap:10px
 <p><small>Sensoren akzeptieren Zahlen, kurze Texte oder JSON mit value, val oder state. Wetter/Sensoren anschließend oben als Anzeigeart auswählen. Der lokale MQTT-Zugang verwendet kein TLS.</small></p>
 <button type="button" onclick="saveMqtt()">MQTT speichern</button> <button type="button" onclick="loadMqtt()">Status aktualisieren</button>
 <p id="mqttMessage" role="status"></p></article>
+<article><h2>Diagnose</h2><p>Letzter Fehler und begrenzter RAM-Verlauf. Keine Zugangsdaten, Tokens, Topics oder Messwerte enthalten.</p><button type="button" onclick="loadDiagnostics()">Supportdiagnose laden</button><p id="diagnosticMessage" role="status"></p><textarea id="supportDiagnostics" rows="12" readonly style="width:100%" aria-label="Bereinigte Supportdiagnose"></textarea></article>
 <article><h2>Einstellungen sichern</h2><p>Speichere deine Uhreinstellungen vor einem Update. Zugangsdaten, MQTT-Konfiguration, LED-Datenpin und Animationsdateien werden nicht exportiert.</p>
 <button type="button" onclick="exportSettings()">Sicherung herunterladen</button>
 <label for="settingsFile">Sicherungsdatei wiederherstellen</label><input id="settingsFile" type="file" accept=".json" onchange="previewSettingsImport()">
@@ -441,7 +444,7 @@ small{color:#abb9d0}output{float:right;color:#8bd5ff}.flex{display:flex;gap:10px
 R"HTML(<article><h2>Werkseinstellungen</h2><p>Alle Uhr-Einstellungen, eigene Animationen, der Admin-Zugang und die gespeicherten WLAN-Daten werden gelöscht. Danach beginnt die Ersteinrichtung erneut.</p><label><input id="resetConfirm" type="checkbox" onchange="document.getElementById('resetButton').disabled=!this.checked"> Ich möchte alle Einstellungen, Uploads und Zugangsdaten löschen.</label><button id="resetButton" onclick="factoryReset()" disabled>Auf Werkseinstellungen zurücksetzen</button><p id="resetMessage" role="status"></p></article>)HTML"
 #endif
 R"HTML(
-<script>
+<script src="/errors.js?v=2.0.11" onerror="document.addEventListener(&#x27;DOMContentLoaded&#x27;,()=&gt;{document.body.textContent=&quot;Fehler HTTP-018\nDiagnoseskript konnte nicht geladen werden\nDer Browser konnte das gemeinsame lokale Skript nicht laden; die genauere Ursache ist nicht erkennbar.\nMaßnahmen: Uhradresse und Netzwerk prüfen und Seite neu laden.&quot;})"></script><script>
 const ids=['mode','effect','brightness','speed','duration','nightOn','nightFrom','nightUntil','nightBrightness','corner','vertical','zigzag','autoOrder'];
 let automaticChoices=[];
 let effectChoices=[],pendingImport=null;
@@ -472,7 +475,7 @@ function buildAutomaticChoices(effects,mask,uploads=0){
     return {id:effect.id,input,uploaded:!!effect.uploaded};
   });updateAutomaticCount();
 }
-async function readJson(path){const r=await fetch(path,{cache:'no-store'});if(!r.ok)throw Error('HTTP '+r.status);return r.json()}
+async function readJson(path){const r=await chaosFetch(path,{cache:'no-store'});return chaosJson(r)}
 async function load(){
   document.getElementById('saveButton').disabled=true;
   try{
@@ -498,7 +501,7 @@ async function load(){
     document.getElementById('saveButton').disabled=false;
     document.getElementById('mqttPanel').hidden=!d.mqttAvailable;
     if(d.mqttAvailable)await loadMqtt();
-  }catch(e){document.getElementById('status').textContent='Uhr nicht erreichbar: '+e}
+  }catch(e){document.getElementById('status').textContent=chaosMessage(e)}
 }
 async function save(){
   try{
@@ -506,19 +509,19 @@ async function save(){
     d.autoEffects=automaticMask();
     d.autoUploads=automaticUploadMask();
     Object.assign(d,formOptions());
-    if(!d.showClock&&!d.showAnimations&&!d.showWeather&&!d.showSensors)throw Error('Bitte mindestens eine Anzeigeart auswählen.');
+    if(!d.showClock&&!d.showAnimations&&!d.showWeather&&!d.showSensors)throw chaosFailure('CFG_DISPLAY');
     if(!d.autoEffects&&!d.autoUploads){
-      if(d.showAnimations)throw Error('Bitte mindestens eine Animation für die Automatik auswählen.');
+      if(d.showAnimations)throw chaosFailure('CFG_ANIMATION_SELECTION');
       Object.assign(d,savedMasks);
     }
     if(d.ledPin!==currentOptions.ledPin&&!confirm('LED-Datenpin ändern und die Uhr nach dem Speichern neu starten?'))return;
     const {token}=await readJson('/api/session');
-    const r=await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRF-Token':token},body:new URLSearchParams(d)});
-    if(!r.ok)throw Error(await r.text());
-    const result=typeof r.json==='function'?await r.json():{};
+    const r=await chaosFetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRF-Token':token},body:new URLSearchParams(d)});
+    await chaosCheck(r);
+    const result=typeof r.json==='function'?await chaosJson(r):{};
     msg.textContent=result.restarting?'Gespeichert – die Uhr startet mit dem neuen LED-Pin neu.':'✔ gespeichert';
     if(!result.restarting){currentOptions=formOptions();savedMasks={autoEffects:d.autoEffects,autoUploads:d.autoUploads};setTimeout(()=>msg.textContent='',3000)}
-  }catch(e){msg.textContent='Fehler: '+e}
+  }catch(e){msg.textContent=chaosMessage(e)}
 }
 const mqttFields={host:'mqHost',port:'mqPort',user:'mqUser',base:'mqBase',discoveryPrefix:'mqDiscoveryPrefix',weatherTopic:'mqWeatherTopic',temperatureTopic:'mqTemperatureTopic',staleSeconds:'mqStaleSeconds'};
 async function loadMqtt(){
@@ -535,8 +538,8 @@ async function loadMqtt(){
         const caption=document.createElement('label'),input=document.createElement('input');caption.textContent=label;input.id='mqSensor'+i+key;input.type='text';input.maxLength=max;input.value=entry[key]||'';caption.append(input);group.append(caption);
       }list.append(group);
     }
-    document.getElementById('mqttStatus').textContent=!d.storageReady?'Zuerst den Datenspeicher unter Eigene Animationen / Speicher einrichten.':!d.enabled?'MQTT ist ausgeschaltet.':d.connected?'MQTT ist verbunden.':'MQTT ist nicht verbunden. Broker, Port und Zugang prüfen.';
-  }catch(error){document.getElementById('mqttStatus').textContent='MQTT-Status nicht verfügbar: '+error.message}
+    document.getElementById('mqttStatus').textContent=!d.storageReady?chaosFailure('FS_MOUNT').message:!d.enabled?'MQTT ist ausgeschaltet.':d.connected?'MQTT ist verbunden.':d.connectionFailure?chaosFailure(d.connectionFailure.code,0,d.connectionFailure).message:d.connectionError?'MQTT-Verbindungsfehler '+d.connectionError+'. Details unter Diagnose.':'MQTT-Verbindung wird aufgebaut.';
+  }catch(error){document.getElementById('mqttStatus').textContent='MQTT-Status nicht verfügbar: '+chaosMessage(error)}
 }
 async function saveMqtt(){
   const message=document.getElementById('mqttMessage');
@@ -545,10 +548,15 @@ async function saveMqtt(){
     values.enabled=document.getElementById('mqEnabled').checked?1:0;values.discovery=document.getElementById('mqDiscovery').checked?1:0;
     values.password=document.getElementById('mqPassword').value;values.clearPassword=document.getElementById('mqClearPassword').checked?1:0;
     for(let i=0;i<4;i++)for(const [field,suffix] of [['topic','Topic'],['label','Label'],['unit','Unit']])values['sensor'+i+suffix]=document.getElementById('mqSensor'+i+field).value;
-    if(values.enabled&&!values.host)throw Error('Bitte den MQTT-Broker angeben.');
-    const {token}=await readJson('/api/session'),r=await fetch('/api/mqtt',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRF-Token':token},body:new URLSearchParams(values)});
-    if(!r.ok)throw Error(await r.text());message.textContent='MQTT-Konfiguration gespeichert. Die Verbindung wird neu aufgebaut.';await loadMqtt();
-  }catch(error){message.textContent='MQTT konnte nicht gespeichert werden: '+error.message}
+    if(values.enabled&&!values.host)throw chaosFailure('MQTT_CONFIG_INVALID');
+    const {token}=await readJson('/api/session'),r=await chaosFetch('/api/mqtt',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRF-Token':token},body:new URLSearchParams(values)});
+    await chaosCheck(r);message.textContent='MQTT-Konfiguration gespeichert. Die Verbindung wird neu aufgebaut.';await loadMqtt();
+  }catch(error){message.textContent='MQTT konnte nicht gespeichert werden: '+chaosMessage(error)}
+}
+async function loadDiagnostics(){
+ const message=document.getElementById('diagnosticMessage');
+ try{const data=await readJson('/api/diagnostics');document.getElementById('supportDiagnostics').value=JSON.stringify(data,null,2);message.textContent=data.lastError?'Letzter Fehler: '+data.lastError+'. Details und Maßnahmen stehen im kopierbaren Text.':'Keine Fehler aufgezeichnet.';}
+ catch(error){message.textContent=chaosMessage(error)}
 }
 async function exportSettings(){
   const message=document.getElementById('backupMessage');
@@ -561,26 +569,26 @@ async function exportSettings(){
     const blob=new Blob([JSON.stringify(backup,null,2)+'\n'],{type:'application/json'}),url=URL.createObjectURL(blob),link=document.createElement('a');
     link.href=url;link.download='chaosuhr-einstellungen-'+current.version+'.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
     message.textContent='Einstellungen gesichert. Eigene Animationen bitte zusätzlich als .chaos herunterladen.';
-  }catch(error){message.textContent='Sicherung fehlgeschlagen: '+error.message}
+  }catch(error){message.textContent='Sicherung fehlgeschlagen: '+chaosMessage(error)}
 }
 function validateSettingsBackup(backup,currentUploads){
-  if(!backup || typeof backup!=='object' || Array.isArray(backup) || Object.keys(backup).some(key=>!['format','version','firmware','settings','uploads'].includes(key)) || backup.format!=='chaosuhr-settings' || ![1,2].includes(backup.version) || typeof backup.firmware!=='string' || backup.firmware.length>32)throw Error('Keine unterstützte ChaosUhr-Sicherung.');
+  if(!backup || typeof backup!=='object' || Array.isArray(backup) || Object.keys(backup).some(key=>!['format','version','firmware','settings','uploads'].includes(key)) || backup.format!=='chaosuhr-settings' || ![1,2].includes(backup.version) || typeof backup.firmware!=='string' || backup.firmware.length>32)throw chaosFailure('BACKUP_SCHEMA');
   const settings=backup.settings,keys=backup.version===1?legacyBackupKeys:backupKeys;
-  if(!settings || typeof settings!=='object' || Array.isArray(settings) || Object.keys(settings).length!==keys.length || keys.some(key=>!Object.hasOwn(settings,key) || !Number.isInteger(settings[key])))throw Error('Einstellungen unvollständig oder ungültig.');
+  if(!settings || typeof settings!=='object' || Array.isArray(settings) || Object.keys(settings).length!==keys.length || keys.some(key=>!Object.hasOwn(settings,key) || !Number.isInteger(settings[key])))throw chaosFailure('BACKUP_FIELDS');
   const bounds={mode:[0,2],effect:[1,38],brightness:[1,100],speed:[1,100],duration:[5,120],nightOn:[0,1],nightFrom:[0,23],nightUntil:[0,23],nightBrightness:[1,100],corner:[0,3],vertical:[0,1],zigzag:[0,1],autoOrder:[0,1],autoEffects:[0,1073741823],autoUploads:[0,255],secondsBar:[0,1],weekdayStyle:[0,1],showClock:[0,1],showAnimations:[0,1],showWeather:[0,1],showSensors:[0,1]};
-  for(const key of keys)if(settings[key]<bounds[key][0]||settings[key]>bounds[key][1])throw Error('Ungültiger Einstellungswert.');
-  if(!settings.autoEffects&&!settings.autoUploads)throw Error('Die Animationsauswahl ist leer.');
-  if(!Array.isArray(backup.uploads)||backup.uploads.length>8)throw Error('Ungültige Upload-Zuordnung.');
+  for(const key of keys)if(settings[key]<bounds[key][0]||settings[key]>bounds[key][1])throw chaosFailure('BACKUP_RANGE');
+  if(!settings.autoEffects&&!settings.autoUploads)throw chaosFailure('CFG_ANIMATION_SELECTION');
+  if(!Array.isArray(backup.uploads)||backup.uploads.length>8)throw chaosFailure('BACKUP_UPLOAD_LIST');
   const mapping=new Map();
   for(const upload of backup.uploads){
-    if(!upload || Object.keys(upload).length!==2 || !Number.isInteger(upload.id) || upload.id<31 || upload.id>38 || typeof upload.sha256!=='string' || !/^[a-f0-9]{64}$/.test(upload.sha256) || mapping.has(upload.id))throw Error('Ungültige Upload-Zuordnung.');
+    if(!upload || Object.keys(upload).length!==2 || !Number.isInteger(upload.id) || upload.id<31 || upload.id>38 || typeof upload.sha256!=='string' || !/^[a-f0-9]{64}$/.test(upload.sha256) || mapping.has(upload.id))throw chaosFailure('BACKUP_UPLOAD_HASH');
     const match=currentUploads.find(current=>current.valid&&current.sha256===upload.sha256);mapping.set(upload.id,match?.id);
   }
   const {ledPin,...displayDefaults}=currentOptions;
   const result={...displayDefaults,...settings};result.autoUploads=0;
-  if(!result.showClock&&!result.showAnimations&&!result.showWeather&&!result.showSensors)throw Error('Die Auswahl der Anzeigearten ist leer.');
-  for(let bit=0;bit<8;bit++)if(settings.autoUploads&2**bit){const mapped=mapping.get(31+bit);if(!mapped)throw Error('Eine benötigte Animation fehlt. Lade zuerst die passende .chaos-Datei hoch.');result.autoUploads+=2**(mapped-31)}
-  if(settings.effect>30){const mapped=mapping.get(settings.effect);if(!mapped)throw Error('Die gewählte Einzelanimation fehlt. Lade zuerst die passende .chaos-Datei hoch.');result.effect=mapped}
+  if(!result.showClock&&!result.showAnimations&&!result.showWeather&&!result.showSensors)throw chaosFailure('CFG_DISPLAY');
+  for(let bit=0;bit<8;bit++)if(settings.autoUploads&2**bit){const mapped=mapping.get(31+bit);if(!mapped)throw chaosFailure('BACKUP_AUTO_UPLOAD');result.autoUploads+=2**(mapped-31)}
+  if(settings.effect>30){const mapped=mapping.get(settings.effect);if(!mapped)throw chaosFailure('BACKUP_SINGLE_UPLOAD');result.effect=mapped}
   return result;
 }
 async function previewSettingsImport(){
@@ -588,14 +596,16 @@ async function previewSettingsImport(){
   const message=document.getElementById('backupMessage');
   try{
     const file=document.getElementById('settingsFile').files?.[0];if(!file)return;
-    if(file.size>8192)throw Error('Sicherung darf höchstens 8 KiB groß sein.');
+    if(file.size>8192)throw chaosFailure('BACKUP_SIZE');
     const current=await readJson('/api/status'),storage=current.animationUploads?await readJson('/api/animations'):{uploads:[]};
-    pendingImport=validateSettingsBackup(JSON.parse(await file.text()),storage.uploads);
+    let text;try{text=await file.text()}catch(_){throw chaosFailure('BACKUP_READ')}
+    let backup;try{backup=JSON.parse(text)}catch(_){throw chaosFailure('BACKUP_JSON')}
+    pendingImport=validateSettingsBackup(backup,storage.uploads);
     const count=value=>value.toString(2).replaceAll('0','').length;
     const d=pendingImport;
     document.getElementById('backupPreview').textContent=`Vorschau – noch nicht gespeichert\nModus: ${['Automatik','Nur Uhrzeit','Einzelanimation'][d.mode]}\nHelligkeit: ${d.brightness} % · Tempo: ${d.speed} %\nSzenendauer: ${d.duration} s\nAutomatik: ${count(d.autoEffects)+count(d.autoUploads)} Animationen, ${d.autoOrder?'der Reihe nach':'zufällige Runden'}\nNachtmodus: ${d.nightOn?'an':'aus'}, ${d.nightFrom} bis ${d.nightUntil} Uhr, ${d.nightBrightness} %\nAuch die Matrixausrichtung wird übernommen.\nWLAN und Admin-Zugang bleiben erhalten.`;
     document.getElementById('applyBackup').hidden=false;message.textContent='Prüfe die Vorschau, bevor du sie übernimmst.';
-  }catch(error){pendingImport=null;message.textContent='Import abgelehnt: '+error.message}
+  }catch(error){pendingImport=null;message.textContent='Import abgelehnt: '+chaosMessage(error)}
 }
 function applySettingsImport(){
   if(!pendingImport)return;
@@ -623,14 +633,14 @@ async function changeAnimation(path,body){
   const {token}=await readJson('/api/session');
   const headers={'X-CSRF-Token':token};
   if(body instanceof URLSearchParams)headers['Content-Type']='application/x-www-form-urlencoded';
-  const response=await fetch(path,{method:'POST',headers,body});
-  if(!response.ok)throw Error(await response.text());
-  return response.json();
+  const response=await chaosFetch(path,{method:'POST',headers,body});
+  await chaosCheck(response);
+  return chaosJson(response);
 }
 async function runAnimationChange(action,success){
   if(animationBusy)return;animationBusy=true;
   const message=document.getElementById('uploadMessage');message.textContent='Bitte warten …';
-  try{await action();await load();message.textContent=success}catch(error){message.textContent='Fehler: '+error}
+  try{await action();await load();message.textContent=success}catch(error){message.textContent=chaosMessage(error)}
   finally{animationBusy=false}
 }
 async function initializeAnimations(){
@@ -639,7 +649,7 @@ async function initializeAnimations(){
 }
 async function uploadAnimation(){
   const file=document.getElementById('animationFile').files?.[0];
-  if(!file){document.getElementById('uploadMessage').textContent='Bitte eine .chaos-Datei auswählen.';return}
+  if(!file){document.getElementById('uploadMessage').textContent=chaosFailure('CFG_UPLOAD_EMPTY').message;return}
   if(file.size>24576){document.getElementById('uploadMessage').textContent='Datei darf höchstens 24 KiB groß sein.';return}
   const form=new FormData();form.append('animation',file);
   await runAnimationChange(()=>changeAnimation('/api/animations/upload',form),'Hochgeladen. Jetzt für die Automatik oder als Einzelanimation auswählen und Einstellungen speichern.');
@@ -648,7 +658,7 @@ async function deleteAnimation(id,name){
   if(!confirm(`Upload „${name}“ wirklich löschen?`))return;
   await runAnimationChange(()=>changeAnimation('/api/animations/delete',new URLSearchParams({id,confirm:'DELETE'})),'Upload gelöscht.');
 }
-async function factoryReset(){const message=document.getElementById('resetMessage');if(!document.getElementById('resetConfirm').checked){message.textContent='Bitte das Löschen zuerst bestätigen.';return}if(!confirm('Wirklich alle Einstellungen, eigene Animationen, den Admin-Zugang und die WLAN-Daten löschen?'))return;const button=document.getElementById('resetButton');button.disabled=true;try{const {token}=await readJson('/api/session');const response=await fetch('/api/factory-reset',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRF-Token':token},body:new URLSearchParams({confirm:'RESET'})});if(!response.ok)throw Error(await response.text());message.textContent='Die Uhr wird zurückgesetzt und startet neu. Verbinde dich anschließend mit dem Einrichtungs-WLAN; den neuen Code zeigt die Uhr an.';}catch(error){message.textContent='Fehler: '+error;button.disabled=false}}
+async function factoryReset(){const message=document.getElementById('resetMessage');if(!document.getElementById('resetConfirm').checked){message.textContent=chaosFailure('AUTH_CONFIRM').message;return}if(!confirm('Wirklich alle Einstellungen, eigene Animationen, den Admin-Zugang und die WLAN-Daten löschen?'))return;const button=document.getElementById('resetButton');button.disabled=true;try{const {token}=await readJson('/api/session');const response=await chaosFetch('/api/factory-reset',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRF-Token':token},body:new URLSearchParams({confirm:'RESET'})});await chaosCheck(response);message.textContent='Die Uhr wird zurückgesetzt und startet neu. Verbinde dich anschließend mit dem Einrichtungs-WLAN; den neuen Code zeigt die Uhr an.';}catch(error){message.textContent='Fehler: '+chaosMessage(error);button.disabled=false}}
 load();
 </script></body></html>
 )HTML";
@@ -658,8 +668,8 @@ static bool auth(){
   return publicAccess.authenticate();
 #else
   if(server.authenticate(OTA_USER,OTA_PASS)) return true;
+  server.sendHeader("WWW-Authenticate","Basic realm=\"ChaosUhr\"");sendError(server,401,ErrorCode::AUTH_REJECTED);return false;
 #endif
-  server.requestAuthentication(); return false;
 }
 static void effectsApi(){
   if(!auth()) return;
@@ -682,6 +692,7 @@ static void effectsApi(){
   server.send(200,"application/json; charset=utf-8",result);
 }
 #include "mqtt_api.h"
+#include "diagnostics_api.h"
 static String gpioChoicesJson(){
   struct Pin {uint8_t gpio;const char* label;};
 #if defined(ESP32)
@@ -700,6 +711,7 @@ static void statusApi(){
   s+="\"version\":\""+String(VERSION)+"\",\"ip\":\""+WiFi.localIP().toString()+"\",";
   s+="\"rssi\":"+String(WiFi.RSSI())+",\"heap\":"+String(ESP.getFreeHeap());
   s+=",\"flash\":"+String(deviceFlashSize())+",\"ota\":"+String(ESP.getFreeSketchSpace());
+  s+=",\"lastError\":\""+errorText(errorDefinition(errorRegistry().last()).code)+"\"";
   s+=",\"platform\":\""+String(DEVICE_FAMILY)+"\",\"ledPin\":"+String(displayOptions.ledPin);
   s+=",\"secondsBar\":"+String((displayOptions.flags&DISPLAY_SECONDS)?1:0)+",\"weekdayStyle\":"+String(displayOptions.weekdayStyle);
   s+=",\"showClock\":"+String((displayOptions.flags&DISPLAY_CLOCK)?1:0)+",\"showAnimations\":"+String((displayOptions.flags&DISPLAY_ANIMATIONS)?1:0);
@@ -738,40 +750,43 @@ static void statusApi(){
 }
 static void saveApi(){
   if(!auth())return;
-  if(server.method()!=HTTP_POST){server.send(405,"text/plain","POST only");return;}
+  if(server.method()!=HTTP_POST){sendError(server,405,ErrorCode::HTTP_METHOD);return;}
 #ifdef CHAOSUHR_PUBLIC_BUILD
-  if(!publicAccess.validMutationToken()){server.send(403,"text/plain","Sitzungstoken fehlt oder fremde Webseite.");return;}
+  if(!publicAccess.validMutationToken()){sendError(server,403,ErrorCode::AUTH_CSRF);return;}
 #endif
-  if(!server.args()){server.send(400,"text/plain; charset=utf-8","Keine Einstellungen angegeben");return;}
+  if(!server.args()){sendError(server,400,ErrorCode::CFG_EMPTY);return;}
   Settings next=cfg;DisplayOptions nextOptions=displayOptions;
   for(int i=0;i<server.args();i++){
     const String key=server.argName(i);
     for(int j=0;j<i;j++){
-      if(key==server.argName(j)){server.send(400,"text/plain; charset=utf-8","Doppelter Parameter: "+key);return;}
+      if(key==server.argName(j)){sendError(server,400,ErrorCode::CFG_DUPLICATE);return;}
     }
     const bool accepted=displayOptionKey(key.c_str())?applyDisplayOption(nextOptions,key.c_str(),server.arg(i).c_str(),TARGET_ESP32):applySetting(next,key.c_str(),server.arg(i).c_str());
     if(!accepted){
-      server.send(400,"text/plain; charset=utf-8","Unbekannter Parameter oder ungueltiger Wert: "+key);return;
+      const char* knownKeys[]={"brightness","speed","effect","mode","duration","nightBrightness","nightFrom","nightUntil","nightOn","corner","vertical","zigzag","autoEffects","autoUploads","autoOrder"};
+      bool known=displayOptionKey(key.c_str());for(const auto* candidate:knownKeys)if(key==candidate)known=true;
+      const String value=server.arg(i);bool digits=value.length()!=0;for(size_t at=0;at<value.length();++at)if(value[at]<'0'||value[at]>'9')digits=false;
+      sendError(server,400,!known?ErrorCode::CFG_UNKNOWN:!digits?ErrorCode::CFG_NUMBER_FORMAT:key=="ledPin"?ErrorCode::CFG_GPIO:ErrorCode::CFG_RANGE);return;
     }
   }
   sealDisplayOptions(nextOptions);
-  if(!validDisplayOptions(nextOptions,TARGET_ESP32)){server.send(400,"text/plain","Mindestens eine Anzeigeart auswaehlen.");return;}
+  if(!validDisplayOptions(nextOptions,TARGET_ESP32)){sendError(server,400,ErrorCode::CFG_DISPLAY);return;}
   if(!next.autoEffects && !next.autoUploads){
-    if(nextOptions.flags&DISPLAY_ANIMATIONS){server.send(400,"text/plain","Mindestens eine Animation auswaehlen.");return;}
+    if(nextOptions.flags&DISPLAY_ANIMATIONS){sendError(server,400,ErrorCode::CFG_ANIMATION_SELECTION);return;}
     next.autoEffects=cfg.autoEffects;next.autoUploads=cfg.autoUploads;
   }
 #ifdef CHAOSUHR_HAS_UPLOADS
   if((next.autoUploads&~animations.available()) || (next.effect>EFFECT_COUNT && !animations.playable(next.effect))){
-    server.send(400,"text/plain; charset=utf-8","Ausgewaehlter Upload ist nicht verfuegbar. Seite neu laden.");return;
+    sendError(server,400,ErrorCode::CFG_UPLOAD_MISSING);return;
   }
 #else
-  if(next.autoUploads || next.effect>EFFECT_COUNT){server.send(400,"text/plain","Uploads sind auf diesem Build nicht verfuegbar.");return;}
+  if(next.autoUploads || next.effect>EFFECT_COUNT){sendError(server,400,ErrorCode::CFG_UPLOAD_UNSUPPORTED);return;}
 #endif
   const bool pinChanged=displayOptions.ledPin!=nextOptions.ledPin;
   const bool changed=memcmp(&cfg,&next,sizeof cfg)!=0 || memcmp(&displayOptions,&nextOptions,sizeof nextOptions)!=0;
   const bool restartAutomatic=cfg.mode!=next.mode || cfg.autoEffects!=next.autoEffects || cfg.autoOrder!=next.autoOrder || cfg.autoUploads!=next.autoUploads;
   if(!persistClockOptions(clockStorage,cfg,next,displayOptions,nextOptions,settingsPersisted,optionsPersisted)){
-    server.send(500,"text/plain; charset=utf-8","Einstellungen konnten nicht gespeichert werden");return;
+    sendError(server,500,ErrorCode::CFG_SAVE);return;
   }
   if(changed){
     if(restartAutomatic) autoPlayback.reset();
@@ -825,16 +840,16 @@ static void animationStatusApi(){
 static void animationInitApi(){
   if(!auth())return;
   if(!animationMutationAllowed() || server.args()!=1 || server.arg("confirm")!="INITIALIZE"){
-    server.send(403,"text/plain","Einrichtung bestaetigen und Seite neu laden.");return;
+    sendError(server,403,ErrorCode::AUTH_CONFIRM);return;
   }
-  if(!animations.initialize()){server.send(animations.status(),"text/plain",animations.error());return;}
+  if(!animations.initialize()){sendError(server,animations.status(),animations.errorCode());return;}
   publicAccess.migrate();
   server.send(200,"application/json","{\"ok\":true}");
 }
 static void animationUploadDone(){
   if(server.args())animations.abortUpload();
   const uint8_t id=animations.finishUpload(animationMutationAllowed());
-  if(!id){server.send(animations.status(),"text/plain; charset=utf-8",animations.error());return;}
+  if(!id){sendError(server,animations.status(),animations.errorCode());return;}
   server.send(200,"application/json",String("{\"ok\":true,\"id\":")+String(id)+"}");
 }
 static void animationUploadChunk(){
@@ -850,15 +865,15 @@ static void animationUploadChunk(){
 static void animationDeleteApi(){
   if(!auth())return;
   if(!animationMutationAllowed() || server.args()!=2 || server.arg("confirm")!="DELETE"){
-    server.send(403,"text/plain","Loeschen bestaetigen und Seite neu laden.");return;
+    sendError(server,403,ErrorCode::AUTH_CONFIRM);return;
   }
   uint8_t id;
   if(!parseSetting(server.arg("id").c_str(),EFFECT_COUNT+1,TOTAL_EFFECT_COUNT,id) || !animations.exists(id)){
-    server.send(404,"text/plain","Upload nicht gefunden.");return;
+    sendError(server,404,ErrorCode::CFG_UPLOAD_NOT_FOUND);return;
   }
   Settings next=cfg;forgetUploadedAnimation(next,id);
-  if(!persistSettings(clockStorage,cfg,next,settingsPersisted)){server.send(500,"text/plain","Einstellungen konnten nicht gespeichert werden; Upload bleibt erhalten.");return;}
-  if(!animations.remove(id)){server.send(animations.status(),"text/plain",animations.error());return;}
+  if(!persistSettings(clockStorage,cfg,next,settingsPersisted)){sendError(server,500,ErrorCode::CFG_SAVE);return;}
+  if(!animations.remove(id)){sendError(server,animations.status(),animations.errorCode());return;}
   autoPlayback.reset();scene.reset(millis(),cfg.effect);resetAnimation();
   server.send(200,"application/json","{\"ok\":true}");
 }
@@ -866,9 +881,9 @@ static void animationDownloadApi(){
   if(!auth())return;
   uint8_t id;
   if(server.args()!=1 || !parseSetting(server.arg("id").c_str(),EFFECT_COUNT+1,TOTAL_EFFECT_COUNT,id) || !animations.exists(id)){
-    server.send(404,"text/plain","Upload nicht gefunden.");return;
+    sendError(server,404,ErrorCode::CFG_UPLOAD_NOT_FOUND);return;
   }
-  auto file=animations.openDownload(id);if(!file){server.send(500,"text/plain","Lesefehler.");return;}
+  auto file=animations.openDownload(id);if(!file){sendError(server,500,ErrorCode::FS_OPEN_READ);return;}
   server.sendHeader("Content-Disposition","attachment; filename=animation-"+String(id)+".chaos");
   server.sendHeader("Cache-Control","no-store");server.streamFile(file,"text/plain");file.close();
 }
@@ -904,7 +919,7 @@ static void setupSecureOta(){
   server.on("/update",HTTP_POST,[](){
     if(firmwareUpload.finish(publicAccess.authenticate() && publicAccess.validMutationToken(),server.args()==0)){
       server.send(200,"application/json","{\"ok\":true,\"restarting\":true}");publicAccess.restartAfterUpdate();
-    }else server.send(firmwareUpload.status(),"text/plain; charset=utf-8",firmwareUpload.error());
+    }else sendError(server,firmwareUpload.status(),firmwareUpload.errorCode());
   },[](){
     auto& upload=server.upload();
     switch(upload.status){
@@ -918,47 +933,53 @@ static void setupSecureOta(){
 }
 static bool portalRequestAllowed(ClockWebServer& target,bool mutation){
   const String host=target.header("Host"),origin=target.header("Origin"),address=WiFi.softAPIP().toString();
-  if(target.client().localIP()!=WiFi.softAPIP() || !setupHostAllowed(host.c_str(),address.c_str()) || !originMatchesHost(origin.c_str(),host.c_str()))return false;
+  if(target.client().localIP()!=WiFi.softAPIP()){recordError(ErrorCode::AUTH_SETUP_AP);return false;}
+  if(!setupHostAllowed(host.c_str(),address.c_str())){recordError(ErrorCode::HTTP_SETUP_HOST);return false;}
+  if(!originMatchesHost(origin.c_str(),host.c_str())){recordError(ErrorCode::AUTH_ORIGIN);return false;}
   const String token=target.header("X-CSRF-Token");
-  return !mutation || (target.method()==HTTP_POST && token.length()==32 && constantEqual(token.c_str(),publicAccess.portalToken(),32));
+  if(mutation && target.method()!=HTTP_POST){recordError(ErrorCode::HTTP_METHOD);return false;}
+  if(mutation && (token.length()!=32 || !constantEqual(token.c_str(),publicAccess.portalToken(),32))){recordError(ErrorCode::AUTH_CSRF);return false;}
+  return true;
 }
 static void setupSecurePortal(){
   auto& portal=*wifiManager.server;collectClockHeaders(portal);
+  portal.on("/errors.js",HTTP_GET,[](){wifiManager.server->send_P(200,"application/javascript; charset=utf-8",ERROR_JS);});
 #if defined(ESP32)
   portal.setConnectionGuard([](){
     auto& current=*wifiManager.server;
     if(current.client().localIP()==WiFi.softAPIP())return true;
-    current.send(403,"text/plain","Einrichtung nur ueber das Einrichtungs-WLAN.");return false;
+    sendError(current,403,ErrorCode::AUTH_SETUP_AP);return false;
   });
 #else
   portal.addHook([](const String&,const String&,WiFiClient* client,ClockWebServer::ContentTypeFunction){
     if(client->localIP()==WiFi.softAPIP())return ClockWebServer::CLIENT_REQUEST_CAN_CONTINUE;
-    wifiManager.server->send(403,"text/plain","Einrichtung nur ueber das Einrichtungs-WLAN.");return ClockWebServer::CLIENT_MUST_STOP;
+    sendError(*wifiManager.server,403,ErrorCode::AUTH_SETUP_AP);return ClockWebServer::CLIENT_MUST_STOP;
   });
 #endif
   portal.setBodyGuard([](){
     auto& current=*wifiManager.server;
-    if((current.uri()=="/wifisave" || current.uri()=="/exit") && portalRequestAllowed(current,true))return true;
-    current.send(403,"text/plain","Ungueltige Einrichtungsanfrage.");return false;
+    if(current.uri()!="/wifisave" && current.uri()!="/exit"){sendError(current,403,ErrorCode::AUTH_PORTAL_ACTION);return false;}
+    if(portalRequestAllowed(current,true))return true;
+    sendError(current,403,errorRegistry().last());return false;
   });
   for(const char* path:{"/update","/u","/erase","/restart","/paramsave","/param","/close","/info"})portal.on(path,HTTP_ANY,[](){
-    wifiManager.server->send(403,"text/plain","Diese Aktion ist im Einrichtungsportal gesperrt.");
+    sendError(*wifiManager.server,403,ErrorCode::AUTH_PORTAL_ACTION);
   });
   portal.on("/api/portal-session",HTTP_GET,[](){
-    auto& current=*wifiManager.server;if(!portalRequestAllowed(current,false)){current.send(403,"text/plain","Einrichtung nicht erlaubt.");return;}
+    auto& current=*wifiManager.server;if(!portalRequestAllowed(current,false)){sendError(current,403,errorRegistry().last());return;}
     current.send(200,"application/json",String("{\"token\":\"")+publicAccess.portalToken()+"\"}");
   });
-  portal.on("/wifisave",HTTP_GET,[](){wifiManager.server->send(405,"text/plain","POST erforderlich.");});
+  portal.on("/wifisave",HTTP_GET,[](){sendError(*wifiManager.server,405,ErrorCode::HTTP_METHOD);});
   portal.on("/wifisave",HTTP_POST,[](){
-    if(!portalRequestAllowed(*wifiManager.server,true)){wifiManager.server->send(403,"text/plain","Ungueltige Einrichtungsanfrage.");return;}
+    if(!portalRequestAllowed(*wifiManager.server,true)){sendError(*wifiManager.server,403,errorRegistry().last());return;}
     wifiManager.saveClockWifi();
   });
   portal.on("/exit",HTTP_GET,[](){
-    if(!portalRequestAllowed(*wifiManager.server,false)){wifiManager.server->send(403,"text/plain","Einrichtung nicht erlaubt.");return;}
+    if(!portalRequestAllowed(*wifiManager.server,false)){sendError(*wifiManager.server,403,errorRegistry().last());return;}
     wifiManager.server->send(200,"text/html",String(FPSTR(PORTAL_EXIT_HTML))+FPSTR(PORTAL_HEAD)+"</body></html>");
   });
   portal.on("/exit",HTTP_POST,[](){
-    if(!portalRequestAllowed(*wifiManager.server,true)){wifiManager.server->send(403,"text/plain","Ungueltige Einrichtungsanfrage.");return;}
+    if(!portalRequestAllowed(*wifiManager.server,true)){sendError(*wifiManager.server,403,errorRegistry().last());return;}
     wifiManager.server->send(200,"text/plain","Einrichtung geschlossen.");wifiManager.requestPortalExit();
   });
 }
@@ -980,15 +1001,15 @@ static void serviceNetwork(){
   const bool portalActive=wifiManager.getConfigPortalActive();
   const uint32_t now=millis();
   if(portalWasActive && !portalActive){
-    WiFi.persistent(false); WiFi.mode(WIFI_STA); WiFi.setAutoReconnect(true);
+    configureWifiPersistence(); WiFi.mode(WIFI_STA); WiFi.setAutoReconnect(true);
     if(WiFi.status()!=WL_CONNECTED) WiFi.begin();
     wifiAttemptStarted=now;
   }
   if(WiFi.status()==WL_CONNECTED){
-    if(portalActive){wifiManager.stopConfigPortal();WiFi.persistent(false);return;}
+    if(portalActive){wifiManager.stopConfigPortal();configureWifiPersistence();return;}
     if(!webStarted){
       server.begin(); webStarted=true;ipAnnouncement.start(WiFi.localIP().toString().c_str(),now);
-      if(MDNS.begin(HOSTNAME)) MDNS.addService("http","tcp",80);
+      if(MDNS.begin(HOSTNAME)) MDNS.addService("http","tcp",80);else recordError(ErrorCode::WIFI_MDNS_FAILED);
       Serial.printf("ChaosUhr %s at http://%s/\n",VERSION,WiFi.localIP().toString().c_str());
     }
     wifiAttemptStarted=now;
@@ -998,6 +1019,7 @@ static void serviceNetwork(){
 #endif
   } else {
     if(webStarted){
+      recordError(ErrorCode::WIFI_LINK_LOST);
       server.stop();
 #if defined(ESP32)
       MDNS.end();
@@ -1007,6 +1029,8 @@ static void serviceNetwork(){
       webStarted=false;
     }
     if(!portalActive && now-wifiAttemptStarted>=WIFI_RETRY_MS){
+      const auto saved=savedWifiState();
+      recordError(saved==SavedWifiState::Missing?ErrorCode::WIFI_NO_CONFIG:saved==SavedWifiState::Unreadable?ErrorCode::WIFI_START_FAILED:ErrorCode::WIFI_CONNECT_TIMEOUT);
       wifiManager.startConfigPortal(
 #ifdef CHAOSUHR_PUBLIC_BUILD
         publicAccess.setupSsid(),publicAccess.setupPassword()
@@ -1020,6 +1044,9 @@ static void serviceNetwork(){
 }
 void setup(){
   Serial.begin(115200);
+  errorRegistry().setSink([](const ErrorEvent& event){
+    printErrorEvent(Serial,event);
+  });
 #ifdef CHAOSUHR_HAS_UPLOADS
 #if defined(ESP8266)
   LittleFSConfig filesystemConfig;filesystemConfig.setAutoFormat(false);LittleFS.setConfig(filesystemConfig);
@@ -1035,7 +1062,7 @@ void setup(){
 #endif
   publicAccess.begin();
 #endif
-  WiFi.persistent(false);
+  configureWifiPersistence();
 #ifdef CHAOSUHR_PUBLIC_BUILD
   if(publicAccess.ready()) WiFi.mode(WIFI_STA);
 #else
@@ -1067,7 +1094,9 @@ void setup(){
 #ifdef CHAOSUHR_PUBLIC_BUILD
   if(publicAccess.ready()){
     WiFi.begin();
-    if(WiFi.SSID().isEmpty()) wifiAttemptStarted-=WIFI_RETRY_MS;
+    const auto saved=savedWifiState();
+    if(saved==SavedWifiState::Missing){recordError(ErrorCode::WIFI_NO_CONFIG);wifiAttemptStarted-=WIFI_RETRY_MS;}
+    else if(saved==SavedWifiState::Unreadable)recordError(ErrorCode::WIFI_START_FAILED);
   }
 #else
   WiFi.begin();
@@ -1085,6 +1114,9 @@ void setup(){
     server.send_P(200,"text/html; charset=utf-8",INDEX_HTML);
   });
   server.on("/api/status",HTTP_GET,statusApi);
+  server.on("/api/diagnostics",HTTP_GET,diagnosticsApi);
+  server.onNotFound([](){sendError(server,404,ErrorCode::HTTP_NOT_FOUND);});
+  server.on("/errors.js",HTTP_GET,[](){server.send_P(200,"application/javascript; charset=utf-8",ERROR_JS);});
   server.on("/api/effects",HTTP_GET,effectsApi);
   server.on("/api/settings",HTTP_POST,saveApi);
   server.on("/api/mqtt",HTTP_GET,mqttConfigApi);

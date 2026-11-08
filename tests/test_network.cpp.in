@@ -25,6 +25,22 @@ struct TestWiFi {
   void begin(){++begins;}
   TestAddress localIP(){return {};}
 } WiFi;
+static constexpr bool PLATFORM_ESP32=
+#if defined(ESP32)
+ true;
+#else
+ false;
+#endif
+static void configureWifiPersistence(){
+#if defined(ESP32)
+  WiFi.persistent(true);
+#else
+  WiFi.persistent(false);
+#endif
+}
+#include "chaos_errors.h"
+enum class SavedWifiState:uint8_t {Missing,Available,Unreadable};
+static SavedWifiState savedWifiState(){return SavedWifiState::Available;}
 
 struct TestManager {
   bool active=false, closesOnProcess=false, processingConnects=false;
@@ -107,7 +123,7 @@ int main(){
   wifiManager.closesOnProcess=true;
   now=210000;serviceNetwork();
   assert(!wifiManager.active && WiFi.begins==1 && wifiAttemptStarted==now);
-  assert(!WiFi.persistentEnabled && WiFi.reconnect);
+  assert(WiFi.persistentEnabled==bool(PLATFORM_ESP32) && WiFi.reconnect);
   now=239999;serviceNetwork();
   assert(wifiManager.starts==1);
   now=240000;serviceNetwork();
@@ -116,7 +132,7 @@ int main(){
   wifiManager.processingConnects=true;
   ++now;serviceNetwork();
   assert(webStarted && server.starts==1 && server.handles==1 && !wifiManager.active);
-  assert(!WiFi.persistentEnabled);
+  assert(WiFi.persistentEnabled==bool(PLATFORM_ESP32));
   ++now;serviceNetwork();
   assert(server.starts==1 && server.handles==2);
   // A later outage closes the application server, then reopens the portal.
@@ -131,7 +147,7 @@ int main(){
   wifiManager.active=true;WiFi.state=WL_CONNECTED;
   serviceNetwork();
   assert(!wifiManager.active && wifiManager.stops==1 && !webStarted);
-  assert(!WiFi.persistentEnabled);
+  assert(WiFi.persistentEnabled==bool(PLATFORM_ESP32));
   serviceNetwork();
   assert(webStarted && server.starts==1);
 

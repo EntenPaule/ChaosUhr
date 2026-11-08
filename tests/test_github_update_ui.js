@@ -13,7 +13,7 @@ function fixture(stable=manifest(),preview=null,current={version:'2.0.8',platfor
   if(url.endsWith('.json')){const data=/stable(?:-esp32)?\.json$/.test(url)?stable:preview;return {ok:!!data,status:data?200:404,json:async()=>data};}
   const data=new Uint8Array(downloadSize);data[0]=233;return {ok:true,headers:{get:()=>String(downloadSize)},arrayBuffer:async()=>data.buffer};
  }};
- vm.createContext(context);vm.runInContext(source,context);
+ vm.createContext(context);vm.runInContext(require('./shared_error_script')(),context);vm.runInContext(source,context);
  return {context,elements,calls,accept(){accepted=true},truncate(){downloadSize=4999}};
 }
 (async()=>{

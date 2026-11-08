@@ -36,7 +36,7 @@ function environment(failCatalog=false,uploads=false){
     return {ok:!(failCatalog && route==='/api/effects'),status:500,json:async()=>route==='/api/effects'?(uploads?[...effects,...uploadedEffects]:effects):(uploads?{...settings,animationUploads:true,autoEffects:0,autoUploads:129}:settings)};
   }};
   for(const id of ['bVal','sVal','dVal','nVal','msg'])context[id]=document.getElementById(id);
-  vm.createContext(context);vm.runInContext(script,context);
+  vm.createContext(context);vm.runInContext(require('./shared_error_script')(),context);vm.runInContext(script,context);
   return {context,elements,animationPosts,get posted(){return posted},get posts(){return posts},get resetPosted(){return resetPosted},approve(){approved=true},failSave(){failSave=true}};
 }
 (async()=>{
@@ -57,7 +57,7 @@ function environment(failCatalog=false,uploads=false){
   assert.match(app.elements.autoCount.textContent,/3 von 30/);
   app.context.selectAutomatic(false);
   await app.context.save();assert.equal(app.posts,1);
-  assert.match(app.elements.msg.textContent,/mindestens eine Animation/);
+  assert.match(app.elements.msg.textContent,/CFG-006/);
   app.context.selectAutomatic(true);app.elements.autoOrder.value=0;
   await app.context.save();assert.equal(app.posted.body.get('autoEffects'),String(2**30-1));
   assert.equal(app.posted.body.get('autoOrder'),'0');
@@ -68,7 +68,7 @@ function environment(failCatalog=false,uploads=false){
   assert.match(app.elements.autoCount.textContent,/1 von 30/);
   assert.match(app.elements.msg.textContent,/gespeichert/);
   app.failSave();await app.context.save();
-  assert.match(app.elements.msg.textContent,/Speicherfehler/);
+  assert.match(app.elements.msg.textContent,/HTTP-011/);
   const failed=environment(true);await failed.context.load();
   assert.equal(failed.elements.saveButton.disabled,true);
   assert.match(failed.elements.status.textContent,/HTTP 500/);

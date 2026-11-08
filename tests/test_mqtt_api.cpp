@@ -13,7 +13,7 @@ static MemoryAnimationFS filesystem;
 static MqttConfigStorage<MemoryAnimationFS,AnimationFile> mqttStorage(filesystem);
 static struct {bool readyValue=true;bool ready(){return readyValue;}} animations;
 static struct {bool token=true;bool validMutationToken(){return token;}} publicAccess;
-static struct {unsigned reconfigurations=0;const char* base(){return "test-clock";}bool connected(){return false;}uint8_t lastReason(){return 0;}void reconfigure(){++reconfigurations;}} clockMqtt;
+static struct {unsigned reconfigurations=0;const char* base(){return "test-clock";}bool connected(){return false;}uint8_t lastReason(){return 0;}ErrorCode errorCode(){return ErrorCode::None;}void reconfigure(){++reconfigurations;}} clockMqtt;
 static bool authorized=true;
 static bool auth(){return authorized;}
 static struct {

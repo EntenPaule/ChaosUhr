@@ -17,7 +17,7 @@ function app(){
    return {ok:true,json:async()=>route==='/api/status'?{...settings,animationUploads:true,version:'2.0.8',ip:'127.0.0.1',adminPassword:'fixture-never-export-this',ssid:'fixture-private-wifi'}:route==='/api/effects'?effects:{ready:true,uploads}};
   }};
  for(const name of ['bVal','sVal','dVal','nVal','msg'])context[name]=document.getElementById(name);
- vm.createContext(context);vm.runInContext(script,context);return {context,elements,posts,blobs};
+ vm.createContext(context);vm.runInContext(require('./shared_error_script')(),context);vm.runInContext(script,context);return {context,elements,posts,blobs};
 }
 function backup(){return {format:'chaosuhr-settings',version:1,firmware:'2.0.8',settings:{...settings,effect:31,autoUploads:1},uploads:[{id:31,sha256:sha}]}}
 (async()=>{

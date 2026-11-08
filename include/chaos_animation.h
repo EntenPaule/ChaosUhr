@@ -1,4 +1,5 @@
 #pragma once
+#include "chaos_errors.h"
 #include <stdint.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -34,9 +35,9 @@ inline bool chaosNumber(const char* text,uint32_t low,uint32_t high,uint32_t& va
   if(result<low)return false;
   value=result;return true;
 }
-template<typename Reader>bool parseChaosAnimation(Reader& input,ChaosAnimation& result,char* error,void(*tick)()=nullptr){
+template<typename Reader>bool parseChaosAnimation(Reader& input,ChaosAnimation& result,char* error,void(*tick)()=nullptr,ErrorCode* code=nullptr){
   result=ChaosAnimation{};uint16_t lineNumber=0;char line[65];
-  auto fail=[&](const char* reason){snprintf(error,96,"Zeile %u: %s",static_cast<unsigned>(lineNumber),reason);return false;};
+  auto fail=[&](ErrorCode failure){if(code)*code=failure;char reason[80];copyErrorText(reason,sizeof reason,errorDefinition(failure).details);snprintf(error,96,"Zeile %u: %s",static_cast<unsigned>(lineNumber),reason);recordError(failure);return false;};
   // Return 1 for a complete line, 0 for EOF, -1 for invalid/oversized data.
   auto readLine=[&](){
     size_t length=0;int ch;bool seen=false;++lineNumber;
@@ -49,36 +50,36 @@ template<typename Reader>bool parseChaosAnimation(Reader& input,ChaosAnimation& 
     if(length && line[length-1]=='\r')--length;
     line[length]=0;return seen?1:0;
   };
-  if(readLine()!=1 || strcmp(line,"CHAOSUHR 1"))return fail("CHAOSUHR 1 erwartet (ohne Markdown/BOM).");
-  if(readLine()!=1 || strncmp(line,"NAME ",5) || !line[5] || strlen(line+5)>32)return fail("NAME mit 1 bis 32 Zeichen erwartet.");
+  if(readLine()!=1 || strcmp(line,"CHAOSUHR 1"))return fail(ErrorCode::ANIMATION_FORMAT_101);
+  if(readLine()!=1 || strncmp(line,"NAME ",5) || !line[5] || strlen(line+5)>32)return fail(ErrorCode::ANIMATION_FORMAT_102);
   for(const char* p=line+5;*p;++p)
-    if(!((*p>='a'&&*p<='z')||(*p>='A'&&*p<='Z')||(*p>='0'&&*p<='9')||strchr(" _.-",*p)))return fail("Name: nur Buchstaben, Zahlen, Leerzeichen, _.-");
+    if(!((*p>='a'&&*p<='z')||(*p>='A'&&*p<='Z')||(*p>='0'&&*p<='9')||strchr(" _.-",*p)))return fail(ErrorCode::ANIMATION_FORMAT_103);
   strcpy(result.name,line+5);uint32_t value;
-  if(readLine()!=1 || strncmp(line,"PALETTE ",8) || !chaosNumber(line+8,1,16,value))return fail("PALETTE 1 bis 16 erwartet.");
+  if(readLine()!=1 || strncmp(line,"PALETTE ",8) || !chaosNumber(line+8,1,16,value))return fail(ErrorCode::ANIMATION_FORMAT_104);
   result.colors=value;
   for(uint8_t i=0;i<result.colors;++i){
-    if(readLine()!=1 || strlen(line)!=7 || line[0]!='#')return fail("Farbe als #RRGGBB erwartet.");
-    uint32_t color=0;for(uint8_t j=1;j<7;++j){int digit=chaosHex(line[j]);if(digit<0)return fail("Ungueltige Farbe; Grossbuchstaben verwenden.");color=(color<<4)|digit;}
+    if(readLine()!=1 || strlen(line)!=7 || line[0]!='#')return fail(ErrorCode::ANIMATION_FORMAT_105);
+    uint32_t color=0;for(uint8_t j=1;j<7;++j){int digit=chaosHex(line[j]);if(digit<0)return fail(ErrorCode::ANIMATION_FORMAT_106);color=(color<<4)|digit;}
     result.palette[i]=color;
   }
   bool ended=false;
   for(;;){
-    int state=readLine();if(state!=1)return fail("FRAME oder END erwartet.");
+    int state=readLine();if(state!=1)return fail(ErrorCode::ANIMATION_FORMAT_107);
     if(!line[0])continue;
     if(!strcmp(line,"END")){ended=true;break;}
-    if(result.count>=CHAOS_MAX_FRAMES)return fail("Hoechstens 64 Bilder erlaubt.");
-    if(strncmp(line,"FRAME ",6) || !chaosNumber(line+6,20,10000,value))return fail("FRAME mit 20 bis 10000 Millisekunden erwartet.");
+    if(result.count>=CHAOS_MAX_FRAMES)return fail(ErrorCode::ANIMATION_FORMAT_108);
+    if(strncmp(line,"FRAME ",6) || !chaosNumber(line+6,20,10000,value))return fail(ErrorCode::ANIMATION_FORMAT_109);
     ChaosFrame& frame=result.frames[result.count];frame.ms=value;frame.offset=input.position();
     for(uint8_t y=0;y<CHAOS_HEIGHT;++y){
-      if(readLine()!=1 || strlen(line)!=CHAOS_WIDTH)return fail("Jede der 15 Bildzeilen braucht genau 20 Pixel.");
-      for(char pixel:line){if(!pixel)break;const int index=chaosHex(pixel);if(index<0 || index>=result.colors)return fail("Pixel verweist auf eine ungueltige Palettenfarbe.");}
+      if(readLine()!=1 || strlen(line)!=CHAOS_WIDTH)return fail(ErrorCode::ANIMATION_FORMAT_110);
+      for(char pixel:line){if(!pixel)break;const int index=chaosHex(pixel);if(index<0 || index>=result.colors)return fail(ErrorCode::ANIMATION_FORMAT_111);}
     }
     frame.bytes=input.position()-frame.offset;
-    if(frame.bytes>330)return fail("Ungueltige Bilddaten.");
+    if(frame.bytes>330)return fail(ErrorCode::ANIMATION_FORMAT_112);
     ++result.count;result.duration+=frame.ms;if(tick)tick();
   }
-  if(!ended || !result.count)return fail("Mindestens ein Bild erforderlich.");
-  for(;;){int state=readLine();if(state<0)return fail("Datei zu gross oder ungueltig.");if(!state)break;if(line[0])return fail("Nach END sind keine weiteren Daten erlaubt.");}
+  if(!ended || !result.count)return fail(ErrorCode::ANIMATION_FORMAT_113);
+  for(;;){int state=readLine();if(state<0)return fail(ErrorCode::ANIMATION_FORMAT_114);if(!state)break;if(line[0])return fail(ErrorCode::ANIMATION_FORMAT_115);}
   error[0]=0;return true;
 }
 inline bool decodeChaosFrame(const ChaosAnimation& animation,uint8_t frame,const uint8_t* data,size_t length,uint8_t pixels[300]){

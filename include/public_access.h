@@ -2,6 +2,7 @@
 
 #ifdef CHAOSUHR_PUBLIC_BUILD
 #include "device_platform.h"
+#include "chaos_errors.h"
 #include "public_credentials.h"
 #include "request_security.h"
 #include <functional>
@@ -41,10 +42,11 @@ class PublicAccess {
   uint32_t actionStarted_=0,actionDelay_=250;
   std::function<bool()> resetStorage_;
   bool viaSetupAP();
+  ErrorCode policyError_=ErrorCode::AUTH_ORIGIN;
   bool tokenMatches();
   void sessionApi();
   void provisionApi();
   void resetApi();
-  void error(int status,const char* message);
+  void error(int status,ErrorCode code);
 };
 #endif

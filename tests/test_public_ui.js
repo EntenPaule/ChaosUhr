@@ -13,7 +13,7 @@ function fixture(failSave=false){
     assert.equal(route,'/api/setup');posted=options;
     return {ok:!failSave,text:async()=>'Speicherfehler'};
   }};
-  vm.createContext(context);vm.runInContext(script,context);
+  vm.createContext(context);vm.runInContext(require('./shared_error_script')(),context);vm.runInContext(script,context);
   return {context,elements,form:document.getElementById('password'),repeat:document.getElementById('repeat'),get calls(){return calls},get posted(){return posted}};
 }
 (async()=>{
@@ -31,7 +31,7 @@ function fixture(failSave=false){
   assert.match(app.elements.setupMessage.textContent,/startet neu/);
   const fail=fixture(true);fail.form.value=fail.repeat.value='fixture-admin-password-42';
   await fail.context.saveAdmin({preventDefault(){}});
-  assert.match(fail.elements.setupMessage.textContent,/Speicherfehler/);
+  assert.match(fail.elements.setupMessage.textContent,/HTTP-011/);
   assert.equal(fail.elements.setupSubmit.disabled,false);
   console.log('PASS setup GUI: new password/confirmation, input validation, CSRF request, no echoed password, save-error recovery');
 })().catch(error=>{console.error(error);process.exitCode=1});

@@ -11,6 +11,7 @@
 #include <vector>
 
 using String=std::string;
+#include "error_response.h"
 static uint32_t now=0,randomState=1;
 static unsigned resets=0;
 static uint32_t millis(){return now;}

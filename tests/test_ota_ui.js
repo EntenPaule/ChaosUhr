@@ -4,7 +4,7 @@ function fixture(sessionOk=true,platform='esp8266'){
  const elements={firmware:{files:[{name:'fixture.bin',size:600000}]},upload:{},message:{},otaForm:{}},calls=[];let submit;
  elements.otaForm.addEventListener=(name,handler)=>{assert.equal(name,'submit');submit=handler};
  const context={document:{getElementById:id=>elements[id]},FormData:class{constructor(){this.parts=[]}append(...part){this.parts.push(part)}},fetch:async(route,options)=>{calls.push({route,options});return route==='/api/status'?{ok:true,json:async()=>({platform})}:route==='/api/session'?{ok:sessionOk,json:async()=>({token:'fixture-ota-token'})}:{ok:true};}};
- vm.createContext(context);vm.runInContext(source,context);return {elements,calls,send:()=>submit({preventDefault(){}})};
+ vm.createContext(context);vm.runInContext(require('./shared_error_script')(),context);vm.runInContext(source,context);return {elements,calls,send:()=>submit({preventDefault(){}})};
 }
 (async()=>{
  const good=fixture();await good.send();assert.equal(good.calls.length,3);assert.equal(good.calls[2].options.method,'POST');assert.equal(good.calls[2].options.headers['X-CSRF-Token'],'fixture-ota-token');assert.equal(good.calls[2].options.body.parts[0][0],'firmware');assert.match(good.elements.message.textContent,/startet neu/);

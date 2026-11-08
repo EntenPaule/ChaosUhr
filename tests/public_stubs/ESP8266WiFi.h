@@ -8,6 +8,8 @@ struct FakeWiFi {
   std::string savedSsid="fixture-wifi",savedPassword="fixture-wifi-password",apSsid,apPassword;
   bool mode(int value){currentMode=value;return true;}
   void persistent(bool value){persistence=value;}
+  String SSID(){return savedSsid;}
+  int RSSI(){return -55;}
   void setAutoReconnect(bool value){autoReconnect=value;}
   bool disconnect(bool off,bool erase){assertErase(off,erase);++disconnects;return disconnectSucceeds;}
   void assertErase(bool off,bool erase){

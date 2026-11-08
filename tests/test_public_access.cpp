@@ -46,6 +46,8 @@ int main(){
   second.dispatch("/setup",HTTP_GET);assert(second.status==403);
   second.dispatch("/api/setup",HTTP_POST);assert(second.status==403);
   second.dispatch("/api/session",HTTP_GET);assert(second.status==401);
+  assert(second.body.find("AUTH-001")!=std::string::npos&&second.body.find("\"action\"")!=std::string::npos);
+  assert(errorRegistry().last()==ErrorCode::AUTH_REQUIRED); // same registry across translation units
   second.user="admin";second.password="fixture-admin-passphrase-42";
   // Simulate updater.setup replacing the header collection, then restore the
   // combined set. Reset/session tokens and the OTA origin guard must coexist.

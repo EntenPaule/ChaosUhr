@@ -15,6 +15,7 @@ struct FakeESP {
   uint64_t getEfuseMac(){return static_cast<uint64_t>(getChipId())<<24;}
   uint32_t getFlashChipSize(){return 4194304;}
   uint32_t getFlashChipRealSize(){return 4194304;}
+  uint32_t getFreeHeap(){return 24000;}
   uint8_t* random(uint8_t* output,size_t count){for(size_t i=0;i<count;++i)output[i]=randomByte++%256;return output;}
   void restart(){++restarts;}
   bool eraseConfig();

@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <string.h>
+#include "chaos_errors.h"
 
 static constexpr uint8_t SENSOR_SLOTS=4;
 struct SensorConfig {char topic[96],label[25],unit[9];};
@@ -49,29 +50,43 @@ template<typename Filesystem,typename File>class MqttConfigStorage {
  public:
   explicit MqttConfigStorage(Filesystem& fs):fs_(fs){}
   bool load(MqttConfig& value){
-    value=defaultMqttConfig();if(!fs_.begin())return false;
-    File file=fs_.open(path(),"r");if(!file)return false;
-    MqttConfig saved={};const bool ok=file.size()==sizeof saved &&
-      file.read(reinterpret_cast<uint8_t*>(&saved),sizeof saved)==sizeof saved;
-    file.close();if(!ok || !validMqttConfig(saved))return false;value=saved;return true;
+    // Keep the caller's last known good configuration on any read failure.
+    // The boot caller initializes defaults explicitly before loading.
+    error_=ErrorCode::None;
+    if(!fs_.begin())return fail(ErrorCode::FS_MOUNT);
+    // A missing file is normal on a fresh installation, not a corrupt login.
+    if(!fs_.exists(path()))return false;
+    File file=fs_.open(path(),"r");if(!file)return fail(ErrorCode::FS_OPEN_READ);
+    MqttConfig saved={};
+    if(file.size()!=sizeof saved){file.close();return fail(ErrorCode::FS_CONFIG_CORRUPT);}
+    const bool ok=file.read(reinterpret_cast<uint8_t*>(&saved),sizeof saved)==sizeof saved;
+    file.close();if(!ok)return fail(ErrorCode::FS_READ);
+    if(!validMqttConfig(saved))return fail(ErrorCode::FS_CONFIG_CORRUPT);
+    value=saved;return true;
   }
   bool save(MqttConfig& current,MqttConfig next){
-    sealMqttConfig(next);if(!validMqttConfig(next) || !fs_.begin())return false;
+    error_=ErrorCode::None;sealMqttConfig(next);
+    if(!validMqttConfig(next))return fail(ErrorCode::MQTT_CONFIG_INVALID);
+    if(!fs_.begin())return fail(ErrorCode::FS_MOUNT);
     if(!memcmp(&current,&next,sizeof next) && fs_.exists(path()))return true;
-    File file=fs_.open(temporary(),"w");if(!file)return false;
+    File file=fs_.open(temporary(),"w");if(!file)return fail(ErrorCode::FS_OPEN_WRITE);
     const bool ok=file.write(reinterpret_cast<const uint8_t*>(&next),sizeof next)==sizeof next;
     file.flush();file.close();
+    if(!ok)return cleanup(ErrorCode::FS_WRITE);
     File verify=fs_.open(temporary(),"r");MqttConfig checked={};
-    const bool verified=verify && verify.size()==sizeof checked &&
-      verify.read(reinterpret_cast<uint8_t*>(&checked),sizeof checked)==sizeof checked;
-    if(verify)verify.close();
-    if(!ok || !verified || memcmp(&checked,&next,sizeof next) || !fs_.rename(temporary(),path())){
-      fs_.remove(temporary());return false;
-    }
+    if(!verify)return cleanup(ErrorCode::FS_VERIFY_OPEN);
+    const bool verified=verify.size()==sizeof checked && verify.read(reinterpret_cast<uint8_t*>(&checked),sizeof checked)==sizeof checked;
+    verify.close();if(!verified)return cleanup(ErrorCode::FS_VERIFY_READ);
+    if(memcmp(&checked,&next,sizeof next))return cleanup(ErrorCode::FS_VERIFY_CONTENT);
+    if(!fs_.rename(temporary(),path()))return cleanup(ErrorCode::FS_RENAME);
     current=next;return true;
   }
   static const char* path(){return "/.chaosuhr-mqtt.bin";}
+  ErrorCode errorCode()const{return error_;}
  private:
   Filesystem& fs_;
+  ErrorCode error_=ErrorCode::None;
+  bool fail(ErrorCode code){error_=code;recordError(code);return false;}
+  bool cleanup(ErrorCode code){if(!fs_.remove(temporary()))recordError(ErrorCode::FS_REMOVE);return fail(code);}
   static const char* temporary(){return "/.chaosuhr-mqtt.pending";}
 };
