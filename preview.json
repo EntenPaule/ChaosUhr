@@ -1,13 +1,21 @@
 {
   "format": "chaosuhr-update",
   "schema": 1,
-  "version": "2.0.8",
+  "version": "2.0.10",
   "prerelease": true,
   "board": "d1_mini",
   "chip": "esp8266",
   "flash_bytes": 4194304,
   "led_gpio": 12,
-  "binary": "chaosuhr-2.0.8-esp8266.bin",
-  "bytes": 560464,
-  "sha256": "ad323ec69cd2401217cc997b901a2c8a9e1ee9ce508bce992d3d626fa936efe1"
+  "binary": "chaosuhr-2.0.10-esp8266.bin",
+  "bytes": 618944,
+  "sha256": "49b5ba28e4717c2779a1093bac93df6d189fb09e75d98a2e74eaba912b31c58b",
+  "configurable_led_pin": true,
+  "supported_led_gpio": [
+    4,
+    5,
+    12,
+    13,
+    14
+  ]
 }
