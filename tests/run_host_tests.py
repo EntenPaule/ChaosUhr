@@ -15,6 +15,7 @@ import tempfile
 import time
 
 project = Path(__file__).resolve().parents[1]
+subprocess.run(["node",str(project/"tests/test_session_ui.js")],check=True)
 subprocess.run(["node",str(project/"tests/test_error_ui.js")],check=True)
 subprocess.run(["python3",str(project/"scripts/generate_error_docs.py"),"--check"],check=True)
 subprocess.run(["python3",str(project/"tests/test_release_safety.py")],check=True)
@@ -57,6 +58,13 @@ subprocess.run([str(clock_binary)],check=True)
 
 json_headers=next(iter((project/'.pio/libdeps').glob('*/ArduinoJson/src/ArduinoJson.h')),None)
 if json_headers is None:raise SystemExit('Install pinned dependencies first: pio pkg install -e d1_mini_public')
+for chip in ('esp8266','esp32'):
+    target=build_dir/('test_admin_sessions_'+chip)
+    flags=['-DESP32=1'] if chip=='esp32' else []
+    subprocess.run(['g++','-std=c++17','-Wall','-Wextra','-Werror','-pedantic','-fsanitize=address,undefined','-fno-omit-frame-pointer',
+                    '-DCHAOSUHR_PUBLIC_BUILD=1',*flags,'-I',str(project/'tests/public_stubs'),'-I',str(project/'include'),'-I',str(json_headers.parent),
+                    str(project/'tests/test_admin_sessions.cpp'),str(project/'src/public_access.cpp'),'-o',str(target),'-lcrypto'],check=True)
+    subprocess.run([str(target)],check=True)
 for name in ('options','telemetry','mqtt_api','mqtt_failures','errors'):
     target=build_dir/('test_'+name)
     subprocess.run(['g++','-std=c++17','-Wall','-Wextra','-Werror','-pedantic',

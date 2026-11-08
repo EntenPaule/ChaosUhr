@@ -373,7 +373,8 @@ label{display:block;margin:13px 0 5px}select,input,button{font:inherit}input[typ
 button,a.btn{background:#53b9ff;color:#081221;border:0;border-radius:10px;padding:12px 16px;cursor:pointer;display:inline-block;text-decoration:none;font-weight:700}
 small{color:#abb9d0}output{float:right;color:#8bd5ff}.flex{display:flex;gap:10px;flex-wrap:wrap}.status{color:#92e4ae}
 .auto-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:4px;max-height:330px;overflow:auto;margin:12px 0}.auto-list label{display:flex;align-items:center;gap:8px;margin:0;padding:7px}.auto-list input{flex-shrink:0}summary{cursor:pointer;margin:12px 0}.auto-actions button{padding:8px 12px;font-size:14px}
-</style></head><body><h1>🌈 ChaosUhr 2.0</h1><small>20×15 LEDs · lokale Steuerung</small>
+</style></head><body><header style="display:flex;justify-content:flex-end;gap:10px;align-items:center;flex-wrap:wrap" aria-label="Admin-Anmeldung"><span id="adminState" role="status">Nicht angemeldet</span><button id="adminLogout" type="button" hidden>Abmelden</button></header>
+<section id="loginPanel"><h2>Admin-Anmeldung</h2><form id="adminLogin"><label for="adminPassword">Admin-Passwort</label><input id="adminPassword" name="password" type="password" autocomplete="current-password" minlength="16" maxlength="64" required><button id="adminLoginButton" type="submit">Anmelden</button></form><p>Nach 30 Minuten ohne bestätigte Aktivität wirst du abgemeldet. Lokales HTTP bitte nur im vertrauenswürdigen Netz verwenden.</p></section><p id="adminMessage" role="status" style="white-space:pre-line"></p><main id="protectedContent" hidden><h1>🌈 ChaosUhr 2.0</h1><small>20×15 LEDs · lokale Steuerung</small>
 <article><div id="status">Lade Status …</div><p id="securityStatus" role="status"></p></article>
 <article><h2>Anzeige & Animationen</h2>
 <label>Modus</label><select id="mode"><option value="0">Automatik: gewählte Anzeigen</option><option value="1">Nur Uhrzeit</option><option value="2">Gewählte Animation</option></select>
@@ -444,7 +445,7 @@ small{color:#abb9d0}output{float:right;color:#8bd5ff}.flex{display:flex;gap:10px
 R"HTML(<article><h2>Werkseinstellungen</h2><p>Alle Uhr-Einstellungen, eigene Animationen, der Admin-Zugang und die gespeicherten WLAN-Daten werden gelöscht. Danach beginnt die Ersteinrichtung erneut.</p><label><input id="resetConfirm" type="checkbox" onchange="document.getElementById('resetButton').disabled=!this.checked"> Ich möchte alle Einstellungen, Uploads und Zugangsdaten löschen.</label><button id="resetButton" onclick="factoryReset()" disabled>Auf Werkseinstellungen zurücksetzen</button><p id="resetMessage" role="status"></p></article>)HTML"
 #endif
 R"HTML(
-<script src="/errors.js?v=2.0.11" onerror="document.addEventListener(&#x27;DOMContentLoaded&#x27;,()=&gt;{document.body.textContent=&quot;Fehler HTTP-018\nDiagnoseskript konnte nicht geladen werden\nDer Browser konnte das gemeinsame lokale Skript nicht laden; die genauere Ursache ist nicht erkennbar.\nMaßnahmen: Uhradresse und Netzwerk prüfen und Seite neu laden.&quot;})"></script><script>
+</main><script src="/errors.js?v=2.0.11" onerror="document.addEventListener(&#x27;DOMContentLoaded&#x27;,()=&gt;{document.body.textContent=&quot;Fehler HTTP-018\nDiagnoseskript konnte nicht geladen werden\nDer Browser konnte das gemeinsame lokale Skript nicht laden; die genauere Ursache ist nicht erkennbar.\nMaßnahmen: Uhradresse und Netzwerk prüfen und Seite neu laden.&quot;})"></script><script>
 const ids=['mode','effect','brightness','speed','duration','nightOn','nightFrom','nightUntil','nightBrightness','corner','vertical','zigzag','autoOrder'];
 let automaticChoices=[];
 let effectChoices=[],pendingImport=null;
@@ -659,7 +660,7 @@ async function deleteAnimation(id,name){
   await runAnimationChange(()=>changeAnimation('/api/animations/delete',new URLSearchParams({id,confirm:'DELETE'})),'Upload gelöscht.');
 }
 async function factoryReset(){const message=document.getElementById('resetMessage');if(!document.getElementById('resetConfirm').checked){message.textContent=chaosFailure('AUTH_CONFIRM').message;return}if(!confirm('Wirklich alle Einstellungen, eigene Animationen, den Admin-Zugang und die WLAN-Daten löschen?'))return;const button=document.getElementById('resetButton');button.disabled=true;try{const {token}=await readJson('/api/session');const response=await chaosFetch('/api/factory-reset',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRF-Token':token},body:new URLSearchParams({confirm:'RESET'})});await chaosCheck(response);message.textContent='Die Uhr wird zurückgesetzt und startet neu. Verbinde dich anschließend mit dem Einrichtungs-WLAN; den neuen Code zeigt die Uhr an.';}catch(error){message.textContent='Fehler: '+chaosMessage(error);button.disabled=false}}
-load();
+chaosSessionStart(load);
 </script></body></html>
 )HTML";
 
@@ -915,7 +916,7 @@ struct OtaBackend {
 } otaBackend;
 FirmwareUpload<OtaBackend> firmwareUpload(otaBackend);
 static void setupSecureOta(){
-  server.on("/update",HTTP_GET,[](){if(auth())server.send_P(200,"text/html; charset=utf-8",OTA_HTML);});
+  server.on("/update",HTTP_GET,[](){server.sendHeader("Cache-Control","no-store");server.send_P(200,"text/html; charset=utf-8",OTA_HTML);});
   server.on("/update",HTTP_POST,[](){
     if(firmwareUpload.finish(publicAccess.authenticate() && publicAccess.validMutationToken(),server.args()==0)){
       server.send(200,"application/json","{\"ok\":true,\"restarting\":true}");publicAccess.restartAfterUpdate();
@@ -1110,7 +1111,7 @@ void setup(){
 #ifdef CHAOSUHR_PUBLIC_BUILD
     if(!publicAccess.ready()){publicAccess.serveSetup();return;}
 #endif
-    if(!auth()) return;
+    server.sendHeader("Cache-Control","no-store");
     server.send_P(200,"text/html; charset=utf-8",INDEX_HTML);
   });
   server.on("/api/status",HTTP_GET,statusApi);

@@ -1,14 +1,15 @@
 #pragma once
 static const char OTA_HTML[] PROGMEM=R"HTML(
 <!doctype html><html lang="de"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ChaosUhr aktualisieren</title><body><h1>Firmware aktualisieren</h1>
+<title>ChaosUhr aktualisieren</title><body><header style="display:flex;justify-content:flex-end;gap:10px;align-items:center;flex-wrap:wrap" aria-label="Admin-Anmeldung"><span id="adminState" role="status">Nicht angemeldet</span><button id="adminLogout" type="button" hidden>Abmelden</button></header>
+<section id="loginPanel"><h2>Admin-Anmeldung</h2><form id="adminLogin"><label for="adminPassword">Admin-Passwort</label><input id="adminPassword" name="password" type="password" autocomplete="current-password" minlength="16" maxlength="64" required><button id="adminLoginButton" type="submit">Anmelden</button></form><p>Nach 30 Minuten ohne bestätigte Aktivität wirst du abgemeldet. Lokales HTTP bitte nur im vertrauenswürdigen Netz verwenden.</p></section><p id="adminMessage" role="status" style="white-space:pre-line"></p><main id="protectedContent" hidden><h1>Firmware aktualisieren</h1>
 <p>Wähle eine unkomprimierte ChaosUhr-BIN für den tatsächlich angeschlossenen Controller mit 4 MB Flash: Wemos / ESP8266 oder klassischer ESP32. Die Uhr prüft Zielchip und Produktkennung. Einstellungen und eigene Animationen bleiben bei passendem Layout erhalten.</p>
 <form id="otaForm"><input id="firmware" type="file" accept=".bin" required><button id="upload">Update starten</button></form><p id="message" role="status"></p><a href="/">Zurück zur Uhr</a>
 <hr><h2>Updates von GitHub</h2><p>Prüft den ChaosUhr-Updatekanal. Dein Browser benötigt Internetzugang. Der Download erfolgt über HTTPS; dein Admin-Passwort wird nur zur lokalen Uhr gesendet.</p>
 <label><input id="includePreview" type="checkbox"> Vorabversionen berücksichtigen</label>
 <button id="checkOnline" type="button" onclick="checkOnlineUpdates()">Auf Updates prüfen</button>
 <button id="installOnline" type="button" onclick="installOnlineUpdate()" hidden>Gefundene Version installieren</button><p id="onlineMessage" role="status"></p>
-<script src="/errors.js?v=2.0.11" onerror="document.addEventListener(&#x27;DOMContentLoaded&#x27;,()=&gt;{document.body.textContent=&quot;Fehler HTTP-018\nDiagnoseskript konnte nicht geladen werden\nDer Browser konnte das gemeinsame lokale Skript nicht laden; die genauere Ursache ist nicht erkennbar.\nMaßnahmen: Uhradresse und Netzwerk prüfen und Seite neu laden.&quot;})"></script><script>
+</main><script src="/errors.js?v=2.0.11" onerror="document.addEventListener(&#x27;DOMContentLoaded&#x27;,()=&gt;{document.body.textContent=&quot;Fehler HTTP-018\nDiagnoseskript konnte nicht geladen werden\nDer Browser konnte das gemeinsame lokale Skript nicht laden; die genauere Ursache ist nicht erkennbar.\nMaßnahmen: Uhradresse und Netzwerk prüfen und Seite neu laden.&quot;})"></script><script>
 const UPDATE_BASE='https://raw.githubusercontent.com/EntenPaule/ChaosUhr/firmware-updates/';
 let onlineCandidate=null,onlineBusy=false;
 function updateVersion(text){
@@ -78,5 +79,6 @@ document.getElementById('otaForm').addEventListener('submit',async event=>{
  await chaosCheck(response);message.textContent='Firmware geprüft und übertragen. Die Uhr startet neu.';
  }catch(error){message.textContent='Fehler: '+chaosMessage(error);button.disabled=false}
 });
+chaosSessionStart();
 </script></body></html>
 )HTML";

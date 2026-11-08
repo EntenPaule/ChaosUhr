@@ -64,8 +64,8 @@ struct RequestHandler {
 class WebServer {
  public:
   struct RequestArgument {String key,value;RequestArgument* next=nullptr;};
-  RequestArgument headers[4]={{"Host","",nullptr},{"Origin","",nullptr},{"Authorization","",nullptr},{"X-CSRF-Token","",nullptr}};
-  RequestArgument* _currentHeaders=headers;int _headerKeysCount=4;bool _collectAllHeaders=false;
+  RequestArgument headers[5]={{"Host","",nullptr},{"Origin","",nullptr},{"Authorization","",nullptr},{"X-CSRF-Token","",nullptr},{"Cookie","",nullptr}};
+  RequestArgument* _currentHeaders=headers;int _headerKeysCount=5;bool _collectAllHeaders=false;
   RequestArgument *_postArgs=nullptr,*_currentArgs=nullptr;int _postArgsLen=0,_currentArgCount=0;
   std::unique_ptr<int> _currentUpload;std::unique_ptr<HTTPRaw> _currentRaw;
   RequestHandler handler,*_firstHandler=&handler,*_currentHandler=nullptr;
@@ -73,7 +73,7 @@ class WebServer {
   unsigned long _chaosRequestStarted=0;uint8_t _currentVersion=0;HTTPMethod _currentMethod=HTTP_ANY;
   int _clientContentLength=0;bool _chunked=false;String _currentUri,_hostHeader,arguments;
   unsigned parsedBodies=0;
-  WebServer(){for(int i=0;i<3;++i)headers[i].next=&headers[i+1];}
+  WebServer(){for(int i=0;i<4;++i)headers[i].next=&headers[i+1];}
   ~WebServer(){delete[] _postArgs;delete[] _currentArgs;}
   void collectAllHeaders(){}
   const String& header(size_t i){return headers[i].value;}
@@ -90,6 +90,8 @@ static String request(const String& body,const String& extra="",const String& le
     (length.empty()?String(std::to_string(body.size())):length)+"\r\n"+extra+"\r\n"+body;
 }
 int main(){
+  {WebServer s;NetworkClient first;first.input=request("x=1","Cookie: ChaosUhrSID=fixture\r\n");assert(s._parseRequest(first));assert(s.headers[4].value=="ChaosUhrSID=fixture");
+   NetworkClient second;second.input=request("x=1");assert(s._parseRequest(second));assert(s.headers[4].value.empty());}
   {WebServer s;NetworkClient c;bool guard=false;s._chaosBodyGuard=[&](){guard=true;return false;};
    c.input=request(String(3000,'x'));assert(!s._parseRequest(c)&&guard&&c.position==c.input.size()&&!s._currentArgs);}
   {WebServer s;NetworkClient c;c.input=request("brightness=30");s._chaosBodyGuard=[](){return true;};assert(s._parseRequest(c)&&s.arguments=="brightness=30");}

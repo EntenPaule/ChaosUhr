@@ -138,7 +138,7 @@ bool ESP8266WebServerTemplate<ServerType>::authenticateDigest(const String& user
     String authReq = header(FPSTR(AUTHORIZATION_HEADER));
     if(authReq.startsWith(F("Digest"))) {
       authReq = authReq.substring(7);
-      DBGWS("%s\n", authReq.c_str());
+      /* Authentication material redacted, including debug builds. */
       String _username = _extractParam(authReq,F("username=\""));
       if(!_username.length() || _username != String(username)) {
         authReq = "";
@@ -165,7 +165,7 @@ bool ESP8266WebServerTemplate<ServerType>::authenticateDigest(const String& user
         _nc = _extractParam(authReq, F("nc="), ',');
         _cnonce = _extractParam(authReq, F("cnonce=\""));
       }
-      DBGWS("Hash of user:realm:pass=%s\n", H1.c_str());
+      /* Authentication material redacted, including debug builds. */
       MD5Builder md5;
       md5.begin();
       if(_currentMethod == HTTP_GET){
@@ -181,7 +181,7 @@ bool ESP8266WebServerTemplate<ServerType>::authenticateDigest(const String& user
       }
       md5.calculate();
       String _H2 = md5.toString();
-      DBGWS("Hash of GET:uri=%s\n", _H2.c_str());
+      /* Authentication material redacted, including debug builds. */
       md5.begin();
       if(authReq.indexOf(FPSTR(qop_auth)) != -1 || authReq.indexOf(FPSTR(qop_auth_quoted)) != -1) {
         md5.add(H1 + ':' + _nonce + ':' + _nc + ':' + _cnonce + F(":auth:") + _H2);
@@ -190,7 +190,7 @@ bool ESP8266WebServerTemplate<ServerType>::authenticateDigest(const String& user
       }
       md5.calculate();
       String _responsecheck = md5.toString();
-      DBGWS("The Proper response=%s\n", _responsecheck.c_str());
+      /* Authentication material redacted, including debug builds. */
       if(_response == _responsecheck){
         authReq = "";
         return true;

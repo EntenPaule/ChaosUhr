@@ -11,10 +11,19 @@ FakeEEPROM EEPROM;
 bool FakeESP::eraseConfig(){++erases;if(eraseFails)return false;WiFi.savedSsid.clear();WiFi.savedPassword.clear();return true;}
 
 static std::string token(ClockWebServer& server){
-  server.dispatch("/api/session",HTTP_GET);
-  assert(server.status==200 && server.body.size()==44);
-  return server.body.substr(10,32);
+  server.dispatch("/api/session",HTTP_GET);assert(server.status==200);
+  const auto at=server.body.find("\"token\":\"");assert(at!=std::string::npos);
+  return server.body.substr(at+9,32);
 }
+static void attemptLogin(ClockWebServer& server,const char* password){
+  server.dispatch("/api/login",HTTP_GET);assert(server.status==200);
+  const auto at=server.body.find("\"token\":\"");assert(at!=std::string::npos);
+  server.headers["X-CSRF-Token"]=server.body.substr(at+9,32);
+  server.arguments={{"password",password}};server.dispatch("/api/login",HTTP_POST);
+  if(server.status==200){const auto cookie=server.responseHeaders.at("Set-Cookie");server.headers["Cookie"]=cookie.substr(0,cookie.find(';'));}
+  server.arguments.clear();
+}
+static void login(ClockWebServer& server,const char* password){attemptLogin(server,password);assert(server.status==200);}
 int main(){
   ClockWebServer first;
   PublicAccess access(first);access.begin();access.startInitialPortal();
@@ -49,11 +58,13 @@ int main(){
   assert(second.body.find("AUTH-001")!=std::string::npos&&second.body.find("\"action\"")!=std::string::npos);
   assert(errorRegistry().last()==ErrorCode::AUTH_REQUIRED); // same registry across translation units
   second.user="admin";second.password="fixture-admin-passphrase-42";
+  second.dispatch("/api/session",HTTP_GET);assert(second.status==401); // cached Basic cannot log in
+  login(second,"fixture-admin-passphrase-42");
   // Simulate updater.setup replacing the header collection, then restore the
   // combined set. Reset/session tokens and the OTA origin guard must coexist.
   const char* otaHeaders[]={"Origin","Host"};second.collectHeaders(otaHeaders,2);
   collectClockHeaders(second);
-  assert(second.collectedHeaders.size()==4);
+  assert(second.collectedHeaders.size()==5);
   assert(second.collectedHeaders[0]=="X-CSRF-Token");
   assert(second.collectedHeaders[1]=="Origin" && second.collectedHeaders[2]=="Host");
   assert(second.collectedHeaders[3]=="X-Firmware-SHA256");
@@ -65,9 +76,11 @@ int main(){
   second.dispatch("/api/factory-reset",HTTP_POST);assert(second.status==403 && ESP.erases==0);
   second.headers.erase("Origin");
   second.dispatch("/api/factory-reset",HTTP_GET);assert(second.status==404);
-  second.password="wrong";second.headers["X-CSRF-Token"]=secondToken;
+  const auto savedCookie=second.headers["Cookie"];
+  second.headers["Cookie"]="ChaosUhrSID=00000000000000000000000000000000";
+  second.headers["X-CSRF-Token"]=secondToken;
   second.dispatch("/api/factory-reset",HTTP_POST);assert(second.status==401 && ESP.erases==0);
-  second.password="fixture-admin-passphrase-42";second.headers["X-CSRF-Token"]=firstToken;
+  second.headers["Cookie"]=savedCookie;second.headers["X-CSRF-Token"]=firstToken;
   second.dispatch("/api/factory-reset",HTTP_POST);assert(second.status==403 && ESP.erases==0);
   second.headers["X-CSRF-Token"]=secondToken;second.arguments["confirm"]="";
   second.dispatch("/api/factory-reset",HTTP_POST);assert(second.status==403 && ESP.erases==0);
@@ -107,10 +120,10 @@ int main(){
   EEPROM=FakeEEPROM();memcpy(EEPROM.flash.data(),UPGRADE_205,128);EEPROM.reboot();
   ClockWebServer fifth;PublicAccess upgraded(fifth);upgraded.begin();
   assert(upgraded.ready() && upgraded.migrationPending());
-  fifth.user="admin";fifth.password="fixture-upgrade-admin-205";token(fifth);
-  for(unsigned i=0;i<5;++i){fifth.password="fixture-wrong-passphrase";fifth.dispatch("/api/session",HTTP_GET);assert(fifth.status==401);}
-  fifth.dispatch("/api/session",HTTP_GET);assert(fifth.status==429);
-  fakeMillis+=5001;fifth.password="fixture-upgrade-admin-205";token(fifth);
+  login(fifth,"fixture-upgrade-admin-205");token(fifth);
+  for(unsigned i=0;i<5;++i){attemptLogin(fifth,"fixture-wrong-passphrase");assert(fifth.status==401);}
+  attemptLogin(fifth,"fixture-wrong-passphrase");assert(fifth.status==429);
+  fakeMillis+=5001;login(fifth,"fixture-upgrade-admin-205");token(fifth);
   EEPROM.flash[36]=99;EEPROM.reboot();ClockWebServer sixth;PublicAccess unknown(sixth);unknown.begin();unknown.startInitialPortal();
   assert(unknown.locked() && !unknown.provisioning() && sixth.starts==0);
   sixth.dispatch("/api/setup",HTTP_POST);assert(sixth.status==403);

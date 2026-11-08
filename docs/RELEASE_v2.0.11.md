@@ -10,6 +10,9 @@ Beigefügt sind [Flash-Anleitung](FLASHANLEITUNG_2.0.11.md), [Testcheckliste](TE
 
 ## Korrekturen
 
+- Formularanmeldung mit sichtbarem Status auf Haupt-/OTA-Seite. Echte serverseitige Abmeldung und Ablauf nach 30 Minuten ohne bestätigte Aktivität; keine Verlängerung durch GET-/Statusabfragen. Zwei RAM-Sitzungen mit Cookie und eigenem CSRF, nach Neustart alle ungültig. Browser-Basic-Caches werden nicht mehr als Anmeldung akzeptiert. [Bedienung, API und HTTP-Grenzen](SITZUNGEN_2_0_11.md).
+- Eigenständiger MQTT-403-Fix für gleichwertige Origin-/Host-Angaben mit Großschreibung oder HTTP-Standardport. Separater Vorher-/Nachher-Nachweis und zusätzlich echte Sitzungs-/MQTT-Integrationstests. Keine Behauptung eines aufgezeichneten ursprünglichen Gerätemitschnitts.
+
 - ESP32 startet den WLAN-Treiber mit Flash/NVS-Speicherung. WiFiManager kann neue Zugangsdaten damit dauerhaft speichern; Routerausfälle lösen keine Löschung aus.
 - Gespeicherte SSID und verbundener Access Point werden getrennt behandelt. Vorhandene Zugangsdaten behalten die 30-Sekunden-Frist vor dem Recovery-Portal.
 - MQTT-Konfiguration meldet konkrete Validierungs- und Dateioperationsfehler. Laufende Konfiguration und bisherige Datei bleiben bei fehlgeschlagenem Speichern erhalten. Fehlgeschlagenes Laden ersetzt nicht die letzte gültige Konfiguration.

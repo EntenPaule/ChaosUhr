@@ -85,8 +85,8 @@ template<typename ServerType>class ESP8266WebServerTemplate {
   uint32_t _chaosRequestStarted=0,_chaosBodyBytes=0,_chaosBodyLimit=0;
   std::function<bool()> _chaosBodyGuard;
   std::function<ClientFuture(const String&,const String&,ClientType*,ContentTypeFunction)> _hook;
-  RequestArgument _currentHeaders[4]={{"Host",""},{"Origin",""},{"Authorization",""},{"X-CSRF-Token",""}};
-  int _headerKeysCount=4,_currentVersion=0,_currentArgCount=0,_postArgsLen=0,_currentArgsHavePlain=0;
+  RequestArgument _currentHeaders[5]={{"Host",""},{"Origin",""},{"Authorization",""},{"X-CSRF-Token",""},{"Cookie",""}};
+  int _headerKeysCount=5,_currentVersion=0,_currentArgCount=0,_postArgsLen=0,_currentArgsHavePlain=0;
   RequestArgument* _currentArgs=nullptr;RequestArgument* _postArgs=nullptr;
   HTTPMethod _currentMethod=HTTP_GET;bool _chunked=false,_keepAlive=false;String _currentUri,_hostHeader;
   Handler handler;Handler* _firstHandler=&handler;Handler* _currentHandler=nullptr;
@@ -121,6 +121,13 @@ static Server::ClientFuture parse(Server& server,const String& text,bool hold=fa
   return server._parseRequest(server._currentClient);
 }
 int main(){
+  {Server s;
+   assert(parse(s,"POST /api/mqtt HTTP/1.1\r\nHost: ChaosUhr.local:80\r\nOrigin: http://chaosuhr.local\r\nCookie: ChaosUhrSID=fixture\r\nContent-Length: 0\r\n\r\n")==Server::CLIENT_REQUEST_CAN_CONTINUE);
+   assert(s._currentHeaders[4].value=="ChaosUhrSID=fixture");
+   assert(originMatchesHost(s._currentHeaders[1].value.c_str(),s._currentHeaders[0].value.c_str()));
+   s._currentClient=FakeClient{};
+   assert(parse(s,"GET /api/session HTTP/1.1\r\nHost: chaosuhr.local\r\n\r\n")==Server::CLIENT_REQUEST_CAN_CONTINUE);
+   assert(s._currentHeaders[4].value.empty()&&!s._currentHeaders[4].value.c_str()[0]);}
   {Server s;s._chaosBodyGuard=[&](){return originMatchesHost(s._currentHeaders[1].value.c_str(),s._currentHeaders[0].value.c_str());};
    const String bad="POST /api/settings HTTP/1.1\r\nHost: chaosuhr.local\r\nOrigin: https://foreign.invalid\r\nContent-Length: 0\r\n\r\n";
    assert(parse(s,bad)==Server::CLIENT_MUST_STOP);

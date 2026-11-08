@@ -79,7 +79,7 @@ typename ESP8266WebServerTemplate<ServerType>::ClientFuture ESP8266WebServerTemp
   // Read the first line of HTTP request
   _chaosRequestStarted=millis();String req;
   if(!chaosHttpLine(client,req,1024,_chaosRequestStarted,nullptr,0,ErrorCode::HTTP_URI))return chaosReject(ErrorCode::HTTP_REQUEST);
-  DBGWS("request: %s\n", req.c_str());
+  /* HTTP content redacted, including debug builds. */
   //reset header value
   for (int i = 0; i < _headerKeysCount; ++i) {
     // ESP8266 String::clear() changes length without terminating the buffer.
@@ -135,8 +135,7 @@ typename ESP8266WebServerTemplate<ServerType>::ClientFuture ESP8266WebServerTemp
   _keepAlive = _currentVersion > 0; // Keep the connection alive by default
                                     // if the protocol version is greater than HTTP 1.0
 
-  DBGWS("method: %s url: %s search: %s keepAlive=: %d\n",
-      methodStr.c_str(), url.c_str(), searchStr.c_str(), _keepAlive);
+  /* HTTP content redacted, including debug builds. */
 
   //attach handler
   RequestHandlerType* handler;
@@ -170,7 +169,7 @@ typename ESP8266WebServerTemplate<ServerType>::ClientFuture ESP8266WebServerTemp
       headerValue.trim();
        _collectHeader(headerName.c_str(),headerValue.c_str());
 
-      DBGWS("headerName: %s\nheaderValue: %s\n", headerName.c_str(), headerValue.c_str());
+      /* HTTP content redacted, including debug builds. */
 
       if (headerName.equalsIgnoreCase(FPSTR(Content_Type))){
         using namespace mime;
@@ -261,7 +260,7 @@ typename ESP8266WebServerTemplate<ServerType>::ClientFuture ESP8266WebServerTemp
       headerValue = req.substring(headerDiv + 2);
       _collectHeader(headerName.c_str(),headerValue.c_str());
 
-      DBGWS("headerName: %s\nheaderValue: %s\n", headerName.c_str(), headerValue.c_str());
+      /* HTTP content redacted, including debug builds. */
 
       if (headerName.equalsIgnoreCase(F("Host"))){
         _hostHeader = headerValue;
@@ -274,12 +273,9 @@ typename ESP8266WebServerTemplate<ServerType>::ClientFuture ESP8266WebServerTemp
   client.flush();
 
 #ifdef DEBUG_ESP_HTTP_SERVER
-  DBGWS("Request: %s\nArguments: %s\nfinal list of key/value pairs:\n",
-    url.c_str(), searchStr.c_str());
+  /* HTTP content redacted, including debug builds. */
   for (int i = 0; i < _currentArgCount; i++)
-    DBGWS("  key:'%s' value:'%s'\r\n",
-      _currentArgs[i].key.c_str(),
-      _currentArgs[i].value.c_str());
+    /* HTTP content redacted, including debug builds. */
 #endif
 
   return CLIENT_REQUEST_CAN_CONTINUE;
@@ -332,7 +328,7 @@ bool ESP8266WebServerTemplate<ServerType>::_parseArguments(const String& data) {
 template <typename ServerType>
 int ESP8266WebServerTemplate<ServerType>::_parseArgumentsPrivate(const String& data, std::function<void(String&,String&,const String&,int,int,int,int)> handler) {
 
-  DBGWS("args: %s\n", data.c_str());
+  /* HTTP content redacted, including debug builds. */
 
   size_t pos = 0;
   int arg_total = 0;
@@ -409,7 +405,7 @@ bool ESP8266WebServerTemplate<ServerType>::_parseForm(ClientType& client, const 
   if(!len || len>1052672)return false;
   _chaosBodyBytes=0;_chaosBodyLimit=len;
   (void) len;
-  DBGWS("Parse Form: Boundary: '%s' Length: %d\n", boundary.c_str(), (int)len);
+  /* HTTP content redacted, including debug builds. */
   String line;
   int retry = 0;
   do {
@@ -442,12 +438,12 @@ bool ESP8266WebServerTemplate<ServerType>::_parseForm(ClientType& client, const 
             argFilename = argName.substring(nameStart+2, argName.length() - 1);
             argName = argName.substring(0, argName.indexOf('"'));
             argIsFile = true;
-            DBGWS("PostArg FileName: %s\n", argFilename.c_str());
+            /* HTTP content redacted, including debug builds. */
             //use GET to set the filename if uploading using blob
             if (argFilename == F("blob") && hasArg(FPSTR(filename)))
               argFilename = arg(FPSTR(filename));
           }
-          DBGWS("PostArg Name: %s\n", argName.c_str());
+          /* HTTP content redacted, including debug builds. */
           using namespace mime;
           argType = FPSTR(mimeTable[txt].mimeType);
           if(!chaosHttpLine(client,line,1024,_chaosRequestStarted,&_chaosBodyBytes,_chaosBodyLimit))return _parseFormUploadAborted();
@@ -456,7 +452,7 @@ bool ESP8266WebServerTemplate<ServerType>::_parseForm(ClientType& client, const 
             //skip next line
             if(!chaosHttpLine(client,line,1024,_chaosRequestStarted,&_chaosBodyBytes,_chaosBodyLimit))return _parseFormUploadAborted();
           }
-          DBGWS("PostArg Type: %s\n", argType.c_str());
+          /* HTTP content redacted, including debug builds. */
           if (!argIsFile){
             while(1){
               if(!chaosHttpLine(client,line,1024,_chaosRequestStarted,&_chaosBodyBytes,_chaosBodyLimit))return _parseFormUploadAborted();
@@ -465,7 +461,7 @@ bool ESP8266WebServerTemplate<ServerType>::_parseForm(ClientType& client, const 
               if (argValue.length() > 0) argValue += '\n';
               argValue += line;
             }
-            DBGWS("PostArg Value: %s\n\n", argValue.c_str());
+            /* HTTP content redacted, including debug builds. */
 
             if(_postArgsLen>=WEBSERVER_MAX_POST_ARGS)return _parseFormUploadAborted();
             RequestArgument& arg = _postArgs[_postArgsLen++];
@@ -485,7 +481,7 @@ bool ESP8266WebServerTemplate<ServerType>::_parseForm(ClientType& client, const 
             _currentUpload->totalSize = 0;
             _currentUpload->currentSize = 0;
             _currentUpload->contentLength = len;
-            DBGWS("Start File: %s Type: %s\n", _currentUpload->filename.c_str(), _currentUpload->type.c_str());
+            /* HTTP content redacted, including debug builds. */
             if(_currentHandler && _currentHandler->canUpload(_currentUri))
               _currentHandler->upload(*this, _currentUri, *_currentUpload);
             _currentUpload->status = UPLOAD_FILE_WRITE;
@@ -530,10 +526,7 @@ bool ESP8266WebServerTemplate<ServerType>::_parseForm(ClientType& client, const 
             _currentUpload->status = UPLOAD_FILE_END;
             if (_currentHandler && _currentHandler->canUpload(_currentUri))
                 _currentHandler->upload(*this, _currentUri, *_currentUpload);
-            DBGWS("End File: %s Type: %s Size: %d\n",
-                _currentUpload->filename.c_str(),
-                _currentUpload->type.c_str(),
-                (int)_currentUpload->totalSize);
+            /* HTTP content redacted, including debug builds. */
             if (!client.connected()) return _parseFormUploadAborted();
             if(!chaosHttpLine(client,line,1024,_chaosRequestStarted,&_chaosBodyBytes,_chaosBodyLimit))return _parseFormUploadAborted();
             if (line == "--") {     // extra two dashes mean we reached the end of all form fields
@@ -568,7 +561,7 @@ bool ESP8266WebServerTemplate<ServerType>::_parseForm(ClientType& client, const 
     }
     return true;
   }
-  DBGWS("Error: line: %s\n", line.c_str());
+  /* HTTP content redacted, including debug builds. */
   return false;
 }
 

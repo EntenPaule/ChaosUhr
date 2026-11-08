@@ -115,7 +115,7 @@ bool WebServer::authenticateBasicSHA1(const char *_username, const char *_sha1Ba
     SHA1Builder sha_builder;
     base64 b64;
 
-    log_v("Trying to authenticate user %s using SHA1.", username.c_str());
+    /* Authentication material redacted, including debug builds. */
     sha_builder.begin();
     sha_builder.add((uint8_t *)params[0].c_str(), params[0].length());
     sha_builder.calculate();
@@ -126,11 +126,11 @@ bool WebServer::authenticateBasicSHA1(const char *_username, const char *_sha1Ba
     // fixed array of 20 bytes is safer than operating on something external.
     if (strlen(_sha1Base64orHex) == 20 * 2) {  // 2 chars per byte
       sha_builder.bytes2hex(sha1calc, sizeof(sha1calc), sha1, sizeof(sha1));
-      log_v("Calculated SHA1 in hex: %s", sha1calc);
+      /* Authentication material redacted, including debug builds. */
     } else {
       ret = b64.encode(sha1, sizeof(sha1));
       ret.toCharArray(sha1calc, sizeof(sha1calc));
-      log_v("Calculated SHA1 in base64: %s", sha1calc);
+      /* Authentication material redacted, including debug builds. */
     }
 
     return ((username.equalsConstantTime(_username)) && (String((char *)sha1calc).equalsConstantTime(_sha1Base64orHex))
@@ -197,7 +197,7 @@ bool WebServer::authenticate(THandlerFunctionAuthCheck fn) {
   } else if (authReq.startsWith(AuthTypeDigest)) {
     log_v("Trying to authenticate using Digest Auth");
     authReq = authReq.substring(7);
-    log_v("%s", authReq.c_str());
+    /* Authentication material redacted, including debug builds. */
 
     // extracting required parameters for RFC 2069 simpler Digest
     String _username = _extractParam(authReq, F("username=\""), '\"');
@@ -250,7 +250,7 @@ bool WebServer::authenticate(THandlerFunctionAuthCheck fn) {
       _cnonce = _extractParam(authReq, F("cnonce=\""), '\"');
     }
 
-    log_v("Hash of user:realm:pass=%s", _H1.c_str());
+    /* Authentication material redacted, including debug builds. */
     String _H2 = "";
     if (_currentMethod == HTTP_GET) {
       _H2 = md5str(String(F("GET:")) + _uri);
@@ -263,7 +263,7 @@ bool WebServer::authenticate(THandlerFunctionAuthCheck fn) {
     } else {
       _H2 = md5str(String(F("GET:")) + _uri);
     }
-    log_v("Hash of GET:uri=%s", _H2.c_str());
+    /* Authentication material redacted, including debug builds. */
     String _responsecheck = "";
     if (authReq.indexOf(FPSTR(qop_auth)) != -1 || authReq.indexOf(FPSTR(qop_auth_quoted)) != -1) {
       _responsecheck = md5str(_H1 + ':' + _nonce + ':' + _nc + ':' + _cnonce + F(":auth:") + _H2);
@@ -272,13 +272,13 @@ bool WebServer::authenticate(THandlerFunctionAuthCheck fn) {
     }
     authReq = "";
 
-    log_v("The Proper response=%s", _responsecheck.c_str());
+    /* Authentication material redacted, including debug builds. */
     bool ret = _response == _responsecheck;
     log_v("Authentication %s", ret ? "Success" : "Failed");
     return ret;
   } else if (authReq.length()) {
     // OTHER_AUTH
-    log_v("Trying to authenticate using Other Auth, authReq=%s", authReq.c_str());
+    /* Authentication material redacted, including debug builds. */
     String *ret = fn(OTHER_AUTH, authReq, {});
     if (ret) {
       log_v("Authentication Success");

@@ -1,6 +1,7 @@
 #pragma once
 #include "Arduino.h"
 static constexpr int WIFI_STA=1,WIFI_AP=2;
+static constexpr int WL_CONNECTED=3;
 struct FakeWiFi {
   int currentMode=0;
   bool persistence=false,autoReconnect=false,disconnectSucceeds=true;
@@ -10,6 +11,7 @@ struct FakeWiFi {
   void persistent(bool value){persistence=value;}
   String SSID(){return savedSsid;}
   int RSSI(){return -55;}
+  int status(){return WL_CONNECTED;}
   void setAutoReconnect(bool value){autoReconnect=value;}
   bool disconnect(bool off,bool erase){assertErase(off,erase);++disconnects;return disconnectSucceeds;}
   void assertErase(bool off,bool erase){

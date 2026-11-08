@@ -11,6 +11,8 @@ class ESP8266WebServer {
   std::vector<Route> routes;
   std::vector<std::string> collectedHeaders;
   std::map<std::string,std::string> arguments,headers;
+  std::map<std::string,std::string> responseHeaders;
+  std::function<bool()> bodyGuard;
   std::string user,password,body,type;
   unsigned starts=0;
   int status=0;
@@ -25,6 +27,7 @@ class ESP8266WebServer {
     collectedHeaders={first,second,third};
   }
   void collectHeaders(const char* first,const char* second,const char* third,const char* fourth){collectedHeaders={first,second,third,fourth};}
+  void collectHeaders(const char* first,const char* second,const char* third,const char* fourth,const char* fifth){collectedHeaders={first,second,third,fourth,fifth};}
   FakeClient& client(){return socket;}
   bool authenticate(const char* expectedUser,const char* expectedPassword){return user==expectedUser && password==expectedPassword;}
   void requestAuthentication(){status=401;}
@@ -46,16 +49,20 @@ class ESP8266WebServer {
   }
   String arg(const char* field){return arguments[field];}
   bool hasArg(const char* field){return arguments.count(field);}
-  unsigned args(){return arguments.size();}
+  int args(){return static_cast<int>(arguments.size());}
+  String argName(int index){auto at=arguments.begin();std::advance(at,index);return at->first;}
+  String arg(int index){auto at=arguments.begin();std::advance(at,index);return at->second;}
   HTTPMethod method(){return currentMethod;}
   const String& uri(){return currentUri;}
-  void sendHeader(const char*,const char*){}
+  void sendHeader(const char* name,const String& value){responseHeaders[name]=value;}
+  void setBodyGuard(std::function<bool()> guard){bodyGuard=guard;}
   void send(int code,const char* mime,const String& text){status=code;type=mime;body=text;}
   void send_P(int code,const char* mime,const char* text){send(code,mime,text);}
   void begin(){++starts;}
   void dispatch(const char* path,HTTPMethod method){
     currentMethod=method;currentUri=path;
-    status=404;body.clear();
+    status=404;body.clear();responseHeaders.clear();
+    if(method==HTTP_POST && bodyGuard && !bodyGuard())return;
     for(auto& route:routes)if(route.path==path && (route.method==method || route.method==HTTP_ANY)){route.callback();return;}
   }
 };

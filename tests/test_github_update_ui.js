@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
-const source=fs.readFileSync(path.join(__dirname,'../include/ota_ui.h'),'utf8').match(/<script>([\s\S]*?)<\/script>/)[1];
+const source=fs.readFileSync(path.join(__dirname,'../include/ota_ui.h'),'utf8').match(/<script>([\s\S]*?)<\/script>/)[1].replace(/chaosSessionStart\(\);\s*$/,'');
 const base='https://raw.githubusercontent.com/EntenPaule/ChaosUhr/firmware-updates/';
 function manifest(version='2.0.9',prerelease=false){return {format:'chaosuhr-update',schema:1,version,prerelease,board:'d1_mini',chip:'esp8266',flash_bytes:4194304,led_gpio:12,binary:'chaosuhr-'+version+'-esp8266.bin',bytes:5000,sha256:'a'.repeat(64)}}
 function fixture(stable=manifest(),preview=null,current={version:'2.0.8',platform:'esp8266',flash:4194304,ledPin:12}){

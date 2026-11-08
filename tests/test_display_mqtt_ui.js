@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
-const script=fs.readFileSync(path.join(__dirname,'../src/main.cpp'),'utf8').match(/<script>([\s\S]*?)<\/script>/)[1].replace(/load\(\);\s*$/,'');
+const script=fs.readFileSync(path.join(__dirname,'../src/main.cpp'),'utf8').match(/<script>([\s\S]*?)<\/script>/)[1].replace(/chaosSessionStart\(load\);\s*$/,'');
 function app(){
  const elements={},posts=[],blobs=[];let consent=false;
  const element=()=>({type:'number',value:'',checked:false,children:[],hidden:false,textContent:'',append(...items){this.children.push(...items)},replaceChildren(){this.children=[]},click(){},set id(value){this._id=value;elements[value]=this},get id(){return this._id}});

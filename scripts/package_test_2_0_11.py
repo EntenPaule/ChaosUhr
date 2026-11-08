@@ -185,7 +185,8 @@ def main():
         log.write("PASS factory: metadata offsets, partition CSV/binary/MD5, component bytes and all unused flash erased\n")
 
         host_log = (private / "tests-2.0.11-testpackage.log").read_text()
-        require("PASS credentials:" in host_log and len(re.findall(r"^PASS", host_log, re.M)) >= 52
+        require("PASS credentials:" in host_log and len(re.findall(r"^PASS", host_log, re.M)) >= 55
+                and host_log.count("PASS actual admin sessions/MQTT:")==2 and "PASS session GUI:" in host_log
                 and not re.search(r"Traceback|ERROR: AddressSanitizer|runtime error:", host_log), "Host suite not complete")
         with tempfile.TemporaryDirectory(prefix="ota-test-2.0.11-", dir=private) as temporary:
             tmp = Path(temporary)
@@ -205,6 +206,7 @@ def main():
         for name in ("FLASHANLEITUNG", "TESTCHECKLISTE", "BEKANNTE_EINSCHRAENKUNGEN"):
             artifacts[name + "_" + VERSION + ".md"] = source["docs/" + name + "_" + VERSION + ".md"]
         artifacts["FEHLERCODES_" + VERSION + ".md"] = source["docs/FEHLERCODES.md"]
+        artifacts["SITZUNGEN_" + VERSION + ".md"] = source["docs/SITZUNGEN_2_0_11.md"]
         artifacts[PREFIX + "_Quellcode.zip"] = zip_bytes(source)
         artifacts["LICENSE_" + VERSION + ".txt"] = source["LICENSE"]
         artifacts["DRITTANBIETER_" + VERSION + ".md"] = ("# ChaosUhr " + VERSION + " – Lizenzhinweise\n\nVollständige Drittanbieter-Lizenztexte liegen im beigefügten Quellcode-ZIP unter `third_party/` und `lib/`.\n\n").encode() + source["THIRD_PARTY.md"]
@@ -221,6 +223,9 @@ def main():
                     source_archive_sha256=sha(artifacts[PREFIX + "_Quellcode.zip"]),
                     firmware={name: dict(bytes=len(data), sha256=sha(data), ota_allowed="_OTA.bin" in name)
                               for name, data in images.items()},
+                    admin_authentication="server-session-cookie", admin_idle_seconds=1800, admin_session_slots=2,
+                    admin_cookie_attributes=["HttpOnly","SameSite=Strict","Path=/","host-only"],
+                    admin_csrf="per-session", get_requests_renew_session=False, basic_auth_accepted=False,
                     published=False, update_channels_changed=False)
         artifacts["BUILD_INFO_" + VERSION + ".json"] = (json.dumps(info, ensure_ascii=False, indent=2) + "\n").encode()
         for name, data in artifacts.items():

@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const project = path.resolve(__dirname,'..');
 const source = fs.readFileSync(path.join(project,'src/main.cpp'),'utf8');
-const script = source.match(/<script>([\s\S]*?)<\/script>/)[1].replace(/load\(\);\s*$/,'');
+const script = source.match(/<script>([\s\S]*?)<\/script>/)[1].replace(/chaosSessionStart\(load\);\s*$/,'');
 const catalog = fs.readFileSync(path.join(project,'include/effect_catalog.h'),'utf8');
 const names = [...catalog.match(/EFFECT_NAMES\[\]\s*=\s*\{([\s\S]*?)\}/)[1].matchAll(/"([^"]+)"/g)].map(match=>match[1]);
 const effects = names.map((name,index)=>({id:index+1,name,legacy:index>=16}));

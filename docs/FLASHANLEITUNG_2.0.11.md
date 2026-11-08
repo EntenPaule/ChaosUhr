@@ -14,10 +14,12 @@ Vorher Einstellungen als JSON und eigene Animationen separat sichern. Passwörte
 
 ## Bestehende Installation per Web-OTA aktualisieren
 
-1. Weboberfläche der Uhr öffnen und als `admin` anmelden.
+1. Weboberfläche der bisherigen Uhr öffnen und als `admin` anmelden.
 2. Lokalen Firmware-Upload unter `/update` öffnen. Für das eigene Board genau die passende **OTA**-BIN aus obiger Tabelle auswählen.
 3. Upload bestätigen, stabile Stromversorgung sicherstellen und Neustart abwarten.
 4. Version **2.0.11**, Anzeige, Einstellungen und gespeicherte Animationen prüfen. Anschließend die Testcheckliste abarbeiten.
+
+Nach dem Update auf diese Testfassung erfolgt die Anmeldung über das sichtbare Formular mit dem bisherigen Admin-Passwort. HTTP-Basic-Caches ersetzen keine Anmeldung mehr. Hauptseite und `/update` zeigen den Status und **Abmelden** oben rechts. Nach 30 Minuten ohne bestätigte Aktivität oder nach Neustart erneut anmelden; Hintergrund-Statusabfragen verlängern nicht. Einzelheiten stehen in `SITZUNGEN_2.0.11.md` im Test-ZIP beziehungsweise `docs/SITZUNGEN_2_0_11.md` im Quellcode.
 
 Bestehende kompatible Einstellungen und Zugangsdaten sollen bei OTA erhalten bleiben. Keine Formatierung und keinen Werksreset auslösen. Die GitHub-Updatekanäle bleiben unverändert; sie bieten diese lokale Testversion nicht an.
 

@@ -135,7 +135,7 @@ static LineStatus readLineWithLimit(NetworkClient &client, String &line, size_t 
   while (millis() - lastActivity < idleTimeout) {
 #if WEBSERVER_MAX_LINE_WAIT > 0
     if (millis() - lineStart >= WEBSERVER_MAX_LINE_WAIT) {
-      log_e("Protocol line still incomplete after %u ms", (unsigned)WEBSERVER_MAX_LINE_WAIT);
+      /* HTTP content redacted, including debug builds. */
       return LineStatus::TimedOut;
     }
 #endif
@@ -160,7 +160,7 @@ static LineStatus readLineWithLimit(NetworkClient &client, String &line, size_t 
     }
     if(c=='\n' || c==0)return LineStatus::BadRequest;
     if (line.length() >= maxLength) {
-      log_e("Protocol line longer than %u bytes", (unsigned)maxLength);
+      /* HTTP content redacted, including debug builds. */
       return LineStatus::TooLong;
     }
     line += (char)c;
@@ -219,7 +219,7 @@ bool WebServer::_parseRequest(NetworkClient &client) {
   int addr_start = req.indexOf(' ');
   int addr_end = req.indexOf(' ', addr_start + 1);
   if (addr_start == -1 || addr_end == -1) {
-    log_e("Invalid request: %s", req.c_str());
+    /* HTTP content redacted, including debug builds. */
     return chaosReject(ErrorCode::HTTP_REQUEST);
   }
 
@@ -242,7 +242,7 @@ bool WebServer::_parseRequest(NetworkClient &client) {
   // just having the connection dropped.
 #if WEBSERVER_MAX_URI_LEN > 0
   if (url.length() + searchStr.length() > WEBSERVER_MAX_URI_LEN) {
-    log_e("Request-target too long (%u bytes, max %u)", (unsigned)(url.length() + searchStr.length()), (unsigned)WEBSERVER_MAX_URI_LEN);
+    /* HTTP content redacted, including debug builds. */
     sendErrorResponse(client, "414 URI Too Long");
     return chaosReject(ErrorCode::HTTP_REQUEST);
   }
@@ -257,12 +257,12 @@ bool WebServer::_parseRequest(NetworkClient &client) {
     }
   }
   if (method == HTTP_ANY) {
-    log_e("Unknown HTTP Method: %s", methodStr.c_str());
+    /* HTTP content redacted, including debug builds. */
     return chaosReject(ErrorCode::HTTP_REQUEST);
   }
   _currentMethod = method;
 
-  log_v("method: %s url: %s search: %s", methodStr.c_str(), url.c_str(), searchStr.c_str());
+  /* HTTP content redacted, including debug builds. */
 
   //attach handler
   RequestHandler *handler;
@@ -318,7 +318,7 @@ bool WebServer::_parseRequest(NetworkClient &client) {
           boundaryStr = headerValue.substring(headerValue.indexOf('=') + 1);
           boundaryStr.replace("\"", "");
           if (boundaryStr.length() > 70) {  // RFC 2046: max boundary length is 70
-            log_e("Invalid boundary length");
+            /* HTTP content redacted, including debug builds. */
             return chaosReject(ErrorCode::HTTP_BOUNDARY);
           }
           isForm = true;
@@ -392,7 +392,7 @@ bool WebServer::_parseRequest(NetworkClient &client) {
           arg.value = String(plainBuf);
         }
 
-        log_v("Plain: %s", plainBuf);
+        /* HTTP content redacted, including debug builds. */
         free(plainBuf);
       } else {
         // No content - but we can still have arguments in the URL.
@@ -439,8 +439,8 @@ bool WebServer::_parseRequest(NetworkClient &client) {
   }
   client.clear();
 
-  log_v("Request: %s", url.c_str());
-  log_v(" Arguments: %s", searchStr.c_str());
+  /* HTTP content redacted, including debug builds. */
+  /* HTTP content redacted, including debug builds. */
 
   return true;
 }
@@ -453,7 +453,7 @@ bool WebServer::_collectHeader(const char *headerName, const char *headerValue) 
     }
     if (header->key.equalsIgnoreCase(headerName)) {
       header->value = headerValue;
-      log_v("header collected: %s: %s", headerName, headerValue);
+      /* HTTP content redacted, including debug builds. */
       return true;
     }
   }
@@ -463,17 +463,17 @@ bool WebServer::_collectHeader(const char *headerName, const char *headerValue) 
     last->next->key = headerName;
     last->next->value = headerValue;
     _headerKeysCount++;
-    log_v("header collected: %s: %s", headerName, headerValue);
+    /* HTTP content redacted, including debug builds. */
     return true;
   }
 
-  log_v("header skipped: %s: %s", headerName, headerValue);
+  /* HTTP content redacted, including debug builds. */
 
   return false;
 }
 
 void WebServer::_parseArguments(const String &data) {
-  log_v("args: %s", data.c_str());
+  /* HTTP content redacted, including debug builds. */
   if (_currentArgs) {
     delete[] _currentArgs;
   }
@@ -519,7 +519,7 @@ void WebServer::_parseArguments(const String &data) {
     int next_arg_index = data.indexOf('&', pos);
     log_v("pos %d =@%d &@%d", pos, equal_sign_index, next_arg_index);
     if ((equal_sign_index == -1) || ((equal_sign_index > next_arg_index) && (next_arg_index != -1))) {
-      log_e("arg missing value: %d", iarg);
+      /* HTTP content redacted, including debug builds. */
       if (next_arg_index == -1) {
         break;
       }
@@ -529,7 +529,7 @@ void WebServer::_parseArguments(const String &data) {
     RequestArgument &arg = _currentArgs[iarg];
     arg.key = urlDecode(data.substring(pos, equal_sign_index));
     arg.value = urlDecode(data.substring(equal_sign_index + 1, next_arg_index));
-    log_v("arg %d key: %s value: %s", iarg, arg.key.c_str(), arg.value.c_str());
+    /* HTTP content redacted, including debug builds. */
     ++iarg;
     if (next_arg_index == -1) {
       break;
@@ -599,7 +599,7 @@ int WebServer::_uploadReadByte(NetworkClient &client) {
 bool WebServer::_parseForm(NetworkClient &client, const String &boundary, uint32_t len) {
   size_t chaosFieldBytes=0;
   (void)len;
-  log_v("Parse Form: Boundary: %s Length: %" PRIu32, boundary.c_str(), len);
+  /* HTTP content redacted, including debug builds. */
   String line;
   int retry = 0;
   do {
@@ -648,7 +648,7 @@ bool WebServer::_parseForm(NetworkClient &client, const String &boundary, uint32
           inEmptyRun = true;
           emptyRunStart = millis();
         } else if (millis() - emptyRunStart > HTTP_MAX_POST_WAIT) {
-          log_e("Multipart parse aborted: no data for %u ms", (unsigned)HTTP_MAX_POST_WAIT);
+          /* HTTP content redacted, including debug builds. */
           return _parseFormUploadAborted();
         }
         if (++skippedLines > WEBSERVER_MAX_MULTIPART_SKIP_LINES) {
@@ -670,13 +670,13 @@ bool WebServer::_parseForm(NetworkClient &client, const String &boundary, uint32
             argFilename = argName.substring(nameStart + 2, argName.length() - 1);
             argName = argName.substring(0, argName.indexOf('"'));
             argIsFile = true;
-            log_v("PostArg FileName: %s", argFilename.c_str());
+            /* HTTP content redacted, including debug builds. */
             //use GET to set the filename if uploading using blob
             if (argFilename == F("blob") && hasArg(FPSTR(filename))) {
               argFilename = arg(FPSTR(filename));
             }
           }
-          log_v("PostArg Name: %s", argName.c_str());
+          /* HTTP content redacted, including debug builds. */
           using namespace mime;
           argType = FPSTR(mimeTable[txt].mimeType);
           if (readLineWithLimit(client, line, WEBSERVER_MAX_LINE_LEN,_chaosRequestStarted,120000) != LineStatus::Ok) {
@@ -691,7 +691,7 @@ bool WebServer::_parseForm(NetworkClient &client, const String &boundary, uint32
               return _parseFormUploadAborted();
             }
           }
-          log_v("PostArg Type: %s", argType.c_str());
+          /* HTTP content redacted, including debug builds. */
           if (!argIsFile) {
             while (1) {
               // Field values are the one place a long line is legitimate, so the
@@ -714,7 +714,7 @@ bool WebServer::_parseForm(NetworkClient &client, const String &boundary, uint32
               if((chaosFieldBytes+=line.length())>4096)return _parseFormUploadAborted();
               argValue += line;
             }
-            log_v("PostArg Value: %s", argValue.c_str());
+            /* HTTP content redacted, including debug builds. */
 
             RequestArgument &arg = _postArgs[_postArgsLen++];
             arg.key = argName;
@@ -735,7 +735,7 @@ bool WebServer::_parseForm(NetworkClient &client, const String &boundary, uint32
             _currentUpload->type = argType;
             _currentUpload->totalSize = 0;
             _currentUpload->currentSize = 0;
-            log_v("Start File: %s Type: %s", _currentUpload->filename.c_str(), _currentUpload->type.c_str());
+            /* HTTP content redacted, including debug builds. */
             if (_currentHandler && _currentHandler->canUpload(*this, _currentUri)) {
               _currentHandler->upload(*this, _currentUri, *_currentUpload);
             }
@@ -783,7 +783,7 @@ bool WebServer::_parseForm(NetworkClient &client, const String &boundary, uint32
             if (_currentHandler && _currentHandler->canUpload(*this, _currentUri)) {
               _currentHandler->upload(*this, _currentUri, *_currentUpload);
             }
-            log_v("End File: %s Type: %s Size: %lu", _currentUpload->filename.c_str(), _currentUpload->type.c_str(), (unsigned long)_currentUpload->totalSize);
+            /* HTTP content redacted, including debug builds. */
             if (!client.connected()) {
               return _parseFormUploadAborted();
             }
@@ -834,7 +834,7 @@ bool WebServer::_parseForm(NetworkClient &client, const String &boundary, uint32
     }
     return true;
   }
-  log_e("Error: line: %s", line.c_str());
+  /* HTTP content redacted, including debug builds. */
   return false;
 }
 

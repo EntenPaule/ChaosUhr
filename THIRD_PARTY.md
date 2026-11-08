@@ -1,5 +1,9 @@
 # Bestandteile und Lizenzen
 
+## Projektergänzungen in 2.0.11
+
+Beide projektlokalen HTTP-Server verwenden zentrale Fehlerantworten und begrenztes Verwerfen bereits gesendeter Daten bei früher Ablehnung. Rohe Request-, Header-, Body- und Authentifizierungsinhalte wurden auch aus optionalen Debugausgaben entfernt. Globale Framework-Dateien bleiben unverändert; Herkunft, Originalhinweise und bisherige Lizenzen gelten weiter.
+
 ## Neue Bestandteile in 2.0.10
 
 - **espMqttClient 1.7.3**, Bert Melis, MIT: https://github.com/bertmelis/espMqttClient/tree/v1.7.3, vollständiger Text `third_party/espMqttClient-LICENSE`.

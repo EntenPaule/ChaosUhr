@@ -1,6 +1,6 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const root=path.resolve(__dirname,'..');
-const script=fs.readFileSync(path.join(root,'src/main.cpp'),'utf8').match(/<script>([\s\S]*?)<\/script>/)[1].replace(/load\(\);\s*$/,'');
+const script=fs.readFileSync(path.join(root,'src/main.cpp'),'utf8').match(/<script>([\s\S]*?)<\/script>/)[1].replace(/chaosSessionStart\(load\);\s*$/,'');
 const settings={mode:0,effect:38,brightness:25,speed:55,duration:15,nightOn:1,nightFrom:23,nightUntil:6,nightBrightness:6,corner:1,vertical:0,zigzag:1,autoOrder:1,autoEffects:2,autoUploads:128};
 const sha='a'.repeat(64),uploads=[{id:38,name:'Herz',valid:true,sha256:sha,frames:2}];
 const effects=[...Array.from({length:30},(_,i)=>({id:i+1,name:'Effekt '+(i+1)})),{id:38,name:'Herz',uploaded:true}];

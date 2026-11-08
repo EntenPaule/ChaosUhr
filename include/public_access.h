@@ -5,6 +5,7 @@
 #include "chaos_errors.h"
 #include "public_credentials.h"
 #include "request_security.h"
+#include "admin_sessions.h"
 #include <functional>
 
 class PublicAccess {
@@ -18,12 +19,12 @@ class PublicAccess {
   bool provisioning() const {return !locked_ && !ready() && !resetPending(credentials_) && action_==Action::None;}
   bool pending() const {return action_!=Action::None;}
   bool resetting() const {return action_==Action::Reset;}
-  bool validMutationToken(){return ready() && !pending() && tokenMatches() && requestOriginAllowed();}
+  bool validMutationToken();
   bool authenticate();
   bool requestOriginAllowed();
   bool bodyAllowed();
   bool migrate();
-  void restartAfterUpdate(){action_=Action::Restart;actionStarted_=millis();actionDelay_=500;}
+  void restartAfterUpdate(){sessions_.reset();action_=Action::Restart;actionStarted_=millis();actionDelay_=500;}
   bool migrationPending()const{return ready() && credentials_.version==1;}
   bool locked()const{return locked_;}
   void setResetStorage(std::function<bool()> callback){resetStorage_=callback;}
@@ -34,16 +35,23 @@ class PublicAccess {
   enum class Action {None,Restart,Reset};
   ClockWebServer& server_;
   DeviceCredentials credentials_={};
-  char initialCode_[13]={},ssid_[32]={},token_[33]={};
-  uint8_t cacheKey_[32]={},cachedAuth_[32]={};
-  uint32_t cachedAt_=0,failWindow_=0;
-  uint8_t failedLogins_=0;bool cacheValid_=false,locked_=false;
+  char initialCode_[13]={},ssid_[32]={},token_[33]={},loginToken_[33]={};
+  AdminSessions sessions_;
+  uint32_t failWindow_=0;
+  uint8_t failedLogins_=0;bool locked_=false;
   Action action_=Action::None;
   uint32_t actionStarted_=0,actionDelay_=250;
   std::function<bool()> resetStorage_;
   bool viaSetupAP();
   ErrorCode policyError_=ErrorCode::AUTH_ORIGIN;
   bool tokenMatches();
+  bool loginAllowed();
+  int sessionSlot(bool report);
+  void clearCookie();
+  void loginApi();
+  void loginChallengeApi();
+  void logoutApi();
+  void activityApi();
   void sessionApi();
   void provisionApi();
   void resetApi();

@@ -6,6 +6,11 @@ HTTP-Status und ChaosUhr-Code sind getrennte Angaben. Meldungen enthalten aussch
 
 | Code | Komponente | Bedeutung | Technische Ursache | Maßnahme |
 | --- | --- | --- | --- | --- |
+| AUTH-020 | AUTH | Admin-Sitzung abgelaufen | Seit der letzten bestätigten Aktivität sind mindestens 30 Minuten vergangen; Sitzung und CSRF sind ungültig. | Erneut über das Anmeldeformular anmelden; Hintergrundabfragen verlängern die Sitzung nicht. |
+| AUTH-021 | AUTH | Admin-Sitzung ungültig | Die Sitzung wurde abgemeldet, ersetzt oder durch einen Geräteneustart ungültig. | Erneut anmelden und die gewünschte Aktion anschließend bewusst wiederholen. |
+| AUTH-022 | AUTH | Sitzungs-Cookie ungültig | Der Cookie ist zu lang, mehrfach angegeben oder enthält kein gültiges Sitzungsformat. | Seite neu öffnen und erneut anmelden; keine Sitzungstokens manuell ändern. |
+| AUTH-023 | AUTH | Alle Admin-Sitzungen belegt | Die zwei RAM-Sitzungsplätze werden bereits von aktiven Anmeldungen verwendet. | Eine andere Sitzung abmelden oder deren Ablauf abwarten. |
+| AUTH-024 | AUTH | Anmeldeformular ungültig | Die Anmeldung erwartet genau ein Passwortfeld im Formular. | Das Anmeldeformular der aktuellen Weboberfläche verwenden. |
 | MQTT-021 | MQTT | MQTT-Transport wartet zu lange auf Bestätigung | AsyncTCP meldet einen ACK-Timeout; die Brokerverbindung ist damit nicht nachweislich getrennt. | Netzwerk, Brokerlast und TCP-Verbindung prüfen; Diagnose sichern. |
 | SYS-007 | SYS | Unerwarteter Fehler in der Weboberfläche | Eine lokale Browseroperation ist fehlgeschlagen; eine genauere Ursache ist nicht erkennbar. | Seite neu laden, Firmwareversion prüfen und bereinigte Diagnose sichern. |
 | FS-019 | FS | Speicherreset nicht abgeschlossen | Der Reset-Rückruf meldet einen Fehler ohne genauere Ursache. | Bereinigte Diagnose prüfen; Reset-Merkmal bleibt erhalten. |

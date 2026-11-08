@@ -2,6 +2,9 @@
 
 ## 2.0.11 – lokale Entwicklung, nicht veröffentlicht
 
+- Admin-Formularanmeldung, sichtbarer Anmeldestatus auf Haupt- und OTA-Seite, serverseitiger Logout und 30-Minuten-Inaktivitätsfrist. Zwei feste RAM-Sitzungen, getrennte zufällige Cookie-/CSRF-Werte, Cookie mit HttpOnly/SameSite=Strict; kein Basic-Fallback. GET-/Statusabfragen verlängern nicht; Logout/Ablauf/Neustart entwerten zugehörige Tokens. AUTH-020..024 ergänzt; jetzt 169 stabile Codes. [Sitzungen und API](docs/SITZUNGEN_2_0_11.md).
+- MQTT-403 unabhängig von Login korrigiert: Origin-/Host-Prüfung berücksichtigt ASCII-Großschreibung und HTTP-Standardport, bleibt für fremde Hosts/Ports und fehlerhafte Origins geschlossen. Vorher-/Nachher-Regression und tatsächliche Cookie-/CSRF-/MQTT-Handler mit allen 24 GUI-Feldern auf beiden Plattformadaptern geprüft. Rohe Request-/Authentifizierungsdaten aus optionalen Projektserver-Debuglogs entfernt.
+
 - Vollständiges lokales Testpaket mit eindeutig benannten OTA-Dateien für beide Controller und vollständigem 4-MiB-ESP32-Factory-Image für USB. Komponenten/Offsets aus tatsächlichen PlatformIO-Metadaten, binäre Partitionstabelle einschließlich MD5 geprüft, alle Komponenten und leeren Flash-Bereiche byteweise verifiziert. Flash-Anleitung, Checkliste, Einschränkungen, Prüfsummen, Quellcode und Lizenzen enthalten; keine Änderung der Updatekanäle.
 
 - ESP32: Flash/NVS als WLAN-Speicher vor dem ersten Funkstart wählen; gespeicherte Konfiguration statt aktuell verbundener SSID prüfen. Routerausfall löscht keine Zugangsdaten, die 30-Sekunden-Frist und das geschützte Recovery-Portal bleiben erhalten.

@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
-const source=fs.readFileSync(path.join(__dirname,'../include/ota_ui.h'),'utf8').match(/<script>([\s\S]*?)<\/script>/)[1];
+const source=fs.readFileSync(path.join(__dirname,'../include/ota_ui.h'),'utf8').match(/<script>([\s\S]*?)<\/script>/)[1].replace(/chaosSessionStart\(\);\s*$/,'');
 function fixture(sessionOk=true,platform='esp8266'){
  const elements={firmware:{files:[{name:'fixture.bin',size:600000}]},upload:{},message:{},otaForm:{}},calls=[];let submit;
  elements.otaForm.addEventListener=(name,handler)=>{assert.equal(name,'submit');submit=handler};

@@ -6,13 +6,15 @@
 #include "settings.h"
 #include "telemetry.h"
 #include "memory_animation_fs.h"
+#include "request_security.h"
 using String=std::string;
 static uint32_t millis(){return 100;}
 static MqttConfig mqttConfig=defaultMqttConfig();static Telemetry telemetry;
 static MemoryAnimationFS filesystem;
 static MqttConfigStorage<MemoryAnimationFS,AnimationFile> mqttStorage(filesystem);
 static struct {bool readyValue=true;bool ready(){return readyValue;}} animations;
-static struct {bool token=true;bool validMutationToken(){return token;}} publicAccess;
+static std::string requestHost="chaosuhr.local",requestOrigin;
+static struct {bool token=true;bool validMutationToken(){return token && originMatchesHost(requestOrigin.c_str(),requestHost.c_str());}} publicAccess;
 static struct {unsigned reconfigurations=0;const char* base(){return "test-clock";}bool connected(){return false;}uint8_t lastReason(){return 0;}ErrorCode errorCode(){return ErrorCode::None;}void reconfigure(){++reconfigurations;}} clockMqtt;
 static bool authorized=true;
 static bool auth(){return authorized;}
@@ -29,6 +31,15 @@ int main(){
   server.values={{"enabled","1"},{"host","mqtt.example.test"},{"sensor0Topic","rooms/living"},{"sensor0Label","Wohnzimmer"},{"sensor0Unit","C"},{"password",""}};
   publicAccess.token=false;mqttSaveApi();assert(server.status==403&&filesystem.files.empty());publicAccess.token=true;
   mqttSaveApi();assert(server.status==200&&mqttConfig.enabled&&clockMqtt.reconfigurations==1);
+  // Same HTTP origin, independent of how authentication is implemented.
+  // Before the canonical authority fix, valid credentials + CSRF got HTTP 403.
+  for(const auto& pair:std::vector<std::pair<String,String>>{{"ChaosUhr.local:80","http://chaosuhr.local"},{"chaosuhr.local","http://CHAOSUHR.local:80"}}){
+    requestHost=pair.first;requestOrigin=pair.second;mqttSaveApi();assert(server.status==200);
+  }
+  for(const char* origin:{"http://foreign.invalid","http://chaosuhr.local:81","null","http://chaosuhr.local/"}){
+    requestOrigin=origin;mqttSaveApi();assert(server.status==403);
+  }
+  requestOrigin.clear();requestHost="chaosuhr.local";
   assert(!strcmp(mqttConfig.password,"fixture-previous-password"));
   const auto good=mqttConfig;const auto files=filesystem.files;
   for(const auto& bad:std::vector<std::vector<std::pair<String,String>>>{{{"port","0"}},{{"weatherTopic","x/#"}},{{"host","x"},{"host","y"}},{{"sensor4Topic","x"}},{{"password",String(65,'a')}},{{"clearPassword","1"},{"password","new-password"}}}){
