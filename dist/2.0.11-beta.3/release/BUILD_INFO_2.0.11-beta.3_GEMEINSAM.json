@@ -1,0 +1,100 @@
+{
+  "version": "2.0.11-beta.3",
+  "prerelease": true,
+  "firmware_source_commit": "ed7d65cf83a6d8dbbc154a73dc5e694b025315ac",
+  "wemos_reused_unchanged": true,
+  "wemos_sha256": "d5f5c6c8026c66125cc9c651b6109fdae787611574e5d5c9313e55e9d5bed6c2",
+  "platforms": {
+    "esp8266": {
+      "binary_bytes": 689456,
+      "ota_limit_bytes": 1044464,
+      "ota_reserve_bytes": 355008,
+      "static_ram_bytes": 51544,
+      "linker_flash_bytes": 685307,
+      "hardware_tested": true
+    },
+    "esp32": {
+      "binary_bytes": 1965072,
+      "ota_limit_bytes": 1966080,
+      "ota_reserve_bytes": 1008,
+      "static_ram_bytes": 67356,
+      "linker_flash_bytes": 1902723,
+      "hardware_tested": false
+    }
+  },
+  "esp32_factory_components": [
+    {
+      "file": "bootloader.bin",
+      "offset": "0x1000",
+      "bytes": 23520,
+      "sha256": "f7ec7b7d9026e12dd3616bf79cee0e78974a2605afbc2863fcfb0ac9aeb159d4"
+    },
+    {
+      "file": "partitions.bin",
+      "offset": "0x8000",
+      "bytes": 3072,
+      "sha256": "1ae446228d79cf83a4b83de41c33d1e01dc21a3557149d7da90fbcbfc303311d"
+    },
+    {
+      "file": "boot_app0.bin",
+      "offset": "0xe000",
+      "bytes": 8192,
+      "sha256": "f94c5d786a7a8fab06ac5d10e33bf37711a6697636dc037559ea19cc410a17f0"
+    },
+    {
+      "file": "firmware.bin",
+      "offset": "0x10000",
+      "bytes": 1965072,
+      "sha256": "09b563d69ca2826327716a96f14ed4a62bc88b16fc2fd21af02ba5ea7e2ea2a6"
+    }
+  ],
+  "esp32_factory_offset": "0x0",
+  "esp32_flash_bytes": 4194304,
+  "esp32_flash_mode": "dio",
+  "esp32_flash_frequency_hz": 40000000,
+  "esp32_partitions": [
+    {
+      "name": "nvs",
+      "type": 1,
+      "subtype": 2,
+      "offset": "0x9000",
+      "bytes": 20480
+    },
+    {
+      "name": "otadata",
+      "type": 1,
+      "subtype": 0,
+      "offset": "0xe000",
+      "bytes": 8192
+    },
+    {
+      "name": "app0",
+      "type": 0,
+      "subtype": 16,
+      "offset": "0x10000",
+      "bytes": 1966080
+    },
+    {
+      "name": "app1",
+      "type": 0,
+      "subtype": 17,
+      "offset": "0x1f0000",
+      "bytes": 1966080
+    },
+    {
+      "name": "spiffs",
+      "type": 1,
+      "subtype": 130,
+      "offset": "0x3d0000",
+      "bytes": 196608
+    }
+  ],
+  "partition_csv_sha256": "9e545bb69371071b36d82643c93c6d7f354d16e75c4e144f617687ca12f09651",
+  "partition_binary_sha256": "1ae446228d79cf83a4b83de41c33d1e01dc21a3557149d7da90fbcbfc303311d",
+  "esp32_build_dependencies": 161,
+  "hardware_limits": [
+    "ESP32 AP association and WiFi persistence after full power loss remain unverified",
+    "ESP32 OTA reserve is very small; verify each future image"
+  ],
+  "validation": "Both actual production OTA validators accept matching OTA and reject mutation/truncation/other-chip/factory/wrong SHA; factory byte exact"
+}
