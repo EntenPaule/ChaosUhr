@@ -38,7 +38,14 @@ for name in ('TESTANLEITUNG_'+version+'.md','BERICHT_'+version+'.md'):
  files[name]=(root/'docs'/name).read_bytes()
 files['FEHLERCODES_'+version+'.md']=(root/'docs/FEHLERCODES.md').read_bytes()
 files['LICENSE_'+version+'.txt']=(root/'LICENSE').read_bytes()
-info=dict(version=version,source_commit=commit,board='d1_mini',chip='esp8266',binary_bytes=len(raw),ota_limit_bytes=1044464,ota_reserve_bytes=1044464-len(raw),static_ram_bytes=int(ram[0]),static_ram_limit=int(ram[1]),linker_flash_bytes=int(flash[0]),host_pass_groups=host.count('PASS '),firmware_sha256=hashlib.sha256(raw).hexdigest(),hardware_tested=False,mqtt007_hardware_root_cause_confirmed=False,reset_hardware_cause_confirmed=False,mqtt_stack_frames=check_stack(root),esp32_built=False,known_limitations=['Hardware reset cause and earlier MQTT-007 still require device confirmation; stack-copy reduction and retained reset diagnostics','Local HTTP has no TLS confidentiality'],validation=validated.strip())
+elf=(build/'firmware.elf').read_bytes()
+assert version.encode() in elf
+debug=root/'.pio/debug'/version;debug.mkdir(parents=True,exist_ok=True)
+for filename,data in [('firmware.bin',raw),('firmware.elf',elf)]:
+ destination=debug/filename
+ if destination.exists():assert destination.read_bytes()==data,'Existing debug archive differs'
+ else:destination.write_bytes(data)
+info=dict(elf_sha256=hashlib.sha256(elf).hexdigest(),hardware_baseline_version='2.0.11-beta.2',version=version,source_commit=commit,board='d1_mini',chip='esp8266',binary_bytes=len(raw),ota_limit_bytes=1044464,ota_reserve_bytes=1044464-len(raw),static_ram_bytes=int(ram[0]),static_ram_limit=int(ram[1]),linker_flash_bytes=int(flash[0]),host_pass_groups=host.count('PASS '),firmware_sha256=hashlib.sha256(raw).hexdigest(),hardware_tested=False,mqtt007_hardware_root_cause_confirmed=False,reset_hardware_cause_confirmed=False,mqtt_stack_frames=check_stack(root),esp32_built=False,known_limitations=['Current beta GUI requires hardware verification; beta.2 MQTT/weather/cold-start tests passed. Exact original crash cause remains unproven','Local HTTP has no TLS confidentiality'],validation=validated.strip())
 files['BUILD_INFO_'+version+'.json']=(json.dumps(info,indent=2,ensure_ascii=False)+'\n').encode()
 for name,data in files.items():safety.check(data,name)
 checks=lambda entries:''.join(hashlib.sha256(data).hexdigest()+'  '+name+'\n' for name,data in sorted(entries.items())).encode()

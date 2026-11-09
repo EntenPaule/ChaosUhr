@@ -1,3 +1,7 @@
+# 2.0.11-beta.3 (lokaler Wemos-Test)
+
+Bestätigte Beta.2-Hardwaretests dokumentiert. GUI erklärt tatsächliche Automatikreihenfolge, Datenverfügbarkeit und Nachtmodus; lokale Auswahlvorschau ergänzt. Sekundenleistenhinweis präzisiert, da keine feste 5-%-Abschaltung existiert. Anzeige-/Wetter-/MQTT-/Sessionlogik unverändert. [Bericht](docs/BERICHT_2.0.11-beta.3.md). Keine Veröffentlichung.
+
 # 2.0.11-beta.2 (lokaler Wemos-Test)
 
 MQTT-Speicherpfad: Heap-Kandidat mit geprüftem Allokationsfehler, Referenz statt weiterer Stackkopie und kleine Rückleseblöcke. Stackframes nachgewiesen reduziert. Sichere RTC-Neustart-/Speicherschrittdiagnose und lokale Exception-Auswertung ergänzt. Reset auf Nutzerhardware noch zu klassifizieren; MQTT-007 separat offen. [Bericht](docs/BERICHT_2.0.11-beta.2.md). Keine Veröffentlichung.

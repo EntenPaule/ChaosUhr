@@ -23,6 +23,18 @@ else (async()=>{
  const pin=app();await pin.context.load();pin.elements.ledPin.value=4;await pin.context.save();assert.equal(pin.posts.length,0);pin.approve();await pin.context.save();assert.equal(pin.posts.length,1);assert.match(pin.elements.msg.textContent,/startet/);
  assert.equal(a.elements.mqPassword.value,'');a.elements.mqEnabled.checked=true;a.elements.mqWeatherTopic.value='house/weather';a.elements.mqSensor0topic.value='house/living';a.elements.mqSensor0label.value='Wohnzimmer';
  await a.context.saveMqtt();const post=a.posts.find(p=>p.route==='/api/mqtt');assert(post);assert.equal(post.options.body.get('weatherTopic'),'house/weather');assert.equal(post.options.body.get('sensor0Topic'),'house/living');assert.equal(post.options.body.get('password'),'');assert.equal(post.options.headers['X-CSRF-Token'],'fixture-session');
+ // Preview follows the form only; it never promises fresh MQTT data or writes.
+ const flow=app();await flow.context.load();const postsBefore=flow.posts.length;
+ for(const [id,on] of [['showClock',true],['showWeather',true],['showSensors',true],['showAnimations',true]])flow.elements[id].checked=on;
+ flow.elements.duration.value='20';flow.elements.autoOrder.value='1';flow.context.updateDisplayFlow();
+ assert.match(flow.elements.displayFlow.textContent,/Uhrzeit → Wetter \(wenn aktuell\) → ein Sensorwert \(wenn aktuell\) → eine gewählte Animation → von vorn/);
+ assert.match(flow.elements.displayFlow.textContent,/je 20 s/);assert.match(flow.elements.displayFlow.textContent,/der Reihe nach/);
+ flow.elements.showClock.checked=false;flow.elements.showSensors.checked=false;flow.elements.showAnimations.checked=false;flow.context.updateDisplayFlow();
+ assert.match(flow.elements.displayFlow.textContent,/Wetter \(wenn aktuell\) – wiederholt/);assert.match(flow.elements.displayFlow.textContent,/Ohne verfügbare Anzeige: Uhrzeit/);
+ flow.elements.mode.value='1';flow.context.updateDisplayFlow();assert.equal(flow.elements.displayFlow.textContent,'Uhrzeit – dauerhaft.');
+ flow.elements.mode.value='2';flow.context.updateDisplayFlow();assert.match(flow.elements.displayFlow.textContent,/Gewählte Animation – dauerhaft/);
+ flow.elements.mode.value='0';flow.elements.showWeather.checked=false;flow.context.updateDisplayFlow();assert.match(flow.elements.displayFlow.textContent,/mindestens eine Anzeigeart/);
+ assert.equal(flow.posts.length,postsBefore);
  await a.context.exportSettings();const backup=JSON.parse(a.blobs[0]);assert.equal(backup.version,2);assert.equal(backup.settings.secondsBar,1);assert.equal(backup.settings.ledPin,undefined);assert(!a.blobs[0].includes('broker.example.test')&&!/password/i.test(a.blobs[0]));
  console.log('PASS display/MQTT GUI: clock/weather without animations, scene guard, persistent display controls, explicit pin restart, four sensor forms, CSRF and secret/network/pin-free backup v2');
 })().catch(e=>{console.error(e);process.exitCode=1});

@@ -385,8 +385,10 @@ small{color:#abb9d0}output{float:right;color:#8bd5ff}.flex{display:flex;gap:10px
 <h2>Automatik</h2>
 <p>Welche Anzeigen sollen abwechselnd laufen?</p>
 <div class="flex"><label><input id="showClock" type="checkbox" checked> Uhrzeit</label><label><input id="showAnimations" type="checkbox" checked> Animationen</label><label><input id="showWeather" type="checkbox"> Wetter</label><label><input id="showSensors" type="checkbox"> Sensorwerte</label></div>
-<p><small>Für nur Uhr/Wetter Animationen abwählen. Wetter und Sensorwerte kommen über MQTT; ohne aktuelle Daten erscheint die Uhr.</small></p>
-<p><small>Die gewählten Anzeigearten wechseln sich ab. Bei Uhr und Animationen bleibt der Ablauf Uhr → Animation → Uhr. Jede gewählte Animation läuft einmal pro Runde.</small></p>
+<p><small>Die Automatik läuft in dieser Reihenfolge: Uhrzeit → Wetter → ein Sensorwert → eine Animation → von vorn. Abgewählte Anzeigen werden übersprungen. Jede verfügbare Szene läuft für die eingestellte „Dauer je Szene“; fällt ihre Datenverfügbarkeit weg, wird vorzeitig weitergeschaltet. Beim nächsten Sensordurchlauf folgt der nächste aktuelle Sensor, beim nächsten Animationsdurchlauf die nächste gewählte Animation.</small></p>
+<p><small>Wetter und Sensorwerte erscheinen nur bei aktiviertem MQTT und aktuellen Daten. Fehlende oder veraltete Daten werden übersprungen; bleibt keine Anzeige verfügbar, erscheint die Uhr. Mit nur Uhr und Animationen ergibt sich Uhr → Animation → Uhr. Die Animationsauswahl läuft der Reihe nach oder in zufälligen Runden, jeweils jede einmal.</small></p>
+<p><small>Der Nachtmodus dimmt alle Anzeigen auf die Nachthelligkeit. Die Automatik und Wetteranzeige laufen dabei weiter.</small></p>
+<p><strong>Dein aktueller Anzeigeablauf</strong><br><span id="displayFlow" role="status"></span><br><small>Vorschau deiner Auswahl; Änderungen mit „Speichern“ übernehmen. Wetter/Sensoren werden nur mit aktuellen MQTT-Daten eingeblendet. Dies ist keine Live-Anzeige der gerade laufenden Szene.</small></p>
 <label for="autoOrder">Reihenfolge</label><select id="autoOrder"><option value="0">Zufällig (jede einmal pro Runde)</option><option value="1">Der Reihe nach</option></select>
 <details open><summary>Animationen für die Automatik auswählen</summary>
 <div class="flex auto-actions"><button type="button" onclick="selectAutomatic(true)">Alle auswählen</button><button type="button" onclick="selectAutomatic(false)">Auswahl leeren</button></div>
@@ -394,7 +396,7 @@ small{color:#abb9d0}output{float:right;color:#8bd5ff}.flex{display:flex;gap:10px
 <p><small>Bei aktivierter Anzeigeart Animationen mindestens eine Animation auswählen. Für eine dauerhafte Uhranzeige den Modus „Nur Uhrzeit“ verwenden.</small></p></details>
 <h2>Uhranzeige</h2>
 <label><input id="secondsBar" type="checkbox" checked> Sekundenleiste unten anzeigen</label>
-<p><small>Die Sekundenleiste wird bei einer Helligkeit unter 5 % nicht angezeigt. Dies gilt auch bei aktiviertem Nachtmodus.</small></p>
+<p><small>Bei sehr geringer Helligkeit kann die Sekundenleiste kaum oder nicht sichtbar sein. Dies gilt auch im Nachtmodus.</small></p>
 <label for="weekdayStyle">Wochentag</label><select id="weekdayStyle"><option value="0">Ausgeschrieben: Montag, Dienstag …</option><option value="1">Kurzform: mo, di, mi, do, fr, sa, so</option></select>
 <h2>Matrixverdrahtung</h2>
 <label for="ledPin">LED-Datenpin</label><select id="ledPin"></select>
@@ -446,7 +448,7 @@ small{color:#abb9d0}output{float:right;color:#8bd5ff}.flex{display:flex;gap:10px
 R"HTML(<article><h2>Werkseinstellungen</h2><p>Alle Uhr-Einstellungen, eigene Animationen, der Admin-Zugang und die gespeicherten WLAN-Daten werden gelöscht. Danach beginnt die Ersteinrichtung erneut.</p><label><input id="resetConfirm" type="checkbox" onchange="document.getElementById('resetButton').disabled=!this.checked"> Ich möchte alle Einstellungen, Uploads und Zugangsdaten löschen.</label><button id="resetButton" onclick="factoryReset()" disabled>Auf Werkseinstellungen zurücksetzen</button><p id="resetMessage" role="status"></p></article>)HTML"
 #endif
 R"HTML(
-</main><script src="/errors.js?v=2.0.11-beta.2" onerror="document.addEventListener(&#x27;DOMContentLoaded&#x27;,()=&gt;{document.body.textContent=&quot;Fehler HTTP-018\nDiagnoseskript konnte nicht geladen werden\nDer Browser konnte das gemeinsame lokale Skript nicht laden; die genauere Ursache ist nicht erkennbar.\nMaßnahmen: Uhradresse und Netzwerk prüfen und Seite neu laden.&quot;})"></script><script>
+</main><script src="/errors.js?v=2.0.11-beta.3" onerror="document.addEventListener(&#x27;DOMContentLoaded&#x27;,()=&gt;{document.body.textContent=&quot;Fehler HTTP-018\nDiagnoseskript konnte nicht geladen werden\nDer Browser konnte das gemeinsame lokale Skript nicht laden; die genauere Ursache ist nicht erkennbar.\nMaßnahmen: Uhradresse und Netzwerk prüfen und Seite neu laden.&quot;})"></script><script>
 const ids=['mode','effect','brightness','speed','duration','nightOn','nightFrom','nightUntil','nightBrightness','corner','vertical','zigzag','autoOrder'];
 let automaticChoices=[];
 let effectChoices=[],pendingImport=null;
@@ -454,6 +456,21 @@ const optionFlags=['secondsBar','showClock','showAnimations','showWeather','show
 const optionIds=['ledPin','weekdayStyle',...optionFlags];
 let currentOptions={ledPin:12,weekdayStyle:0,secondsBar:1,showClock:1,showAnimations:1,showWeather:0,showSensors:0};
 let savedMasks={autoEffects:1073741823,autoUploads:0};
+function updateDisplayFlow(){
+  const mode=Number(document.getElementById('mode').value),target=document.getElementById('displayFlow');
+  if(mode===1){target.textContent='Uhrzeit – dauerhaft.';return}
+  if(mode===2){target.textContent='Gewählte Animation – dauerhaft; bei nicht verfügbarer Upload-Datei erscheint die Uhr.';return}
+  const pages=[['showClock','Uhrzeit'],['showWeather','Wetter (wenn aktuell)'],['showSensors','ein Sensorwert (wenn aktuell)'],['showAnimations','eine gewählte Animation']]
+    .filter(([id])=>document.getElementById(id).checked).map(([,label])=>label);
+  if(!pages.length){target.textContent='Bitte mindestens eine Anzeigeart wählen; diese Auswahl lässt sich nicht speichern.';return}
+  if(document.getElementById('showAnimations').checked&&!automaticChoices.some(choice=>choice.input.checked)){target.textContent='Bitte mindestens eine Animation wählen oder die Anzeigeart Animationen abwählen; diese Auswahl lässt sich nicht speichern.';return}
+  const seconds=Number(document.getElementById('duration').value);
+  target.textContent=pages.join(' → ')+(pages.length>1?' → von vorn':' – wiederholt')+` · je ${seconds} s. `+
+    (document.getElementById('showAnimations').checked?'Animationen: '+(Number(document.getElementById('autoOrder').value)?'der Reihe nach.':'zufällige Runden, jede einmal.'):'')+
+    ' Ohne verfügbare Anzeige: Uhrzeit. Nachtmodus: gleicher Ablauf mit Nachthelligkeit.';
+}
+for(const id of ['mode','duration','autoOrder','showClock','showWeather','showSensors','showAnimations'])
+  document.getElementById(id).addEventListener?.('input',updateDisplayFlow);
 function loadDisplayOptions(d){
   const pins=d.ledPins||[{gpio:d.ledPin??12,label:'LED-Datenpin'}],select=document.getElementById('ledPin');select.replaceChildren();
   for(const pin of pins){const option=document.createElement('option');option.value=pin.gpio;option.textContent=pin.label;select.append(option)}
@@ -466,7 +483,7 @@ const legacyBackupKeys=[...ids,'autoEffects','autoUploads'];
 const backupKeys=[...legacyBackupKeys,...optionIds.filter(key=>key!=='ledPin')];
 function automaticMask(){return automaticChoices.reduce((mask,choice)=>mask+(choice.input.checked&&!choice.uploaded?2**(choice.id-1):0),0)}
 function automaticUploadMask(){return automaticChoices.reduce((mask,choice)=>mask+(choice.input.checked&&choice.uploaded?2**(choice.id-31):0),0)}
-function updateAutomaticCount(){document.getElementById('autoCount').textContent=`${automaticChoices.filter(choice=>choice.input.checked).length} von ${automaticChoices.length} ausgewählt`}
+function updateAutomaticCount(){document.getElementById('autoCount').textContent=`${automaticChoices.filter(choice=>choice.input.checked).length} von ${automaticChoices.length} ausgewählt`;updateDisplayFlow()}
 function selectAutomatic(checked){automaticChoices.forEach(choice=>choice.input.checked=checked);updateAutomaticCount()}
 function buildAutomaticChoices(effects,mask,uploads=0){
   const list=document.getElementById('autoEffects');list.replaceChildren();
@@ -499,10 +516,11 @@ async function load(){
     document.getElementById('uploadPanel').hidden=!d.animationUploads;
     document.getElementById('securityStatus').textContent=d.credentialsMigrationPending?'Admin-Zugang wird noch im alten Format gespeichert. Richte den Animationsspeicher ein, um die Passwortspeicherung sicher zu migrieren. Dein bisheriges Passwort bleibt gültig.':'Admin-Passwort wird als gesalzener Hash gespeichert. Die lokale Oberfläche verwendet weiterhin HTTP.';
     if(d.animationUploads)showAnimationStorage(await readJson('/api/animations'));
-    bVal.value=d.brightness+' %';sVal.value=d.speed+' %';dVal.value=d.duration+' s';nVal.value=d.nightBrightness+' %';
+    bVal.value=d.brightness+' %';sVal.value=d.speed+' %';dVal.value=d.duration+' s';nVal.value=d.nightBrightness+' %';updateDisplayFlow();
     document.getElementById('saveButton').disabled=false;
     document.getElementById('mqttPanel').hidden=!d.mqttAvailable;
     if(d.mqttAvailable)await loadMqtt();
+    updateDisplayFlow();
   }catch(e){document.getElementById('status').textContent=chaosMessage(e)}
 }
 async function save(){
@@ -614,7 +632,7 @@ function applySettingsImport(){
   const d=pendingImport;ids.forEach(key=>{const element=document.getElementById(key);element[element.type==='checkbox'?'checked':'value']=element.type==='checkbox'?!!d[key]:d[key]});
   buildAutomaticChoices(effectChoices,d.autoEffects,d.autoUploads);
   optionIds.filter(key=>key!=='ledPin').forEach(key=>{document.getElementById(key)[optionFlags.includes(key)?'checked':'value']=optionFlags.includes(key)?!!d[key]:d[key]});
-  bVal.value=d.brightness+' %';sVal.value=d.speed+' %';dVal.value=d.duration+' s';nVal.value=d.nightBrightness+' %';
+  bVal.value=d.brightness+' %';sVal.value=d.speed+' %';dVal.value=d.duration+' s';nVal.value=d.nightBrightness+' %';updateDisplayFlow();
   document.getElementById('backupMessage').textContent='Vorschau übernommen. Zum dauerhaften Anwenden Einstellungen speichern.';document.getElementById('applyBackup').hidden=true;pendingImport=null;
 }
 let animationBusy=false;
