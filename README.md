@@ -1,5 +1,7 @@
 # ChaosUhr 2.0
 
+**Entwicklung: 2.0.11-beta.4 vorbereitet.** Noch keine Beta.4-Firmware gebaut oder veröffentlicht; Beta.3 bleibt der abgeschlossene gemeinsame Pre-Release.
+
 **Gemeinsamer Pre-Release: [2.0.11-beta.3](https://github.com/EntenPaule/ChaosUhr/releases/tag/v2.0.11-beta.3).** Wemos D1 mini und klassischer ESP32 verwenden denselben Quellstand. Die bereits verteilte **Wemos-BIN ist unverändert und auf echter Hardware bestätigt**. ESP32 ist frisch gebaut/offline validiert; **Hardwaretests einschließlich Setup-AP und WLAN-Persistenz nach Stromtrennung stehen aus**. ESP32-OTA-Reserve nur 1008 Byte.
 
 [Release Notes](docs/RELEASE_v2.0.11-beta.3.md) · [Gemeinsame Test-/Flash-Anleitung](docs/TESTANLEITUNG_2.0.11-beta.3_GEMEINSAM.md) · [Automatik und Beta.3-Analyse](docs/BERICHT_2.0.11-beta.3.md). Die ESP32-Factory-BIN ist ausschließlich für USB ab 0x0 vorgesehen. Kein Stable-Release und kein Wechsel produktiver Updatekanäle.

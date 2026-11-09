@@ -1,3 +1,7 @@
+# 2.0.11-beta.4 – Entwicklung vorbereitet
+
+Versionsnummer nach Veröffentlichung von Beta.3 weitergeführt. Noch keine zusätzlichen Funktionen, Firmware-Builds oder Release-Assets. Tag v2.0.11-beta.3 bleibt unverändert auf dem geprüften gemeinsamen Quellstand.
+
 # 2.0.11-beta.3 – gemeinsamer Pre-Release ergänzt
 
 Unveränderte hardwarebestätigte Wemos-BIN übernommen. ESP32-OTA und Factory aus gemeinsamem Quellstand gebaut; Hardware/AP/WLAN-Persistenz weiterhin offen. Auf ESP32 ausschließlich ungenutzten ESP8266-RTC-Diagnosecode ausgeschlossen, damit die echte BIN in den bestehenden OTA-Slot passt (1008 Byte Reserve). Keine Änderung der ESP8266-Firmware. [Release Notes](docs/RELEASE_v2.0.11-beta.3.md).
