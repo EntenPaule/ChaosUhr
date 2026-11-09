@@ -9,7 +9,7 @@ static const char OTA_HTML[] PROGMEM=R"HTML(
 <label><input id="includePreview" type="checkbox"> Vorabversionen berücksichtigen</label>
 <button id="checkOnline" type="button" onclick="checkOnlineUpdates()">Auf Updates prüfen</button>
 <button id="installOnline" type="button" onclick="installOnlineUpdate()" hidden>Gefundene Version installieren</button><p id="onlineMessage" role="status"></p>
-</main><script src="/errors.js?v=2.0.11-beta.1" onerror="document.addEventListener(&#x27;DOMContentLoaded&#x27;,()=&gt;{document.body.textContent=&quot;Fehler HTTP-018\nDiagnoseskript konnte nicht geladen werden\nDer Browser konnte das gemeinsame lokale Skript nicht laden; die genauere Ursache ist nicht erkennbar.\nMaßnahmen: Uhradresse und Netzwerk prüfen und Seite neu laden.&quot;})"></script><script>
+</main><script src="/errors.js?v=2.0.11-beta.2" onerror="document.addEventListener(&#x27;DOMContentLoaded&#x27;,()=&gt;{document.body.textContent=&quot;Fehler HTTP-018\nDiagnoseskript konnte nicht geladen werden\nDer Browser konnte das gemeinsame lokale Skript nicht laden; die genauere Ursache ist nicht erkennbar.\nMaßnahmen: Uhradresse und Netzwerk prüfen und Seite neu laden.&quot;})"></script><script>
 const UPDATE_BASE='https://raw.githubusercontent.com/EntenPaule/ChaosUhr/firmware-updates/';
 let onlineCandidate=null,onlineBusy=false;
 function updateVersion(text){

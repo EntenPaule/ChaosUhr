@@ -1,9 +1,9 @@
 # ChaosUhr 2.0
 
-**Aktueller lokaler Teststand: 2.0.11-beta.1, ausschließlich Wemos D1 mini.**
-Die gemeldete MQTT-007-Ursache auf echter Hardware ist noch **nicht nachgewiesen behoben**. Die Beta ergänzt eine sichere Feldkennung bei abgelehnter Konfiguration sowie den vollständigen Formular-/Parser-Regressionstest. Login, Logout und 30 Minuten Inaktivitätsablauf bleiben erhalten. [Analyse und Teststand](docs/BERICHT_2.0.11-beta.1.md), [Testanleitung](docs/TESTANLEITUNG_2.0.11-beta.1.md), [Sitzungsverwaltung](docs/SITZUNGEN_2_0_11.md).
+**Aktueller lokaler Teststand: 2.0.11-beta.2, nur Wemos D1 mini.**
+Nach einem bestätigten Neustart beim MQTT-Speichern wurden große Stackkopien gezielt reduziert. Die neue Diagnose erfasst Resetgrund und letzten MQTT-Speicherschritt im RTC-RAM. Die genaue Hardwareursache und der frühere MQTT-007 bleiben bis zum Gerätetest offen. Login/Logout, 30-Minuten-Ablauf und Schutzprüfungen bleiben aktiv.
 
-Lokales Paket: `dist/2.0.11-beta.1/ChaosUhr_2.0.11-beta.1_TEST.zip`. Keine ESP32-BIN enthalten; ESP32-Builds erfolgen nur auf ausdrücklichen Auftrag. Alte unnummerierte 2.0.11-Pakete sind historische Teststände, kein offizielles Release. Der produktive Branch und die Updatekanäle bleiben unverändert.
+Paket: `dist/2.0.11-beta.2/ChaosUhr_2.0.11-beta.2_TEST.zip`. [Analyse und Teststand](docs/BERICHT_2.0.11-beta.2.md), [Test-/Crash-Anleitung](docs/TESTANLEITUNG_2.0.11-beta.2.md), [Sitzungsverwaltung](docs/SITZUNGEN_2_0_11.md). Keine ESP32-BIN; alte Pakete und produktive Kanäle unverändert. Kein offizielles 2.0.11-Release.
 
 **Aktuelle stabile Version: [2.0.10 für Wemos / ESP8266 und klassischen ESP32](https://github.com/EntenPaule/ChaosUhr/releases/tag/v2.0.10).** MQTT-Wetter und Sensoren, wählbare Anzeigearten, konfigurierbarer LED-Pin, Sekundenleisten-Schalter und Wochentag-Auswahl. Beide Builds und die ZIP-Quellen sind lokal geprüft; die neuen BINs sind **noch nicht am Gerät getestet**. [Teststand](docs/RELEASE_v2.0.10.md), [MQTT-Anleitung](docs/MQTT_2_0_10.md), [Upgrade](docs/UPGRADE_2_0_10.md).
 

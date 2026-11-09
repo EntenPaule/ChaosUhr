@@ -70,7 +70,7 @@ for chip in (('esp8266','esp32') if test_esp32 else ('esp8266',)):
                     '-DCHAOSUHR_PUBLIC_BUILD=1',*flags,'-I',str(project/'tests/public_stubs'),'-I',str(project/'include'),'-I',str(json_headers.parent),
                     str(project/'tests/test_admin_sessions.cpp'),str(project/'src/public_access.cpp'),'-o',str(target),'-lcrypto'],check=True)
     subprocess.run([str(target)],check=True)
-for name in ('options','telemetry','mqtt_api','mqtt_failures','errors'):
+for name in ('options','telemetry','mqtt_api','mqtt_failures','errors','reset_diagnostics'):
     target=build_dir/('test_'+name)
     subprocess.run(['g++','-std=c++17','-Wall','-Wextra','-Werror','-pedantic',
                     '-fsanitize=address,undefined','-fno-omit-frame-pointer',

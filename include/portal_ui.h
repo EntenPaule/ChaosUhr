@@ -1,5 +1,5 @@
 #pragma once
-static const char PORTAL_HEAD[] PROGMEM=R"HTML(<script src="/errors.js?v=2.0.11-beta.1" onerror="document.addEventListener(&#x27;DOMContentLoaded&#x27;,()=&gt;{document.body.textContent=&quot;Fehler HTTP-018\nDiagnoseskript konnte nicht geladen werden\nDer Browser konnte das gemeinsame lokale Skript nicht laden; die genauere Ursache ist nicht erkennbar.\nMaßnahmen: Uhradresse und Netzwerk prüfen und Seite neu laden.&quot;})"></script><script>
+static const char PORTAL_HEAD[] PROGMEM=R"HTML(<script src="/errors.js?v=2.0.11-beta.2" onerror="document.addEventListener(&#x27;DOMContentLoaded&#x27;,()=&gt;{document.body.textContent=&quot;Fehler HTTP-018\nDiagnoseskript konnte nicht geladen werden\nDer Browser konnte das gemeinsame lokale Skript nicht laden; die genauere Ursache ist nicht erkennbar.\nMaßnahmen: Uhradresse und Netzwerk prüfen und Seite neu laden.&quot;})"></script><script>
 document.addEventListener('submit',async event=>{
  const form=event.target;if(!['/wifisave','/exit'].includes(new URL(form.action,location.href).pathname))return;
  event.preventDefault();

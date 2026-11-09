@@ -21,6 +21,7 @@ static struct {int status=0;String body;void send(int code,const char*,const Str
 #include "diagnostics_api.h"
 int main(){
   MemoryAnimationFS fs;MqttConfigStorage<MemoryAnimationFS,AnimationFile> store(fs);
+  static_assert(sizeof(MqttConfig)==1088,"Persisted MQTT v1 layout must not change");
   auto current=defaultMqttConfig(),next=current;next.enabled=1;
   strcpy(next.host,"fixture-private-broker");strcpy(next.password,"fixture-mqtt-private-password");sealMqttConfig(next);
   assert(store.save(current,next));const auto saved=current;
@@ -28,6 +29,7 @@ int main(){
   assert(!store.save(current,invalid)&&store.errorCode()==ErrorCode::MQTT_CONFIG_FIELD);
   assert(!strcmp(store.invalidField(),"discoveryPrefix"));
   assert(!memcmp(&current,&saved,sizeof saved));
+  assert(resetDiagnostics().current.phase==static_cast<unsigned>(MqttSavePhase::Committed));
   const auto original=*fs.files.at(store.path());
   strcpy(next.user,"fixture-user");
   auto attempt=[&](bool& flag,ErrorCode expected){
@@ -55,10 +57,12 @@ int main(){
   assert(!store.load(retained)&&store.errorCode()==ErrorCode::FS_CONFIG_CORRUPT);
   assert(!memcmp(&retained,&current,sizeof current));assert(fs.formats==0);
   mqttConfig=current;
+  auto& reset=resetDiagnostics();reset.available=true;reset.reason=2;reset.exceptionCause=28;
   recordError(ErrorCode::FS_RENAME);diagnosticsApi();assert(server.status==200);
   assert(server.body.find(current.password)==String::npos&&server.body.find(current.host)==String::npos);
   assert(server.body.find("fixture-user")==String::npos);
   JsonDocument document;assert(!deserializeJson(document,server.body));
+  assert(document["reset"]["reason"]=="exception"&&document["reset"]["exceptionCause"]==28);
   assert(document["lastError"]=="FS-007"&&document["errors"].size()<=8);
   assert(document["uptimeMs"]==12345&&document["wifiCredentials"]=="available");
   for(const char* key:{"token","password","ssid","host","user","topic","sensors"})assert(document[key].isNull());

@@ -1,10 +1,26 @@
 #pragma once
+#include "reset_diagnostics.h"
 // Included after authenticated HTTP helpers and device state.
 static void diagnosticsApi(){
   if(!auth())return;
   JsonDocument document;
   document["version"]=VERSION;document["platform"]=DEVICE_FAMILY;
   document["uptimeMs"]=millis();document["heap"]=ESP.getFreeHeap();
+  const auto& reset=resetDiagnostics();auto reboot=document["reset"].to<JsonObject>();
+  reboot["available"]=reset.available;
+  if(reset.available){
+    reboot["reasonCode"]=reset.reason;reboot["reason"]=resetReasonName(reset.reason);
+    reboot["crashCallbackValid"]=reset.crashValid;
+    if(reset.crashValid){reboot["crashReasonCode"]=reset.crashReason;reboot["crashReason"]=resetReasonName(reset.crashReason);}
+    reboot["exceptionCause"]=reset.exceptionCause;reboot["epc1"]=reset.epc1;
+    reboot["rtcWriteOk"]=reset.rtcWriteOk;reboot["previousMqttValid"]=reset.previousValid;
+    auto trace=[&](const char* key,const MqttResetTrace& t){auto item=reboot[key].to<JsonObject>();
+      item["phase"]=mqttPhaseName(t.phase);item["uptimeMs"]=t.uptime;
+      item["heapBytes"]=t.heap;item["heapMaxBlockBytes"]=t.heapBlock;item["stackHighWaterFreeBytes"]=t.stackFree;
+    };
+    if(reset.previousValid)trace("previousMqtt",reset.previous);
+    trace("currentMqtt",reset.current);
+  }
   const auto saved=savedWifiState();document["wifiCredentials"]=saved==SavedWifiState::Available?"available":saved==SavedWifiState::Missing?"missing":"unreadable";
   document["wifiConnected"]=WiFi.status()==WL_CONNECTED;
   document["mqttEnabled"]=mqttConfig.enabled!=0;document["mqttConnected"]=clockMqtt.connected();

@@ -3,6 +3,9 @@
 #include <stddef.h>
 #include <string.h>
 #include "chaos_errors.h"
+#include "reset_diagnostics.h"
+#include <memory>
+#include <new>
 
 static constexpr uint8_t SENSOR_SLOTS=4;
 struct SensorConfig {char topic[96],label[25],unit[9];};
@@ -60,6 +63,11 @@ inline const char* mqttConfigInvalidField(const MqttConfig& value){
   return nullptr;
 }
 inline bool validMqttConfig(const MqttConfig& value){return mqttConfigInvalidField(value)==nullptr;}
+// The candidate lives on the heap, never as another 1088-byte HTTP stack frame.
+struct MqttCandidateDelete {
+  void operator()(MqttConfig* value)const{if(value){volatile uint8_t* p=reinterpret_cast<volatile uint8_t*>(value);for(size_t i=0;i<sizeof *value;++i)p[i]=0;delete value;}}
+};
+using MqttCandidate=std::unique_ptr<MqttConfig,MqttCandidateDelete>;
 template<typename Filesystem,typename File>class MqttConfigStorage {
  public:
   explicit MqttConfigStorage(Filesystem& fs):fs_(fs){}
@@ -78,22 +86,35 @@ template<typename Filesystem,typename File>class MqttConfigStorage {
     if(!validMqttConfig(saved))return fail(ErrorCode::FS_CONFIG_CORRUPT);
     value=saved;return true;
   }
-  bool save(MqttConfig& current,MqttConfig next){
+  bool save(MqttConfig& current,MqttConfig& next){
     error_=ErrorCode::None;invalidField_=nullptr;sealMqttConfig(next);
     if((invalidField_=mqttConfigInvalidField(next)))return fail(ErrorCode::MQTT_CONFIG_FIELD);
+    mqttCheckpoint(MqttSavePhase::Mount);
     if(!fs_.begin())return fail(ErrorCode::FS_MOUNT);
     if(!memcmp(&current,&next,sizeof next) && fs_.exists(path()))return true;
+    mqttCheckpoint(MqttSavePhase::Open);
     File file=fs_.open(temporary(),"w");if(!file)return fail(ErrorCode::FS_OPEN_WRITE);
+    mqttCheckpoint(MqttSavePhase::Write);
     const bool ok=file.write(reinterpret_cast<const uint8_t*>(&next),sizeof next)==sizeof next;
+    mqttCheckpoint(MqttSavePhase::Flush);
     file.flush();file.close();
     if(!ok)return cleanup(ErrorCode::FS_WRITE);
-    File verify=fs_.open(temporary(),"r");MqttConfig checked={};
+    mqttCheckpoint(MqttSavePhase::Verify);
+    File verify=fs_.open(temporary(),"r");
     if(!verify)return cleanup(ErrorCode::FS_VERIFY_OPEN);
-    const bool verified=verify.size()==sizeof checked && verify.read(reinterpret_cast<uint8_t*>(&checked),sizeof checked)==sizeof checked;
+    bool verified=verify.size()==sizeof next,identical=true;
+    uint8_t chunk[128];const auto* expected=reinterpret_cast<const uint8_t*>(&next);
+    for(size_t offset=0;verified && offset<sizeof next;){
+      const size_t remaining=sizeof next-offset,bytes=remaining<sizeof chunk?remaining:sizeof chunk;
+      verified=static_cast<size_t>(verify.read(chunk,bytes))==bytes;
+      if(verified && memcmp(chunk,expected+offset,bytes))identical=false;
+      offset+=bytes;
+    }
     verify.close();if(!verified)return cleanup(ErrorCode::FS_VERIFY_READ);
-    if(memcmp(&checked,&next,sizeof next))return cleanup(ErrorCode::FS_VERIFY_CONTENT);
+    if(!identical)return cleanup(ErrorCode::FS_VERIFY_CONTENT);
+    mqttCheckpoint(MqttSavePhase::Rename);
     if(!fs_.rename(temporary(),path()))return cleanup(ErrorCode::FS_RENAME);
-    current=next;return true;
+    current=next;mqttCheckpoint(MqttSavePhase::Committed);return true;
   }
   static const char* path(){return "/.chaosuhr-mqtt.bin";}
   ErrorCode errorCode()const{return error_;}

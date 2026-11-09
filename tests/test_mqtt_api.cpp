@@ -7,6 +7,11 @@
 #include "telemetry.h"
 #include "memory_animation_fs.h"
 #include "request_security.h"
+static bool failCandidate=false;
+void* operator new(size_t bytes,const std::nothrow_t&)noexcept{
+  if(failCandidate)return nullptr;
+  try{return ::operator new(bytes);}catch(...){return nullptr;}
+}
 using String=std::string;
 static uint32_t millis(){return 100;}
 static MqttConfig mqttConfig=defaultMqttConfig();static Telemetry telemetry;
@@ -54,6 +59,10 @@ int main(){
   }
   auto invalid=good;invalid.crc^=1;assert(!strcmp(mqttConfigInvalidField(invalid),"checksum"));
   invalid=good;invalid.reserved=1;sealMqttConfig(invalid);assert(!strcmp(mqttConfigInvalidField(invalid),"reserved"));
+  server.values={{"enabled","1"}};const auto writesBeforeOom=filesystem.writeCalls;
+  failCandidate=true;mqttSaveApi();failCandidate=false;
+  assert(server.status==503&&server.response.find("SYS-002")!=String::npos);
+  assert(filesystem.writeCalls==writesBeforeOom&&!memcmp(&mqttConfig,&good,sizeof good));
   server.values={{"clearPassword","1"}};filesystem.renameFails=true;mqttSaveApi();assert(server.status==507&&!memcmp(&mqttConfig,&good,sizeof good));filesystem.renameFails=false;
   MqttConfig rebooted;assert(mqttStorage.load(rebooted)&&!memcmp(&rebooted,&good,sizeof good));
   animations.readyValue=false;mqttSaveApi();assert(server.status==503&&filesystem.formats==0);animations.readyValue=true;

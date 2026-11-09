@@ -1,3 +1,7 @@
+# 2.0.11-beta.2 (lokaler Wemos-Test)
+
+MQTT-Speicherpfad: Heap-Kandidat mit geprüftem Allokationsfehler, Referenz statt weiterer Stackkopie und kleine Rückleseblöcke. Stackframes nachgewiesen reduziert. Sichere RTC-Neustart-/Speicherschrittdiagnose und lokale Exception-Auswertung ergänzt. Reset auf Nutzerhardware noch zu klassifizieren; MQTT-007 separat offen. [Bericht](docs/BERICHT_2.0.11-beta.2.md). Keine Veröffentlichung.
+
 # 2.0.11-beta.1 (lokale Diagnose-/Testversion)
 
 MQTT: vollständige Browser-/Parser-Regression und sichere Feldkennung MQTT-022; gemeldete Hardwareursache weiterhin offen. Sitzungsverwaltung erhalten. Hinweis zur Sekundenleiste ergänzt. Nur Wemos-Testpaket, keine ESP32-Firmware und keine Veröffentlichung. Details: [Bericht](docs/BERICHT_2.0.11-beta.1.md).

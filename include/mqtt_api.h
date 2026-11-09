@@ -33,11 +33,17 @@ template<size_t N>static bool mqttApiText(char (&target)[N],const String& value)
   memcpy(target,value.c_str(),value.length()+1);return boundedText(target);
 }
 static void mqttSaveApi(){
+  MqttSaveAttempt attempt;
   if(!auth())return;
   if(!publicAccess.validMutationToken()){sendError(server,403,ErrorCode::AUTH_CSRF);return;}
   if(!server.args()){sendError(server,400,ErrorCode::CFG_EMPTY);return;}
   if(server.args()>24){sendError(server,400,ErrorCode::HTTP_ARGUMENTS);return;}
-  MqttConfig next=mqttConfig;bool clearPassword=false,newPassword=false;
+  mqttCheckpoint(MqttSavePhase::Authenticated);
+  MqttCandidate candidate(new(std::nothrow) MqttConfig(mqttConfig));
+  if(!candidate){sendError(server,503,ErrorCode::SYS_MEMORY);return;}
+  MqttConfig& next=*candidate;
+  mqttCheckpoint(MqttSavePhase::Candidate);
+  bool clearPassword=false,newPassword=false;
   for(int i=0;i<server.args();++i){
     const String key=server.argName(i),value=server.arg(i);bool accepted=true,known=true;
     for(int j=0;j<i;++j)if(key==server.argName(j)){sendError(server,400,ErrorCode::CFG_DUPLICATE);return;}
@@ -75,10 +81,13 @@ static void mqttSaveApi(){
   for(const char* c=next.host;*c;++c)if(!((*c>='a'&&*c<='z')||(*c>='A'&&*c<='Z')||(*c>='0'&&*c<='9')||strchr(".-_:",*c))){sendError(server,400,ErrorCode::CFG_HOST);return;}
   sealMqttConfig(next);
   if(const char* field=mqttConfigInvalidField(next)){recordError(ErrorCode::MQTT_CONFIG_FIELD);server.send(400,"application/json",errorJson(ErrorCode::MQTT_CONFIG_FIELD,400,field));return;}
+  mqttCheckpoint(MqttSavePhase::Validated);
   if(!animations.ready()){sendError(server,503,ErrorCode::FS_MOUNT);return;}
   if(!mqttStorage.save(mqttConfig,next)){
     const auto code=mqttStorage.errorCode();recordError(code);
     server.send(507,"application/json",errorJson(code,507,mqttStorage.invalidField()));return;
   }
-  telemetry.clear();clockMqtt.reconfigure();server.send(200,"application/json","{\"ok\":true}");
+  mqttCheckpoint(MqttSavePhase::Reconfigure);
+  telemetry.clear();clockMqtt.reconfigure();
+  mqttCheckpoint(MqttSavePhase::Response);server.send(200,"application/json","{\"ok\":true}");attempt.complete();
 }
