@@ -1,0 +1,30 @@
+{
+  "elf_sha256": "482232139934d0adcb4c1e5001d79bef6745586eebd3f13833af02f2712b3e83",
+  "hardware_baseline_version": "2.0.11-beta.2",
+  "version": "2.0.11-beta.3",
+  "source_commit": "07a009e1270db938c53c0b3cfb385ec1acfe6b6a",
+  "board": "d1_mini",
+  "chip": "esp8266",
+  "binary_bytes": 689456,
+  "ota_limit_bytes": 1044464,
+  "ota_reserve_bytes": 355008,
+  "static_ram_bytes": 51544,
+  "static_ram_limit": 81920,
+  "linker_flash_bytes": 685307,
+  "host_pass_groups": 51,
+  "firmware_sha256": "d5f5c6c8026c66125cc9c651b6109fdae787611574e5d5c9313e55e9d5bed6c2",
+  "hardware_tested": false,
+  "mqtt007_hardware_root_cause_confirmed": false,
+  "reset_hardware_cause_confirmed": false,
+  "mqtt_stack_frames": {
+    "mqtt_storage_save": 272,
+    "mqtt_http_handler": 96,
+    "combined_bytes_before_callees": 368
+  },
+  "esp32_built": false,
+  "known_limitations": [
+    "Current beta GUI requires hardware verification; beta.2 MQTT/weather/cold-start tests passed. Exact original crash cause remains unproven",
+    "Local HTTP has no TLS confidentiality"
+  ],
+  "validation": "PASS real OTA file: accepted; mutation, truncation and wrong SHA rejected (cross-chip/factory only with explicit arguments): ChaosUhr|ESP8266|4M1M|OTA2"
+}
