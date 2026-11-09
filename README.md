@@ -1,11 +1,8 @@
 # ChaosUhr 2.0
 
-**Aktueller lokaler Teststand: 2.0.11-beta.3, nur Wemos D1 mini.**
-Die GUI erklärt die Automatik mit Uhr → Wetter → Sensorwert → Animation und zeigt eine lokale Vorschau der gewählten Reihenfolge. Datenverfügbarkeit, Szenendauer und der ausschließlich dimmende Nachtmodus sind beschrieben. Automatik und Wetterdarstellungen bleiben unverändert.
+**Gemeinsamer Pre-Release: [2.0.11-beta.3](https://github.com/EntenPaule/ChaosUhr/releases/tag/v2.0.11-beta.3).** Wemos D1 mini und klassischer ESP32 verwenden denselben Quellstand. Die bereits verteilte **Wemos-BIN ist unverändert und auf echter Hardware bestätigt**. ESP32 ist frisch gebaut/offline validiert; **Hardwaretests einschließlich Setup-AP und WLAN-Persistenz nach Stromtrennung stehen aus**. ESP32-OTA-Reserve nur 1008 Byte.
 
-Beta.2 ist am echten Wemos bestätigt: MQTT-Speichern ohne Absturz, ioBroker über IPv4/DNS, Kaltstart nach 30 Sekunden Stromtrennung mit erhaltenen WLAN-/MQTT-Daten und funktionierendem Wetter. Einmaliges MQTT-011 ist dokumentiert. Beta.3 benötigt den anschließenden GUI-Hardwaretest.
-
-Paket: `dist/2.0.11-beta.3/ChaosUhr_2.0.11-beta.3_TEST.zip`. [Analyse und Tests](docs/BERICHT_2.0.11-beta.3.md), [Testanleitung](docs/TESTANLEITUNG_2.0.11-beta.3.md). Keine ESP32-BIN, kein offizielles 2.0.11-Release; produktive Kanäle unverändert.
+[Release Notes](docs/RELEASE_v2.0.11-beta.3.md) · [Gemeinsame Test-/Flash-Anleitung](docs/TESTANLEITUNG_2.0.11-beta.3_GEMEINSAM.md) · [Automatik und Beta.3-Analyse](docs/BERICHT_2.0.11-beta.3.md). Die ESP32-Factory-BIN ist ausschließlich für USB ab 0x0 vorgesehen. Kein Stable-Release und kein Wechsel produktiver Updatekanäle.
 
 **Aktuelle stabile Version: [2.0.10 für Wemos / ESP8266 und klassischen ESP32](https://github.com/EntenPaule/ChaosUhr/releases/tag/v2.0.10).** MQTT-Wetter und Sensoren, wählbare Anzeigearten, konfigurierbarer LED-Pin, Sekundenleisten-Schalter und Wochentag-Auswahl. Beide Builds und die ZIP-Quellen sind lokal geprüft; die neuen BINs sind **noch nicht am Gerät getestet**. [Teststand](docs/RELEASE_v2.0.10.md), [MQTT-Anleitung](docs/MQTT_2_0_10.md), [Upgrade](docs/UPGRADE_2_0_10.md).
 

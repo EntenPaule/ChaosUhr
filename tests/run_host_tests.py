@@ -90,6 +90,11 @@ if test_esp32:
     subprocess.run(['g++','-std=c++17','-Wall','-Wextra','-Werror','-pedantic','-fsanitize=address,undefined','-fno-omit-frame-pointer','-DESP32=1','-x','c++','-','-o',str(wifi_target)],input=fixture,text=True,check=True)
     subprocess.run([str(wifi_target)],check=True)
 
+    disabled_trace=build_dir/'test_esp32_trace_disabled'
+    subprocess.run(['g++','-std=c++17','-Wall','-Wextra','-Werror','-DARDUINO=10819','-DESP32=1',
+                    '-I',str(project/'include'),str(project/'tests/test_esp32_trace_disabled.cpp'),'-o',str(disabled_trace)],check=True)
+    subprocess.run([str(disabled_trace)],check=True)
+
     esp32_ota=build_dir/'test_esp32_ota'
     subprocess.run(['g++','-std=c++17','-Wall','-Wextra','-Werror','-pedantic',
                     '-fsanitize=address,undefined','-fno-omit-frame-pointer','-DESP32=1',

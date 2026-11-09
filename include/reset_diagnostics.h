@@ -42,7 +42,12 @@ struct ResetDiagnostics {
   }
 };
 inline ResetDiagnostics& resetDiagnostics(){static ResetDiagnostics state;return state;}
+#if defined(ARDUINO) && defined(ESP32)
+// ESP8266 RTC tracing has no ESP32 backend. Avoid emitting unused state/code.
+inline void mqttCheckpoint(MqttSavePhase){}
+#else
 inline void mqttCheckpoint(MqttSavePhase phase){resetDiagnostics().mark(phase);}
+#endif
 // A normal early return is distinguished from interruption inside a phase.
 struct MqttSaveAttempt {
   bool completed=false;

@@ -1,3 +1,7 @@
+# 2.0.11-beta.3 – gemeinsamer Pre-Release ergänzt
+
+Unveränderte hardwarebestätigte Wemos-BIN übernommen. ESP32-OTA und Factory aus gemeinsamem Quellstand gebaut; Hardware/AP/WLAN-Persistenz weiterhin offen. Auf ESP32 ausschließlich ungenutzten ESP8266-RTC-Diagnosecode ausgeschlossen, damit die echte BIN in den bestehenden OTA-Slot passt (1008 Byte Reserve). Keine Änderung der ESP8266-Firmware. [Release Notes](docs/RELEASE_v2.0.11-beta.3.md).
+
 # 2.0.11-beta.3 (lokaler Wemos-Test)
 
 Bestätigte Beta.2-Hardwaretests dokumentiert. GUI erklärt tatsächliche Automatikreihenfolge, Datenverfügbarkeit und Nachtmodus; lokale Auswahlvorschau ergänzt. Sekundenleistenhinweis präzisiert, da keine feste 5-%-Abschaltung existiert. Anzeige-/Wetter-/MQTT-/Sessionlogik unverändert. [Bericht](docs/BERICHT_2.0.11-beta.3.md). Keine Veröffentlichung.

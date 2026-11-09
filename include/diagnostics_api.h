@@ -6,6 +6,10 @@ static void diagnosticsApi(){
   JsonDocument document;
   document["version"]=VERSION;document["platform"]=DEVICE_FAMILY;
   document["uptimeMs"]=millis();document["heap"]=ESP.getFreeHeap();
+#if defined(ARDUINO) && defined(ESP32)
+  // The ESP8266 RTC/stack diagnostic is unavailable on this target.
+  document["reset"]["available"]=false;
+#else
   const auto& reset=resetDiagnostics();auto reboot=document["reset"].to<JsonObject>();
   reboot["available"]=reset.available;
   if(reset.available){
@@ -21,6 +25,7 @@ static void diagnosticsApi(){
     if(reset.previousValid)trace("previousMqtt",reset.previous);
     trace("currentMqtt",reset.current);
   }
+#endif
   const auto saved=savedWifiState();document["wifiCredentials"]=saved==SavedWifiState::Available?"available":saved==SavedWifiState::Missing?"missing":"unreadable";
   document["wifiConnected"]=WiFi.status()==WL_CONNECTED;
   document["mqttEnabled"]=mqttConfig.enabled!=0;document["mqttConnected"]=clockMqtt.connected();
