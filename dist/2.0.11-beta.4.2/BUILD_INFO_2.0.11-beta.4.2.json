@@ -1,0 +1,67 @@
+{
+  "source_commit": "9341670cca18c0767c4852d4ea99bd25e0ae872f",
+  "version": "2.0.11-beta.4.2",
+  "internal_only": true,
+  "hardware_tested": false,
+  "bytes": 1884672,
+  "ota_slot_bytes": 1966080,
+  "ota_reserve_bytes": 81408,
+  "sector_reserve_bytes": 77824,
+  "components": [
+    {
+      "file": "bootloader.bin",
+      "offset": "0x1000",
+      "bytes": 23520,
+      "sha256": "f7ec7b7d9026e12dd3616bf79cee0e78974a2605afbc2863fcfb0ac9aeb159d4"
+    },
+    {
+      "file": "partitions.bin",
+      "offset": "0x8000",
+      "bytes": 3072,
+      "sha256": "1ae446228d79cf83a4b83de41c33d1e01dc21a3557149d7da90fbcbfc303311d"
+    },
+    {
+      "file": "boot_app0.bin",
+      "offset": "0xe000",
+      "bytes": 8192,
+      "sha256": "f94c5d786a7a8fab06ac5d10e33bf37711a6697636dc037559ea19cc410a17f0"
+    },
+    {
+      "file": "firmware.bin",
+      "offset": "0x10000",
+      "bytes": 1884672,
+      "sha256": "099f5c7e5162d53c667fced5dd75efd0feb157653169db0d190bd57d8d4d8083"
+    }
+  ],
+  "partitions": [
+    {
+      "name": "nvs",
+      "offset": "0x9000",
+      "bytes": 20480
+    },
+    {
+      "name": "otadata",
+      "offset": "0xe000",
+      "bytes": 8192
+    },
+    {
+      "name": "app0",
+      "offset": "0x10000",
+      "bytes": 1966080
+    },
+    {
+      "name": "app1",
+      "offset": "0x1f0000",
+      "bytes": 1966080
+    },
+    {
+      "name": "spiffs",
+      "offset": "0x3d0000",
+      "bytes": 196608
+    }
+  ],
+  "factory_flash_offset": "0x0",
+  "filesystem": "erased; explicit authorized GUI initialization required; no automatic formatting",
+  "validation": "PASS real OTA file: accepted; mutation, truncation and wrong SHA rejected (cross-chip/factory only with explicit arguments): ChaosUhr|ESP32|4M192K|OTA2",
+  "coredump": "no persistent dumps; both entrypoints interposed, original symbols absent, panic handler present"
+}
