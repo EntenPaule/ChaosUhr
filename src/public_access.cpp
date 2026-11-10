@@ -204,6 +204,16 @@ void PublicAccess::startInitialPortal(){
   if(WiFi.softAP(ssid_,initialCode_)) server_.begin();else recordError(ErrorCode::WIFI_AP_FAILED);
   // The random code is shown on the matrix; never print it in logs.
 }
+#if defined(ESP32) && defined(ARDUINO)
+bool PublicAccess::setSerialSetupCode(const char* code){
+  if(!provisioning() || !validSetupCode(code))return false;
+  // Physical UART access only, first five minutes; never reveal code or credentials.
+  if(millis()>300000)return false;
+  if(!WiFi.softAP(ssid_,code))return false;
+  memcpy(initialCode_,code,13);
+  return true;
+}
+#endif
 void PublicAccess::serveSetup(){
   if(!provisioning()){error(403,ErrorCode::AUTH_SETUP);return;}
   if(!viaSetupAP()){error(403,ErrorCode::AUTH_SETUP_AP);return;}

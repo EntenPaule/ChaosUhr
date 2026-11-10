@@ -9,6 +9,7 @@ static void diagnosticsApi(){
 #if defined(ARDUINO) && defined(ESP32)
   // The ESP8266 RTC/stack diagnostic is unavailable on this target.
   document["reset"]["available"]=false;
+  document["filesystemEvidence"]=animations.ready()?"mounted":clockFsEvidence();
 #else
   const auto& reset=resetDiagnostics();auto reboot=document["reset"].to<JsonObject>();
   reboot["available"]=reset.available;

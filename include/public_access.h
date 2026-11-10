@@ -13,6 +13,9 @@ class PublicAccess {
   explicit PublicAccess(ClockWebServer& server):server_(server){}
   void begin();
   void startInitialPortal();
+#if defined(ESP32) && defined(ARDUINO)
+  bool setSerialSetupCode(const char* code);
+#endif
   void serveSetup();
   void loop();
   bool ready() const {return credentialsReady(credentials_);}

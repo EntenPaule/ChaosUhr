@@ -36,6 +36,11 @@ using ClockUpdateServer = ESP8266HTTPUpdateServer;
 #if defined(CHAOSUHR_PUBLIC_BUILD)
 #define CHAOSUHR_HAS_UPLOADS
 #include <LittleFS.h>
+#include "esp32_web_assets.h"
+#if defined(ESP32)
+#include "serial_setup_code.h"
+#include "esp32_fs_probe.h"
+#endif
 #include "animation_library.h"
 #include "legacy_animation.h"
 #include "animation_examples.h"
@@ -862,6 +867,9 @@ static void animationInitApi(){
   if(!animationMutationAllowed() || server.args()!=1 || server.arg("confirm")!="INITIALIZE"){
     sendError(server,403,ErrorCode::AUTH_CONFIRM);return;
   }
+#if defined(ESP32) && defined(ARDUINO)
+  if(!clockFsPartition()){sendError(server,409,ErrorCode::FS_MOUNT);return;}
+#endif
   if(!animations.initialize()){sendError(server,animations.status(),animations.errorCode());return;}
   publicAccess.migrate();
   server.send(200,"application/json","{\"ok\":true}");
@@ -935,7 +943,7 @@ struct OtaBackend {
 } otaBackend;
 FirmwareUpload<OtaBackend> firmwareUpload(otaBackend);
 static void setupSecureOta(){
-  server.on("/update",HTTP_GET,[](){server.sendHeader("Cache-Control","no-store");server.send_P(200,"text/html; charset=utf-8",OTA_HTML);});
+  server.on("/update",HTTP_GET,[](){server.sendHeader("Cache-Control","no-store");CLOCK_PAGE(server,"text/html; charset=utf-8",OTA_HTML);});
   server.on("/update",HTTP_POST,[](){
     if(firmwareUpload.finish(publicAccess.authenticate() && publicAccess.validMutationToken(),server.args()==0)){
       server.send(200,"application/json","{\"ok\":true,\"restarting\":true}");publicAccess.restartAfterUpdate();
@@ -963,7 +971,7 @@ static bool portalRequestAllowed(ClockWebServer& target,bool mutation){
 }
 static void setupSecurePortal(){
   auto& portal=*wifiManager.server;collectClockHeaders(portal);
-  portal.on("/errors.js",HTTP_GET,[](){wifiManager.server->send_P(200,"application/javascript; charset=utf-8",ERROR_JS);});
+  portal.on("/errors.js",HTTP_GET,[](){CLOCK_PAGE((*wifiManager.server),"application/javascript; charset=utf-8",ERROR_JS);});
 #if defined(ESP32)
   portal.setConnectionGuard([](){
     auto& current=*wifiManager.server;
@@ -1132,12 +1140,12 @@ void setup(){
     if(!publicAccess.ready()){publicAccess.serveSetup();return;}
 #endif
     server.sendHeader("Cache-Control","no-store");
-    server.send_P(200,"text/html; charset=utf-8",INDEX_HTML);
+    CLOCK_PAGE(server,"text/html; charset=utf-8",INDEX_HTML);
   });
   server.on("/api/status",HTTP_GET,statusApi);
   server.on("/api/diagnostics",HTTP_GET,diagnosticsApi);
   server.onNotFound([](){sendError(server,404,ErrorCode::HTTP_NOT_FOUND);});
-  server.on("/errors.js",HTTP_GET,[](){server.send_P(200,"application/javascript; charset=utf-8",ERROR_JS);});
+  server.on("/errors.js",HTTP_GET,[](){CLOCK_PAGE(server,"application/javascript; charset=utf-8",ERROR_JS);});
   server.on("/api/effects",HTTP_GET,effectsApi);
   server.on("/api/settings",HTTP_POST,saveApi);
   server.on("/api/mqtt",HTTP_GET,mqttConfigApi);
@@ -1166,6 +1174,18 @@ void setup(){
   scene.reset(millis(),cfg.effect); resetAnimation();
 }
 void loop(){
+#if defined(ESP32) && defined(CHAOSUHR_PUBLIC_BUILD)
+  static SerialSetupCode serialSetup;
+  // Work bounded per loop. Disabled once configured, locked, resetting or timed out.
+  for(unsigned i=0;i<32 && Serial.available();++i){
+    const char c=static_cast<char>(Serial.read());
+    if(publicAccess.provisioning() && millis()<300000){
+      if(serialSetup.feed(c,[](const char* code){return publicAccess.setSerialSetupCode(code);}))
+        Serial.println("USB setup accepted; connect to the ChaosUhr setup AP.");
+    }else serialSetup.clear();
+  }
+  if(millis()>=300000 || !publicAccess.provisioning())serialSetup.clear();
+#endif
   serviceNetwork();
   uint32_t now=millis();
   clockMqtt.loop(WiFi.status()==WL_CONNECTED && publicAccess.ready() && !publicAccess.pending());

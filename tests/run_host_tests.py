@@ -18,6 +18,17 @@ import time
 project = Path(__file__).resolve().parents[1]
 test_esp32 = "--esp32" in sys.argv
 parser_args = ["--esp32"] if test_esp32 else []
+if test_esp32:
+    subprocess.run(["python3",str(project/"tests/test_esp32_usb_setup.py")],check=True)
+    subprocess.run(["python3",str(project/"scripts/compress_esp32_web.py"),"--check"],check=True)
+    for name in ("serial_setup_code","esp32_fs_probe"):
+        with tempfile.TemporaryDirectory() as temp:
+            binary=Path(temp)/name
+            subprocess.run(["g++","-std=c++17","-Wall","-Wextra","-Werror","-DESP32=1","-DARDUINO=10812",
+                "-I",str(project/"tests/public_stubs"),"-I",str(project/"include"),
+                str(project/("tests/test_"+name+".cpp")),"-o",str(binary)],check=True)
+            subprocess.run([str(binary)],check=True)
+        print("PASS ESP32 foundations:",name,flush=True)
 subprocess.run(["node",str(project/"tests/test_session_ui.js")],check=True)
 subprocess.run(["node",str(project/"tests/test_error_ui.js")],check=True)
 subprocess.run(["python3",str(project/"scripts/generate_error_docs.py"),"--check"],check=True)
