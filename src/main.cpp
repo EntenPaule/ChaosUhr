@@ -1176,15 +1176,17 @@ void setup(){
 void loop(){
 #if defined(ESP32) && defined(CHAOSUHR_PUBLIC_BUILD)
   static SerialSetupCode serialSetup;
-  // Work bounded per loop. Disabled once configured, locked, resetting or timed out.
+  static bool serialSetupClosed=false;
+  if(millis()>=300000 || !publicAccess.provisioning())serialSetupClosed=true;
   for(unsigned i=0;i<32 && Serial.available();++i){
     const char c=static_cast<char>(Serial.read());
-    if(publicAccess.provisioning() && millis()<300000){
-      if(serialSetup.feed(c,[](const char* code){return publicAccess.setSerialSetupCode(code);}))
-        Serial.println("USB setup accepted; connect to the ChaosUhr setup AP.");
-    }else serialSetup.clear();
+    if(serialSetup.feed(c,[&](const char* code){
+      if(serialSetupClosed || !publicAccess.provisioning() || millis()>=300000){Serial.println("CHAOS SETUP CLOSED");return false;}
+      if(!publicAccess.setSerialSetupCode(code)){Serial.println("CHAOS SETUP AP_FAILED");return false;}
+      return true;
+    },[&](){Serial.println(serialSetupClosed?"CHAOS SETUP CLOSED":"CHAOS SETUP READY 1");}))
+      Serial.println("USB setup accepted; connect to the ChaosUhr setup AP.");
   }
-  if(millis()>=300000 || !publicAccess.provisioning())serialSetup.clear();
 #endif
   serviceNetwork();
   uint32_t now=millis();

@@ -4,7 +4,7 @@ import hashlib,importlib.util,json,subprocess
 from release_safety import ReleaseSafety
 from public_sources import collect_public_sources
 ROOT=Path(__file__).resolve().parents[1]
-VERSION='2.0.11-beta.4.1'
+VERSION='2.0.11-beta.4.2'
 def sha(data):return hashlib.sha256(data).hexdigest()
 def run(args):return subprocess.check_output(list(map(str,args)),text=True,stderr=subprocess.STDOUT)
 def main():
@@ -50,7 +50,7 @@ def main():
  files={f'ChaosUhr_{VERSION}_ESP32_OTA.bin':app,f'ChaosUhr_{VERSION}_ESP32_Factory.bin':factory}
  info=dict(source_commit=run(["git","-C",ROOT/".pio/dev-2.0.11","rev-parse","HEAD"]).strip(),version=VERSION,internal_only=True,hardware_tested=False,bytes=len(app),ota_slot_bytes=slots[0].size,ota_reserve_bytes=slots[0].size-len(app),sector_reserve_bytes=slots[0].size-((len(app)+4095)//4096*4096),components=details,partitions=[dict(name=p.name,offset=hex(p.offset),bytes=p.size) for p in table],factory_flash_offset='0x0',filesystem='erased; explicit authorized GUI initialization required; no automatic formatting',validation=validation.strip(),coredump='no persistent dumps; both entrypoints interposed, original symbols absent, panic handler present')
  files['BUILD_INFO_'+VERSION+'.json']=(json.dumps(info,indent=2)+'\n').encode()
- files['ANLEITUNG_'+VERSION+'.md']=(ROOT/'docs/ESP32_BETA_4_1.md').read_bytes()
+ files['ANLEITUNG_'+VERSION+'.md']=(ROOT/'docs/ESP32_UART_BETA_4_2.md').read_bytes()
  for name,data in files.items():safety.check(data,name)
  files['SHA256SUMS.txt']=''.join(sha(data)+'  '+name+'\n' for name,data in sorted(files.items())).encode()
  out.mkdir()

@@ -2,6 +2,12 @@
 #include <cassert>
 #include <string>
 int main(){
+  uint8_t ssid[32]={},password[64]={};memcpy(ssid,"ChaosUhr-Setup-ABC123",21);memcpy(password,"123456789012",13);
+  assert(serialSetupApMatches(ssid,password,true,"ChaosUhr-Setup-ABC123","123456789012"));
+  assert(!serialSetupApMatches(ssid,password,false,"ChaosUhr-Setup-ABC123","123456789012"));
+  assert(!serialSetupApMatches(ssid,password,true,"ChaosUhr-Setup-ABC124","123456789012"));
+  password[12]='1';assert(!serialSetupApMatches(ssid,password,true,"ChaosUhr-Setup-ABC123","123456789012"));password[12]=0;
+  password[0]='0';assert(!serialSetupApMatches(ssid,password,true,"ChaosUhr-Setup-ABC123","123456789012"));
   SerialSetupCode parser;unsigned calls=0;
   auto send=[&](std::string s){bool ok=false;for(char c:s)ok=parser.feed(c,[&](const char* code){++calls;return std::string(code)=="123456789012";})||ok;return ok;};
   assert(send("SETUP 123456789012\r\n") && calls==1);
@@ -9,4 +15,9 @@ int main(){
   assert(!send(std::string(10000,'A')+"\n"));assert(calls==1);
   send("SETUP 1234");parser.clear();assert(!send("56789012\n"));
   assert(send("SETUP 123456789012\n") && calls==2);
+  unsigned status=0;
+  for(char c:std::string("STATUS\r\n"))parser.feed(c,[&](const char*){assert(false);return false;},[&](){++status;});
+  assert(status==1 && calls==2);
+  for(char c:std::string("STATUSX\n"))parser.feed(c,[](const char*){assert(false);return false;},[&](){++status;});
+  assert(status==1);
 }

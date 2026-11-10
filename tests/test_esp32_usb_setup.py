@@ -1,25 +1,65 @@
-"""Exercise helper without opening any real port or printing a secret."""
-import contextlib,io,runpy,sys,types
+"""Offline UART simulation: opening reset, lost first request/ACK and closed setup."""
+import contextlib,io,runpy,sys,types,subprocess
 from pathlib import Path
 from unittest.mock import patch
-class FakePort:
-    def __init__(self,port,baudrate,timeout):
-        assert port is None and baudrate==115200 and timeout==1
-        self.port=None;self.dtr=True;self.rts=True;self.written=False
-    def __enter__(self):
-        assert self.port=='TEST_PORT' and not self.dtr and not self.rts
-        return self
+ROOT=Path(__file__).resolve().parents[1]
+CODE='123456789012'
+ACK=b'USB setup accepted; connect to the ChaosUhr setup AP.'
+class Link:
+    def __init__(self,boot=3,closed=False,fail=False,drop_ack=False,silent=False):
+        self.now=0.;self.boot=boot;self.closed=closed;self.fail=fail;self.drop_ack=drop_ack;self.silent=silent;self.queue=[];self.commands=0;self.ready_at=None
+    def clock(self):return self.now
+    def reset_input_buffer(self):self.queue=[]
+    def write(self,data):
+        if self.now<self.boot or self.silent:return len(data)
+        if data.strip()==b'STATUS':
+            self.ready_at=self.now;self.queue.append(b'CHAOS SETUP CLOSED' if self.closed else b'CHAOS SETUP READY 1')
+        elif data.strip()==('SETUP '+CODE).encode():
+            self.commands+=1
+            if self.fail:self.queue.append(b'CHAOS SETUP AP_FAILED')
+            elif not self.drop_ack or self.commands>1:self.queue.append(ACK)
+        else:raise AssertionError('Unexpected command')
+        return len(data)
+    def flush(self):pass
+    def readline(self,*args):
+        self.now+=.25
+        return (self.queue.pop(0)+b'\r\n') if self.queue else b'boot/status noise\n'
+    def __enter__(self):assert self.port=='TEST_PORT' and not self.dtr and not self.rts;return self
     def __exit__(self,*args):pass
-    def reset_input_buffer(self):pass
-    def write(self,data):assert data==b'SETUP 123456789012\n';self.written=True
-    def flush(self):assert self.written
-    def readline(self):return b'USB setup accepted; connect to the ChaosUhr setup AP.\n'
-root=Path(__file__).resolve().parents[1]
-for answers,success in [(['123456789012']*2,True),(['invalid'],False),(['123456789012','000000000000'],False)]:
-    output=io.StringIO()
-    with patch.dict(sys.modules,{'serial':types.SimpleNamespace(Serial=FakePort)}),patch.object(sys,'argv',['helper','TEST_PORT']),patch('getpass.getpass',side_effect=answers),contextlib.redirect_stdout(output):
-        try:runpy.run_path(str(root/'scripts/esp32_usb_setup.py'),run_name='__main__')
+with patch.dict(sys.modules,{'serial':types.SimpleNamespace()}):
+    module=runpy.run_path(str(ROOT/'scripts/esp32_usb_setup.py'))
+for options,success in [({},True),({'boot':7},True),({'drop_ack':True},True),({'closed':True},False),({'fail':True},False),({'silent':True},False)]:
+    link=Link(**options);output=io.StringIO()
+    with contextlib.redirect_stdout(output):
+        try:module['provision'](link,CODE,link.clock)
         except SystemExit:assert not success
         else:assert success
-    assert '123456789012' not in output.getvalue()
-print('PASS USB helper: port configured before opening, hidden input/confirmation, no secret output; mocked UART only')
+    assert CODE not in output.getvalue()
+    if success:assert link.commands and link.ready_at>=link.boot
+    if options.get('silent') or options.get('closed'):assert link.commands==0
+# Reproduce beta.4.1 failure on the exact old helper, with a reset/3s boot on open.
+old=(ROOT/'tests/usb_setup_beta4_1.py.in').read_text()
+link=Link(boot=3)
+def factory(**kwargs):
+    assert kwargs['baudrate']==115200;link.port=None;link.dtr=True;link.rts=True;return link
+with patch.dict(sys.modules,{'serial':types.SimpleNamespace(Serial=factory)}),patch.object(sys,'argv',['helper','TEST_PORT']),patch('getpass.getpass',return_value=CODE),patch('time.monotonic',side_effect=link.clock),contextlib.redirect_stdout(io.StringIO()):
+    try:exec(compile(old,'beta4.1-helper','exec'),{'__name__':'__main__'})
+    except SystemExit:pass
+    else:raise AssertionError('Old single send unexpectedly succeeded')
+assert link.commands==0
+# Wrong input must never instantiate/open a serial port.
+with patch.dict(sys.modules,{'serial':types.SimpleNamespace(Serial=lambda **kw:(_ for _ in ()).throw(AssertionError('port opened')))}),patch.object(sys,'argv',['helper','TEST_PORT']),patch('getpass.getpass',return_value='invalid'),contextlib.redirect_stdout(io.StringIO()):
+    try:runpy.run_path(str(ROOT/'scripts/esp32_usb_setup.py'),run_name='__main__')
+    except SystemExit:pass
+    else:raise AssertionError('Invalid input accepted')
+print('PASS UART: exact beta.4.1 boot race reproduced; readiness, delayed boot, lost ACK, closed/AP-failed/silent paths, no early secret send, invalid input without port access')
+# Exercise actual main() including pyserial options and inactive lines before open.
+link=Link(boot=2)
+def new_factory(**kwargs):
+    assert kwargs==dict(port=None,baudrate=115200,timeout=.25,write_timeout=2,exclusive=True)
+    link.port=None;link.dtr=True;link.rts=True;return link
+output=io.StringIO()
+with patch.dict(sys.modules,{'serial':types.SimpleNamespace(Serial=new_factory,SerialException=OSError)}),patch.object(sys,'argv',['helper','TEST_PORT']),patch('getpass.getpass',return_value=CODE),patch('time.monotonic',side_effect=link.clock),contextlib.redirect_stdout(output):
+    runpy.run_path(str(ROOT/'scripts/esp32_usb_setup.py'),run_name='__main__')
+assert 'Bestätigt.' in output.getvalue() and CODE not in output.getvalue() and link.commands==1
+print('PASS UART main: inactive DTR/RTS, 115200, exclusive access, bounded IO, boot handshake and secret-free success output')
