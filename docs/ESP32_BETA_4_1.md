@@ -149,3 +149,17 @@ weder NVS noch LittleFS noch die Partitionstabelle. Factory niemals als OTA verw
 - UART-Panic-Backtrace und Ausbleiben der Flash-Core-Dump-Warnung prüfen;
   absichtliche Crash-/Watchdogtests nur auf ausdrücklich freigegebenem Testgerät.
 - 4-MiB-Board sowie vorhandene größere Flashvarianten und Betrieb mit Matrix testen.
+
+## Zusätzliche Abschlussnachweise
+
+Wemos und klassischer ESP32 verwenden üblicherweise eine USB-UART-Brücke.
+Der Wemos behält seinen bisherigen Matrix-/AP-Einrichtungsweg; der neue
+verdeckte UART-Codeeingang ist ausschließlich für ESP32 kompiliert.
+Die beiden betroffenen Wemos-Übersetzungseinheiten main.cpp/public_access.cpp
+sind nach Präprozessierung zum Ausgangscommit 0709bb1 äquivalent; normalisiert
+wurden Leerzeilen, gleichwertige Empfängerklammern/Pointer-Schreibweise und der
+rein zeilennummerabhängige INDEX_HTML-Abschnittsname. Keine neue Wemos-BIN.
+Alle drei Gzip-Ressourcen sind bytegenau in der tatsächlich erzeugten ESP32-BIN
+enthalten; entpacktes JavaScript zusätzlich mit node --check geprüft.
+Firmwarequellstand lokal: 4612602a63e4f21e55d243e21d87867ceed5a7d4.
+Die nachfolgende Dokument-/Artefaktsicherung enthält keine weiteren Firmwareänderungen.
