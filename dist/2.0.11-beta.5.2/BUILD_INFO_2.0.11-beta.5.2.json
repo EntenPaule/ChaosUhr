@@ -1,0 +1,92 @@
+{
+  "version": "2.0.11-beta.5.2",
+  "source_commit": "5eaf53a5cf0c13231fc9e2fd9b2c7a9abda44910",
+  "internal_only": true,
+  "host_pass_groups": 70,
+  "platforms": {
+    "esp8266": {
+      "binary_bytes": 729088,
+      "ota_limit_bytes": 1044464,
+      "ota_reserve_bytes": 315376,
+      "static_ram_bytes": 51920,
+      "static_ram_limit": 81920,
+      "static_ram_remaining_bytes": 30000,
+      "linker_flash_bytes": 724931,
+      "hardware_tested": false
+    },
+    "esp32": {
+      "binary_bytes": 1905024,
+      "ota_limit_bytes": 1966080,
+      "ota_reserve_bytes": 61056,
+      "static_ram_bytes": 66588,
+      "static_ram_limit": 327680,
+      "static_ram_remaining_bytes": 261092,
+      "linker_flash_bytes": 1843175,
+      "hardware_tested": false
+    }
+  },
+  "esp32_sector_reserve_bytes": 57344,
+  "esp32_factory_components": [
+    {
+      "file": "bootloader.bin",
+      "offset": "0x1000",
+      "bytes": 23520,
+      "sha256": "f7ec7b7d9026e12dd3616bf79cee0e78974a2605afbc2863fcfb0ac9aeb159d4"
+    },
+    {
+      "file": "partitions.bin",
+      "offset": "0x8000",
+      "bytes": 3072,
+      "sha256": "1ae446228d79cf83a4b83de41c33d1e01dc21a3557149d7da90fbcbfc303311d"
+    },
+    {
+      "file": "boot_app0.bin",
+      "offset": "0xe000",
+      "bytes": 8192,
+      "sha256": "f94c5d786a7a8fab06ac5d10e33bf37711a6697636dc037559ea19cc410a17f0"
+    },
+    {
+      "file": "firmware.bin",
+      "offset": "0x10000",
+      "bytes": 1905024,
+      "sha256": "649d1688804527b79a3e321f932c8c89acc9b4f80b5aced9fa2b7166c7d20e6d"
+    }
+  ],
+  "esp32_factory_flash_offset": "0x0",
+  "partitions": [
+    {
+      "name": "nvs",
+      "offset": "0x9000",
+      "bytes": 20480
+    },
+    {
+      "name": "otadata",
+      "offset": "0xe000",
+      "bytes": 8192
+    },
+    {
+      "name": "app0",
+      "offset": "0x10000",
+      "bytes": 1966080
+    },
+    {
+      "name": "app1",
+      "offset": "0x1f0000",
+      "bytes": 1966080
+    },
+    {
+      "name": "spiffs",
+      "offset": "0x3d0000",
+      "bytes": 196608
+    }
+  ],
+  "validation": {
+    "esp8266": "PASS real OTA file: accepted; mutation, truncation and wrong SHA rejected (cross-chip/factory only with explicit arguments): ChaosUhr|ESP8266|4M1M|OTA2",
+    "esp32": "PASS real OTA file: accepted; mutation, truncation and wrong SHA rejected (cross-chip/factory only with explicit arguments): ChaosUhr|ESP32|4M192K|OTA2"
+  },
+  "limitations": [
+    "No hardware test of login/diagnosis GUI or runtime heap/stack; unknown-origin AUTH events deliberately preserved",
+    "Backup3 requires new importer; old backup1/2 accepted",
+    "GUI clock settings and brightness policy saved independently"
+  ]
+}
