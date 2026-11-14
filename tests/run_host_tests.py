@@ -46,6 +46,7 @@ subprocess.run([
 subprocess.run([str(binary)], check=True)
 
 for name,sources,flags in (
+    ("brightness",[project/"tests/test_brightness.cpp"],[]),
     ("security",[project/"tests/test_security.cpp"],["-I",str(project/"tests")]),
     ("animation_uploads",[project/"tests/test_animation_uploads.cpp"],["-I",str(project/"tests")]),
     ("public_credentials",[project/"tests"/"test_public_credentials.cpp"],[]),
