@@ -43,7 +43,13 @@ int main(){
   client.publishFails=true;assert(!clock.releaseBrightness()&&clock.brightnessValue().valid);client.publishFails=false;
   assert(clock.releaseBrightness()&&!clock.brightnessValue().valid&&client.lastPayload=="AUTO"&&client.lastRetain&&client.lastQos==1);
   message("50");clock.setBrightnessControl(false);clock.loop(true);assert(!clock.brightnessValue().valid);message("100");assert(!clock.brightnessValue().valid);
-  clock.setBrightnessControl(true);clock.loop(true);message("50");
+  const auto subscriptionCount=client.subscriptions.size();const auto connections=client.connections;
+  clock.setBrightnessControl(true);clock.loop(true);
+  assert(client.subscriptions.size()==subscriptionCount+1&&client.connections==connections);
+  assert(client.subscriptions.back()==clock.brightnessTopic());message("50");
+  for(const auto* value:{"0","1","5","20","50","100"}){message(value);assert(clock.brightnessValue().percent==atoi(value));}
+  client.messageCallback({0,false,true,0},clock.brightnessTopic(),nullptr,0,0,0);clock.loop(true);
+  assert(clock.brightnessValue().percent==100);message("50");
   strcpy(config.base,"new-base");clock.reconfigure();assert(!clock.brightnessValue().valid);clock.loop(true);clock.loop(true);client.connectionAccepted();clock.loop(true);
   strcpy(config.weatherTopic,"new-base/brightness/set");clock.reconfigure();clock.loop(true);clock.loop(true);assert(clock.brightnessConflict()&&!clock.brightnessActive());
   assert(errorRegistry().last()==ErrorCode::MQTT_BRIGHTNESS_TOPIC);
@@ -56,6 +62,14 @@ int main(){
   ClockMqtt reboot(rebootConfig,rebootTelemetry);reboot.setBrightnessControl(true);assert(!reboot.brightnessValue().valid);
   reboot.loop(true);auto& rebootClient=*espMqttClientAsync::latest;rebootClient.connectionAccepted();reboot.loop(true);
   rebootClient.messageCallback({0,false,true,0},reboot.brightnessTopic(),reinterpret_cast<const uint8_t*>("50"),2,0,2);reboot.loop(true);assert(reboot.brightnessValue().percent==50);
+  rebootClient.messageCallback({0,false,true,0},reboot.brightnessTopic(),reinterpret_cast<const uint8_t*>("AUTO"),4,0,4);reboot.loop(true);assert(!reboot.brightnessValue().valid);
+  rebootConfig.discovery=1;strcpy(rebootConfig.weatherTopic,"weather");strcpy(rebootConfig.temperatureTopic,"temperature");
+  for(unsigned i=0;i<4;++i)snprintf(rebootConfig.sensors[i].topic,sizeof rebootConfig.sensors[i].topic,"sensor/%u",i);
+  reboot.reconfigure();reboot.loop(true);reboot.loop(true);rebootClient.connectionAccepted();reboot.loop(true);
+  auto receive=[&](const char* topic,const char* value){rebootClient.messageCallback({},topic,reinterpret_cast<const uint8_t*>(value),strlen(value),0,strlen(value));reboot.loop(true);};
+  receive("weather","sunny");receive("temperature","20");
+  for(unsigned i=0;i<4;++i){receive(rebootConfig.sensors[i].topic,"21");assert(rebootTelemetry.sensors[i].valid);}
+  assert(rebootTelemetry.condition.valid);
   puts("PASS MQTT brightness: opt-in, retained-equivalent inbox, strict values, reconnect/hold, AUTO queue acceptance/failure, disabled/base/broker invalidation and collision preserves weather");
   puts("PASS actual ClockMqtt controller: transport callbacks, DNS/TCP/timeout/authorization/general failures, deadline, recovery, deduplicated subscriptions, packet/subscribe faults and deliberate disconnect without false error; fake transport only");
 }

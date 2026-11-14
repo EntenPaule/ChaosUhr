@@ -11,13 +11,16 @@ class MqttInbox {
   struct Frame {char topic[96];char payload[MQTT_PAYLOAD_LIMIT+1];size_t size=0;};
   bool receive(const char* topic,const uint8_t* data,size_t length,size_t index,size_t total){
     if(total>MQTT_PAYLOAD_LIMIT || (topic&&strnlen(topic,96)>=96)){error_=ErrorCode::MQTT_OVERSIZE;assembling_=false;return false;}
-    if(!topic || !data || !total || total>MQTT_PAYLOAD_LIMIT || strnlen(topic,96)>=96 ||
+    if(!topic || (!data && length) || total>MQTT_PAYLOAD_LIMIT || strnlen(topic,96)>=96 ||
        index>total || length>total-index){error_=ErrorCode::MQTT_FRAGMENT;assembling_=false;return false;}
     if(index==0){strcpy(current_.topic,topic);current_.size=0;assembling_=true;expected_=total;}
     if(!assembling_ || index!=current_.size || total!=expected_ || strcmp(topic,current_.topic)){
       error_=ErrorCode::MQTT_FRAGMENT;assembling_=false;return false;
     }
-    memcpy(current_.payload+index,data,length);current_.size+=length;
+    // Empty MQTT PUBLISH is valid (e.g. retained deletion); never dereference
+    // the library's unspecified payload pointer when length is zero.
+    if(length)memcpy(current_.payload+index,data,length);
+    current_.size+=length;
     if(current_.size==total){
       current_.payload[total]=0;
       if(count_==6){error_=ErrorCode::MQTT_QUEUE;read_=(read_+1)%6;--count_;++dropped_;}

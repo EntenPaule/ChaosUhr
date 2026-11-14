@@ -65,6 +65,13 @@ for name,sources,flags in (
     if name=="animation_uploads":arguments.append(str(project/"examples/Herz.chaos"))
     subprocess.run(arguments,check=True)
 
+mqtt_source=project/'.pio/libdeps/d1_mini_public/espMqttClient/src'
+wire_binary=build_dir/'test_mqtt_wire'
+subprocess.run(['g++','-std=c++17','-DARDUINO_ARCH_ESP8266','-fsanitize=address,undefined','-fno-omit-frame-pointer',
+ '-I',str(project/'include'),'-I',str(mqtt_source),str(project/'tests/test_mqtt_wire.cpp'),
+ str(mqtt_source/'Packets/Parser.cpp'),str(mqtt_source/'Packets/RemainingLength.cpp'),'-o',str(wire_binary)],check=True)
+subprocess.run([str(wire_binary)],check=True)
+
 clock_binary=build_dir/"test_clock"
 subprocess.run([
     "g++","-std=c++17","-Wall","-Wextra","-Werror","-pedantic",
