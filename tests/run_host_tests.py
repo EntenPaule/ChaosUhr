@@ -147,6 +147,7 @@ subprocess.run(["node",str(project/"tests"/"test_backup_ui.js")], check=True)
 subprocess.run(["node",str(project/"tests"/"test_ota_ui.js")], check=True)
 subprocess.run(["node",str(project/"tests"/"test_github_update_ui.js")], check=True)
 subprocess.run(["node",str(project/"tests"/"test_display_mqtt_ui.js")], check=True)
+subprocess.run(["node",str(project/"tests"/"test_brightness_ui.js")], check=True)
 
 source = (project / "src" / "main.cpp").read_text()
 example=(project/"examples/Herz.chaos").read_text()

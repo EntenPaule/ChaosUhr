@@ -16,7 +16,7 @@ namespace espMqttClientTypes {
 enum class DisconnectReason:uint8_t {USER_OK=0,TCP_DISCONNECTED=7};
 enum class Error:uint8_t {OUT_OF_MEMORY=1};
 enum class SubscribeReturncode:uint8_t {QOS0=0,FAIL=0x80};
-struct MessageProperties {};
+struct MessageProperties {uint8_t qos=0;bool dup=false,retain=false;uint16_t packetId=0;};
 using OnErrorCallback=std::function<void(uint16_t,Error)>;
 }
 class espMqttClientAsync {

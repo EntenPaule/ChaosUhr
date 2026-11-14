@@ -23,13 +23,20 @@ function backup(){return {format:'chaosuhr-settings',version:1,firmware:'2.0.8',
 (async()=>{
  const a=app();await a.context.load();await a.context.exportSettings();
  const saved=JSON.parse(a.blobs[0]);assert.equal(saved.settings.brightness,25);assert.equal(saved.uploads[0].sha256,sha);
- assert.deepEqual(Object.keys(saved).sort(),['firmware','format','settings','uploads','version']);
+ assert.deepEqual(Object.keys(saved).sort(),['brightnessPolicy','firmware','format','settings','uploads','version']);
  assert(!a.blobs[0].includes('fixture-never-export-this')&&!a.blobs[0].includes('fixture-private-wifi')&&!a.blobs[0].includes('127.0.0.1'));
  const file=text=>({size:text.length,text:async()=>text});
  a.elements.settingsFile.files=[file(JSON.stringify(backup()))];await a.context.previewSettingsImport();
  assert.equal(a.posts.length,0);assert.equal(a.elements.applyBackup.hidden,false);assert.match(a.elements.backupPreview.textContent,/noch nicht gespeichert/);
  a.context.applySettingsImport();assert.equal(a.posts.length,0);assert.equal(a.elements.effect.value,38);await a.context.save();
  assert.equal(a.posts.length,1);assert.equal(a.posts[0].headers['X-CSRF-Token'],'fixture-session');assert.equal(a.posts[0].body.get('autoUploads'),'128');assert.equal(a.posts[0].body.get('effect'),'38');
+ const exported=JSON.parse(a.blobs[0]);assert.equal(exported.version,3);
+ const v2={...exported,version:2};delete v2.brightnessPolicy;
+ assert.equal(a.context.validateSettingsBackup(v2,uploads).brightnessPolicy.nightLedsOff,0);
+ const v3={...exported,brightnessPolicy:{nightLedsOff:1,mqttBrightness:1}};
+ assert.equal(a.context.validateSettingsBackup(v3,uploads).brightnessPolicy.mqttBrightness,1);
+ assert.equal(a.context.validateSettingsBackup({...v3,brightnessPolicy:{}},uploads).brightnessPolicy.mqttBrightness,0);
+ for(const policy of [null,[],{mqttBrightness:2},{nightLedsOff:'1'},{unknown:1}])assert.throws(()=>a.context.validateSettingsBackup({...v3,brightnessPolicy:policy},uploads));
  const invalid=[];
  let b=backup();b.settings.brightness=101;invalid.push(b);
  b=backup();b.settings.brightness='25';invalid.push(b);

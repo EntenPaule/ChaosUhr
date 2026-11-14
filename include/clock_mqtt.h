@@ -42,7 +42,7 @@ class ClockMqtt {
     pending_=true;brightnessRefresh_=true;
   }
   void setBrightnessControl(bool enabled){
-    if(enabled!=brightnessRequested_){brightnessRequested_=enabled;brightnessRefresh_=true;}
+    if(enabled!=brightnessRequested_){brightnessRequested_=enabled;brightnessRefresh_=true;if(enabled && brightnessConflict_)recordError(ErrorCode::MQTT_BRIGHTNESS_TOPIC);}
     if(!enabled || !config_.enabled)brightness_.clear();
   }
   bool brightnessActive()const{return brightnessRequested_ && config_.enabled && !pending_ && !brightnessConflict_ && brightnessTopic_[0];}

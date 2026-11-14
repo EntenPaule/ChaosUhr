@@ -1,5 +1,13 @@
 # 2.0.11-beta.4 – Entwicklung vorbereitet
 
+## 2.0.11-beta.5 – intern
+
+- Nachtabschaltung mit explizitem schwarzem Frame; GUI-Tag-/Nachthelligkeit bleibt erhalten.
+- MQTT-Helligkeit als Opt-in: brightness/set, 0–100 und AUTO, retained und nichtblockierende GUI-Rückgabe.
+- Separate atomare LittleFS-Richtlinie ohne EEPROM-/Credentials-/MQTT-Formatänderung.
+- Backupformat 3; Import alter Formate 1 und 2 mit deaktivierten neuen Optionen.
+- Gemeinsame Beta-Kennung beider Plattformen; keine Veröffentlichung/kein Hardwaretest.
+
 Versionsnummer nach Veröffentlichung von Beta.3 weitergeführt. Noch keine zusätzlichen Funktionen, Firmware-Builds oder Release-Assets. Tag v2.0.11-beta.3 bleibt unverändert auf dem geprüften gemeinsamen Quellstand.
 
 # 2.0.11-beta.3 – gemeinsamer Pre-Release ergänzt

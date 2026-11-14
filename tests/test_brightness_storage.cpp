@@ -15,6 +15,7 @@ int main(){
  BrightnessPolicy loaded;assert(storage.load(loaded)&&loaded.nightOff&&loaded.mqtt);
  fs.put("/brightness-policy.pending","interrupted");assert(storage.load(loaded)&&loaded.nightOff);
  (*fs.files.at(storage.path()))[5]^=1;assert(!storage.load(loaded)&&loaded.nightOff);assert(storage.errorCode()==ErrorCode::FS_BRIGHTNESS_CORRUPT);
+ assert(storage.save(loaded,loaded));assert(storage.load(loaded)&&loaded.nightOff);
  fs.mountable=false;assert(!storage.save(policy,{false,false})&&policy.nightOff);assert(fs.formats==0);
  assert(*fs.files.at("/unrelated")==std::vector<uint8_t>({'k','e','e','p'}));
  puts("PASS brightness persistence: defaults/no writes, changed-only atomic save, interrupted write, read/write/rename failures, corruption, preserved files and no formatting");

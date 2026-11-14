@@ -35,6 +35,6 @@ else (async()=>{
  flow.elements.mode.value='2';flow.context.updateDisplayFlow();assert.match(flow.elements.displayFlow.textContent,/Gewählte Animation – dauerhaft/);
  flow.elements.mode.value='0';flow.elements.showWeather.checked=false;flow.context.updateDisplayFlow();assert.match(flow.elements.displayFlow.textContent,/mindestens eine Anzeigeart/);
  assert.equal(flow.posts.length,postsBefore);
- await a.context.exportSettings();const backup=JSON.parse(a.blobs[0]);assert.equal(backup.version,2);assert.equal(backup.settings.secondsBar,1);assert.equal(backup.settings.ledPin,undefined);assert(!a.blobs[0].includes('broker.example.test')&&!/password/i.test(a.blobs[0]));
- console.log('PASS display/MQTT GUI: clock/weather without animations, scene guard, persistent display controls, explicit pin restart, four sensor forms, CSRF and secret/network/pin-free backup v2');
+ await a.context.exportSettings();const backup=JSON.parse(a.blobs[0]);assert.equal(backup.version,3);assert.equal(backup.settings.secondsBar,1);assert.equal(backup.settings.ledPin,undefined);assert(!a.blobs[0].includes('broker.example.test')&&!/password/i.test(a.blobs[0]));
+ console.log('PASS display/MQTT GUI: clock/weather without animations, scene guard, persistent display controls, explicit pin restart, four sensor forms, CSRF and secret/network/pin-free backup v3');
 })().catch(e=>{console.error(e);process.exitCode=1});

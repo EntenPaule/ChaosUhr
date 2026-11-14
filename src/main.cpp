@@ -458,7 +458,7 @@ small{color:#abb9d0}output{float:right;color:#8bd5ff}.flex{display:flex;gap:10px
 <button type="button" onclick="saveMqtt()">MQTT speichern</button> <button type="button" onclick="loadMqtt()">Status aktualisieren</button>
 <p id="mqttMessage" role="status"></p></article>
 <article><h2>Diagnose</h2><p>Letzter Fehler und begrenzter RAM-Verlauf. Keine Zugangsdaten, Tokens, Topics oder Messwerte enthalten.</p><button type="button" onclick="loadDiagnostics()">Supportdiagnose laden</button><p id="diagnosticMessage" role="status"></p><textarea id="supportDiagnostics" rows="12" readonly style="width:100%" aria-label="Bereinigte Supportdiagnose"></textarea></article>
-<article><h2>Einstellungen sichern</h2><p>Speichere deine Uhreinstellungen vor einem Update. Zugangsdaten, MQTT-Konfiguration, LED-Datenpin und Animationsdateien werden nicht exportiert.</p>
+<article><h2>Einstellungen sichern</h2><p>Speichere deine Uhreinstellungen vor einem Update. Zugangsdaten, MQTT-Konfiguration, LED-Datenpin und Animationsdateien werden nicht exportiert. Format 3 enthält auch die Helligkeitsrichtlinie; ältere Firmware benötigt ihr bisheriges Backupformat.</p>
 <button type="button" onclick="exportSettings()">Sicherung herunterladen</button>
 <label for="settingsFile">Sicherungsdatei wiederherstellen</label><input id="settingsFile" type="file" accept=".json" onchange="previewSettingsImport()">
 <p id="backupMessage" role="status"></p><pre id="backupPreview" style="white-space:pre-wrap"></pre><button id="applyBackup" type="button" onclick="applySettingsImport()" hidden>Vorschau übernehmen</button></article>
@@ -610,13 +610,14 @@ function showBrightnessStatus(data){
  document.getElementById('brightnessState').textContent=`Wirksam: ${data.source||'GUI'} · ${data.percent??'?'} % · MQTT-Vorgabe: ${data.mqttValue??'keine'}`;
  document.getElementById('brightnessTopic').textContent=data.mqttBrightness?`Befehlstopic: ${data.topic||'nach MQTT-Konfiguration verfügbar'}${data.conflict?' · Konflikt: Steuerung gesperrt':''}`:'';
  document.getElementById('releaseBrightness').disabled=!data.mqttActive||!data.connected;
+ if(/^FS-[0-9]{3}$/.test(data.configError||''))document.getElementById('brightnessMessage').textContent=chaosFailure(data.configError).message;
 }
-async function loadBrightness(){applyBrightnessPolicy(await readJson('/api/brightness'))}
+let brightnessTimerStarted=false;
+async function loadBrightness(){applyBrightnessPolicy(await readJson('/api/brightness'));if(!brightnessTimerStarted){brightnessTimerStarted=true;setTimeout(refreshBrightnessStatus,5000)}}
 async function refreshBrightnessStatus(){
  if(chaosAdmin.active){try{showBrightnessStatus(await readJson('/api/brightness'))}catch(error){document.getElementById('brightnessMessage').textContent=chaosMessage(error)}}
  setTimeout(refreshBrightnessStatus,5000);
 }
-setTimeout(refreshBrightnessStatus,5000);
 async function saveBrightnessPolicy(){
  const message=document.getElementById('brightnessMessage');
  try{await changeAnimation('/api/brightness',new URLSearchParams({nightLedsOff:document.getElementById('nightLedsOff').checked?'1':'0',mqttBrightness:document.getElementById('mqttBrightness').checked?'1':'0'}));await loadBrightness();message.textContent='Helligkeitsrichtlinie gespeichert.'}
@@ -634,14 +635,19 @@ async function exportSettings(){
     const storage=current.animationUploads?await readJson('/api/animations'):{uploads:[]};
     const settings=Object.fromEntries(backupKeys.map(key=>[key,current[key]??currentOptions[key]??0]));
     const uploads=storage.uploads.filter(upload=>upload.valid).map(upload=>({id:upload.id,sha256:upload.sha256}));
-    const backup={format:'chaosuhr-settings',version:2,firmware:current.version,settings,uploads};
+    const policy=await readJson('/api/brightness');
+    const brightnessPolicy={nightLedsOff:policy.nightLedsOff===true?1:0,mqttBrightness:policy.mqttBrightness===true?1:0};
+    const backup={format:'chaosuhr-settings',version:3,firmware:current.version,settings,uploads,brightnessPolicy};
     const blob=new Blob([JSON.stringify(backup,null,2)+'\n'],{type:'application/json'}),url=URL.createObjectURL(blob),link=document.createElement('a');
     link.href=url;link.download='chaosuhr-einstellungen-'+current.version+'.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
     message.textContent='Einstellungen gesichert. Eigene Animationen bitte zusätzlich als .chaos herunterladen.';
   }catch(error){message.textContent='Sicherung fehlgeschlagen: '+chaosMessage(error)}
 }
 function validateSettingsBackup(backup,currentUploads){
-  if(!backup || typeof backup!=='object' || Array.isArray(backup) || Object.keys(backup).some(key=>!['format','version','firmware','settings','uploads'].includes(key)) || backup.format!=='chaosuhr-settings' || ![1,2].includes(backup.version) || typeof backup.firmware!=='string' || backup.firmware.length>32)throw chaosFailure('BACKUP_SCHEMA');
+  if(!backup || typeof backup!=='object' || Array.isArray(backup) || Object.keys(backup).some(key=>!(backup.version===3?['format','version','firmware','settings','uploads','brightnessPolicy']:['format','version','firmware','settings','uploads']).includes(key)) || backup.format!=='chaosuhr-settings' || ![1,2,3].includes(backup.version) || typeof backup.firmware!=='string' || backup.firmware.length>32)throw chaosFailure('BACKUP_SCHEMA');
+  const policy=backup.version===3?(Object.hasOwn(backup,'brightnessPolicy')?backup.brightnessPolicy:{}):{};
+  if(!policy || typeof policy!=='object' || Array.isArray(policy) || Object.keys(policy).some(key=>!['nightLedsOff','mqttBrightness'].includes(key)) || Object.values(policy).some(value=>!Number.isInteger(value)||value<0||value>1))throw chaosFailure('BACKUP_FIELDS');
+  const restoredPolicy={nightLedsOff:policy.nightLedsOff??0,mqttBrightness:policy.mqttBrightness??0};
   const settings=backup.settings,keys=backup.version===1?legacyBackupKeys:backupKeys;
   if(!settings || typeof settings!=='object' || Array.isArray(settings) || Object.keys(settings).length!==keys.length || keys.some(key=>!Object.hasOwn(settings,key) || !Number.isInteger(settings[key])))throw chaosFailure('BACKUP_FIELDS');
   const bounds={mode:[0,2],effect:[1,38],brightness:[1,100],speed:[1,100],duration:[5,120],nightOn:[0,1],nightFrom:[0,23],nightUntil:[0,23],nightBrightness:[1,100],corner:[0,3],vertical:[0,1],zigzag:[0,1],autoOrder:[0,1],autoEffects:[0,1073741823],autoUploads:[0,255],secondsBar:[0,1],weekdayStyle:[0,1],showClock:[0,1],showAnimations:[0,1],showWeather:[0,1],showSensors:[0,1]};
@@ -658,7 +664,7 @@ function validateSettingsBackup(backup,currentUploads){
   if(!result.showClock&&!result.showAnimations&&!result.showWeather&&!result.showSensors)throw chaosFailure('CFG_DISPLAY');
   for(let bit=0;bit<8;bit++)if(settings.autoUploads&2**bit){const mapped=mapping.get(31+bit);if(!mapped)throw chaosFailure('BACKUP_AUTO_UPLOAD');result.autoUploads+=2**(mapped-31)}
   if(settings.effect>30){const mapped=mapping.get(settings.effect);if(!mapped)throw chaosFailure('BACKUP_SINGLE_UPLOAD');result.effect=mapped}
-  return result;
+  result.brightnessPolicy=restoredPolicy;return result;
 }
 async function previewSettingsImport(){
   pendingImport=null;document.getElementById('applyBackup').hidden=true;document.getElementById('backupPreview').textContent='';
@@ -673,6 +679,7 @@ async function previewSettingsImport(){
     const count=value=>value.toString(2).replaceAll('0','').length;
     const d=pendingImport;
     document.getElementById('backupPreview').textContent=`Vorschau – noch nicht gespeichert\nModus: ${['Automatik','Nur Uhrzeit','Einzelanimation'][d.mode]}\nHelligkeit: ${d.brightness} % · Tempo: ${d.speed} %\nSzenendauer: ${d.duration} s\nAutomatik: ${count(d.autoEffects)+count(d.autoUploads)} Animationen, ${d.autoOrder?'der Reihe nach':'zufällige Runden'}\nNachtmodus: ${d.nightOn?'an':'aus'}, ${d.nightFrom} bis ${d.nightUntil} Uhr, ${d.nightBrightness} %\nAuch die Matrixausrichtung wird übernommen.\nWLAN und Admin-Zugang bleiben erhalten.`;
+    document.getElementById('backupPreview').textContent+=`\nNacht-AUS: ${d.brightnessPolicy.nightLedsOff?'an':'aus'} · MQTT-Helligkeit: ${d.brightnessPolicy.mqttBrightness?'an':'aus'}`;
     document.getElementById('applyBackup').hidden=false;message.textContent='Prüfe die Vorschau, bevor du sie übernimmst.';
   }catch(error){pendingImport=null;message.textContent='Import abgelehnt: '+chaosMessage(error)}
 }
@@ -682,7 +689,8 @@ function applySettingsImport(){
   buildAutomaticChoices(effectChoices,d.autoEffects,d.autoUploads);
   optionIds.filter(key=>key!=='ledPin').forEach(key=>{document.getElementById(key)[optionFlags.includes(key)?'checked':'value']=optionFlags.includes(key)?!!d[key]:d[key]});
   bVal.value=d.brightness+' %';sVal.value=d.speed+' %';dVal.value=d.duration+' s';nVal.value=d.nightBrightness+' %';updateDisplayFlow();
-  document.getElementById('backupMessage').textContent='Vorschau übernommen. Zum dauerhaften Anwenden Einstellungen speichern.';document.getElementById('applyBackup').hidden=true;pendingImport=null;
+  document.getElementById('nightLedsOff').checked=!!d.brightnessPolicy.nightLedsOff;document.getElementById('mqttBrightness').checked=!!d.brightnessPolicy.mqttBrightness;brightnessFormChanged();
+  document.getElementById('backupMessage').textContent='Vorschau übernommen. Uhreinstellungen und Helligkeitsrichtlinie über ihre jeweiligen Schaltflächen speichern.';document.getElementById('applyBackup').hidden=true;pendingImport=null;
 }
 let animationBusy=false;
 function showAnimationStorage(storage){

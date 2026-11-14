@@ -1,6 +1,6 @@
 # ChaosUhr 2.0
 
-**Entwicklung: 2.0.11-beta.4 vorbereitet.** Noch keine Beta.4-Firmware gebaut oder veröffentlicht; Beta.3 bleibt der abgeschlossene gemeinsame Pre-Release.
+**Interne Entwicklung: 2.0.11-beta.5 für Wemos und klassischen ESP32.** Persistente LED-Nachtabschaltung, ausdrücklich freigegebene MQTT-Helligkeitssteuerung und Backupformat 3. Keine Veröffentlichung oder Hardwarefreigabe. [Implementierung und Testanleitung](docs/HELLIGKEIT_BETA_5.md). Beta.3 bleibt der bisher veröffentlichte gemeinsame Pre-Release.
 
 **Gemeinsamer Pre-Release: [2.0.11-beta.3](https://github.com/EntenPaule/ChaosUhr/releases/tag/v2.0.11-beta.3).** Wemos D1 mini und klassischer ESP32 verwenden denselben Quellstand. Die bereits verteilte **Wemos-BIN ist unverändert und auf echter Hardware bestätigt**. ESP32 ist frisch gebaut/offline validiert; **Hardwaretests einschließlich Setup-AP und WLAN-Persistenz nach Stromtrennung stehen aus**. ESP32-OTA-Reserve nur 1008 Byte.
 
