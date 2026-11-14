@@ -1,3 +1,15 @@
+# 2.0.11 – Stable
+
+- Vollständige LED-Nachtabschaltung und optionale MQTT-Helligkeit (0–100/AUTO); priorisierte Nachtabschaltung, keine Flash-Schreibzugriffe pro Nachricht.
+- Übersichtliche Boxen für Anzeige, Helligkeit/Nachtmodus und Matrixverdrahtung; EEPROM-/LittleFS-Teilerfolge werden ehrlich gemeldet.
+- Cookie-Sitzungen mit echtem Logout, 30 Minuten Inaktivität, CSRF und ungültigen Tokens nach Neustart.
+- Zentrale Diagnose, kurze Aktionsmeldungen, stille initiale Sitzungsabfrage und gezielte sichtbare Bereinigung erwartbarer Sitzungsereignisse.
+- Backupformat 3 mit Import von Format 1/2; keine Passwort-/Netzwerkdaten im Backup.
+- MQTT-Stack-/Speicheroptimierungen, spezifische Feldfehler, leerer PUBLISH kein falscher MQTT-016 mehr.
+- ESP32-Unterstützung mit komprimierter GUI, LittleFS-Diagnose und zeitlich begrenztem USB-Setup.
+- Plattform-/Produkt-/Größen-/Integritätsprüfungen für OTA, unveränderte Partitionen und Credentials-/MQTT-Layouts.
+- Finale Tests und beide Clean-Builds vor Veröffentlichung; ESP32-OTA, USB-Setup und Persistenz hardwareseitig noch nicht vollständig bestätigt. Siehe [Release Notes](docs/RELEASE_v2.0.11.md).
+
 # 2.0.11-beta.5.3 – interne GUI-Aufteilung
 
 - Eigene Box Helligkeit & Nachtmodus, gemeinsamer Speichern-Button mit ehrlicher EEPROM-/LittleFS-Koordination.

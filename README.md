@@ -1,36 +1,31 @@
 # ChaosUhr 2.0
 
-**Interne Entwicklung: 2.0.11-beta.5.3 für Wemos und klassischen ESP32.** Eigene Boxen für Anzeige, Helligkeit & Nachtmodus und Matrixverdrahtung. Getrennte Speicherzugriffe mit eindeutigen Teilfehlermeldungen. Keine Veröffentlichung oder Hardwarefreigabe. [Änderungen und Testanleitung](docs/GUI_BOXEN_BETA_5_3.md).
+**Aktuelle stabile Version: [ChaosUhr 2.0.11](https://github.com/EntenPaule/ChaosUhr/releases/tag/v2.0.11)** für Wemos D1 mini / ESP8266 und klassischen ESP32-WROOM-32 mit 4 MiB Flash. Vollständige Nachtabschaltung, MQTT-Helligkeit, getrennte Einstellungsboxen, Cookie-Sitzungen und zentrale Diagnose. [Release Notes und Testgrenzen](docs/RELEASE_v2.0.11.md) · [Installation](docs/FLASHANLEITUNG_2.0.11.md).
 
-**Gemeinsamer Pre-Release: [2.0.11-beta.3](https://github.com/EntenPaule/ChaosUhr/releases/tag/v2.0.11-beta.3).** Wemos D1 mini und klassischer ESP32 verwenden denselben Quellstand. Die bereits verteilte **Wemos-BIN ist unverändert und auf echter Hardware bestätigt**. ESP32 ist frisch gebaut/offline validiert; **Hardwaretests einschließlich Setup-AP und WLAN-Persistenz nach Stromtrennung stehen aus**. ESP32-OTA-Reserve nur 1008 Byte.
-
-[Release Notes](docs/RELEASE_v2.0.11-beta.3.md) · [Gemeinsame Test-/Flash-Anleitung](docs/TESTANLEITUNG_2.0.11-beta.3_GEMEINSAM.md) · [Automatik und Beta.3-Analyse](docs/BERICHT_2.0.11-beta.3.md). Die ESP32-Factory-BIN ist ausschließlich für USB ab 0x0 vorgesehen. Kein Stable-Release und kein Wechsel produktiver Updatekanäle.
-
-**Aktuelle stabile Version: [2.0.10 für Wemos / ESP8266 und klassischen ESP32](https://github.com/EntenPaule/ChaosUhr/releases/tag/v2.0.10).** MQTT-Wetter und Sensoren, wählbare Anzeigearten, konfigurierbarer LED-Pin, Sekundenleisten-Schalter und Wochentag-Auswahl. Beide Builds und die ZIP-Quellen sind lokal geprüft; die neuen BINs sind **noch nicht am Gerät getestet**. [Teststand](docs/RELEASE_v2.0.10.md), [MQTT-Anleitung](docs/MQTT_2_0_10.md), [Upgrade](docs/UPGRADE_2_0_10.md).
+**ESP32-Hardwaretests sind noch nicht vollständig bestätigt:** WLAN/MQTT und Online/Offline wurden für Beta.4.2 vom Nutzer bestätigt. USB-Ersteinrichtung, OTA, Persistenz nach Stromtrennung und der finale 2.0.11-Stand benötigen weitere Hardwaretests. Erfolgreiche Builds ersetzen diese Tests nicht.
 
 Eine bunte LED-Uhr für die **20×15-WS2812B-Matrix**: Uhrzeit, deutscher Wochentag und Datum, Animationen sowie Wetter- und Sensorwerte aus Home Assistant oder ioBroker. Über die Weboberfläche lassen sich Anzeige, Automatik und eigene Animationen einstellen – direkt im lokalen WLAN. Auch ausschließlich Uhr/Wetter ist möglich.
 
 Dieser Fork entwickelt die [ChaosUhr von Micha1986 / oOmicha1986Oo](https://github.com/oOmicha1986Oo/ChaosUhr) als PlatformIO-Firmware weiter. Die ursprünglichen Bilder und Animationen sind mit Herkunfts- und Lizenznachweisen übernommen.
 
-Der vorherige [Wemos-Release 2.0.8](https://github.com/EntenPaule/ChaosUhr/releases/tag/v2.0.8) bleibt unverändert verfügbar. Dessen bestätigte Anzeige-, Web- und OTA-Tests gelten für 2.0.8; sie ersetzen keine Hardwareprüfung von 2.0.10.
+Der vorherige [Wemos-Release 2.0.8](https://github.com/EntenPaule/ChaosUhr/releases/tag/v2.0.8) bleibt unverändert verfügbar. Dessen bestätigte Anzeige-, Web- und OTA-Tests gelten für 2.0.8; sie ersetzen keine Hardwareprüfung von 2.0.11.
 
 [Downloads](#downloads) · [Funktionen](#funktionen) · [Hardware](#hardware) · [Einrichtung](#erste-einrichtung) · [MQTT und Wetter](#mqtt-wetter-und-sensoren) · [Eigene Animationen](#eigene-animationen-erstellen-und-teilen) · [Selbst bauen](#selbst-bauen)
 
 ## Downloads
 
-Die Dateien stehen im [GitHub-Release v2.0.10](https://github.com/EntenPaule/ChaosUhr/releases/tag/v2.0.10). **Die Datei muss zum Controller passen.**
+Die Dateien stehen im [GitHub-Release v2.0.11](https://github.com/EntenPaule/ChaosUhr/releases/tag/v2.0.11). **Die Datei muss zum Controller passen.**
 
-| Datei | Inhalt / Verwendung |
+| Download | Verwendung |
 | --- | --- |
-| [chaosuhr-2.0.10-esp8266.bin](https://github.com/EntenPaule/ChaosUhr/releases/download/v2.0.10/chaosuhr-2.0.10-esp8266.bin) | Wemos D1 mini / ESP8266: Anwendungs-BIN für den Web-Updater. |
-| [chaosuhr-2.0.10-esp8266.zip](https://github.com/EntenPaule/ChaosUhr/releases/download/v2.0.10/chaosuhr-2.0.10-esp8266.zip) | Dieselbe Wemos-BIN, Anleitungen, vollständige passende Quellen, Tests, Beispiele und Lizenzen. |
-| [chaosuhr-2.0.10-esp32-ota.bin](https://github.com/EntenPaule/ChaosUhr/releases/download/v2.0.10/chaosuhr-2.0.10-esp32-ota.bin) | Klassischer ESP32-WROOM-32 / esp32dev: Anwendungs-BIN für den Web-Updater. |
-| [chaosuhr-2.0.10-esp32-factory.bin](https://github.com/EntenPaule/ChaosUhr/releases/download/v2.0.10/chaosuhr-2.0.10-esp32-factory.bin) | Klassischer ESP32: vollständiges USB-Erstinstallationsimage ab 0x0; überschreibt vorhandene Daten. **Nicht für OTA.** |
-| [chaosuhr-2.0.10-esp32.zip](https://github.com/EntenPaule/ChaosUhr/releases/download/v2.0.10/chaosuhr-2.0.10-esp32.zip) | Beide ESP32-BINs, Anleitungen, vollständige passende Quellen, Tests, Beispiele und Lizenzen. |
-| [SHA256SUMS](https://github.com/EntenPaule/ChaosUhr/releases/download/v2.0.10/SHA256SUMS) | Gemeinsame Prüfsummen für beide Controller-Pakete und Release-Metadaten. |
-| [BUILD_INFO.json](https://github.com/EntenPaule/ChaosUhr/releases/download/v2.0.10/BUILD_INFO.json) | Zielhardware, Größen, Layout, Prüfsummen und Teststand beider Builds. |
+| [chaosuhr-2.0.11-esp8266.bin](https://github.com/EntenPaule/ChaosUhr/releases/download/v2.0.11/chaosuhr-2.0.11-esp8266.bin) | Wemos D1 mini / ESP8266: Web-OTA; USB bei 0x0 ebenfalls möglich. |
+| [chaosuhr-2.0.11-esp32-ota.bin](https://github.com/EntenPaule/ChaosUhr/releases/download/v2.0.11/chaosuhr-2.0.11-esp32-ota.bin) | Klassischer ESP32-WROOM-32: Anwendung für kompatible ChaosUhr-Web-OTA. |
+| [chaosuhr-2.0.11-esp32-factory.bin](https://github.com/EntenPaule/ChaosUhr/releases/download/v2.0.11/chaosuhr-2.0.11-esp32-factory.bin) | **Destruktive USB-Neuinstallation ab 0x0: überschreibt alle 4 MiB samt persönlichen Daten. Niemals OTA.** |
+| [SHA256SUMS.txt](https://github.com/EntenPaule/ChaosUhr/releases/download/v2.0.11/SHA256SUMS.txt) | SHA-256-Prüfsummen aller drei BINs. |
 
-**Zum Aktualisieren die passende Anwendungs-BIN verwenden.** Das ZIP wird vorher entpackt. Die öffentlichen BINs enthalten keine persönlichen WLAN-, Admin-, Einrichtungs- oder Broker-Passwörter; diese werden auf der Uhr eingerichtet. Ein vollständiger Flash-Dump eines bereits eingerichteten Geräts enthält dagegen persönliche Daten.
+Quellen, Tests und Dokumentation gehören zum Tag [v2.0.11](https://github.com/EntenPaule/ChaosUhr/tree/v2.0.11). Ältere Releases bleiben verfügbar; historische Testpakete unter `dist/` sind ausdrücklich keine aktuellen Release-Dateien.
+
+**Zum Aktualisieren die passende Anwendungs-BIN verwenden.** Die öffentlichen BINs enthalten keine persönlichen WLAN-, Admin-, Einrichtungs- oder Broker-Passwörter; diese werden auf der Uhr eingerichtet. Ein vollständiger Flash-Dump eines bereits eingerichteten Geräts enthält dagegen persönliche Daten.
 
 ## Funktionen
 
@@ -49,16 +44,18 @@ Die Dateien stehen im [GitHub-Release v2.0.10](https://github.com/EntenPaule/Cha
 
 Wetter- und Sensorwerte empfängt die Uhr per MQTT aus Home Assistant, ioBroker oder einem anderen Publisher. Die Topics sind konfigurierbar; bestehende Automationen werden nicht automatisch umgeschrieben.
 
-### Neu in 2.0.10
+### Neu in 2.0.11
 
-- Uhr, Animationen, Wetter und Sensorwerte unabhängig auswählen, auch nur Uhr/Wetter.
-- MQTT-Wetter mit Sonne/Wolken/Regen und Temperatur; vier Sensorplätze mit eigenen Topics, Namen und Einheiten.
-- LED-Datenpin in der GUI wählen und dauerhaft speichern; Änderung nach Bestätigung mit Neustart.
-- Sekundenleiste ein-/ausschalten; Wochentag ausgeschrieben mit echten Kleinbuchstaben oder als `mo`, `di`, … `so`.
-- Eigene IP-Adresse nach erfolgreicher WLAN-Verbindung auf der Matrix.
-- Parallele Builds und getrennte Pakete für Wemos und klassischen ESP32.
+- Vollständige Nachtabschaltung mit schwarzem Frame; Netzwerk, MQTT und Automatik laufen weiter.
+- Optionale MQTT-Helligkeit über `<Basis>/brightness/set`: `0`–`100` oder `AUTO`, Retained-Werte werden akzeptiert. Nachtabschaltung hat Vorrang. Die GUI kann retained `AUTO` zur Übertragung annehmen lassen; das beweist noch keine dauerhafte Brokerspeicherung.
+- Eigene Boxen für Anzeige/Animationen, Helligkeit/Nachtmodus und Matrixverdrahtung. Gemeinsames Helligkeitsspeichern bestätigt EEPROM vor LittleFS und zeigt Teilfehler ausdrücklich an.
+- Serververwaltete Admin-Sitzungen, echte Abmeldung und 30 Minuten Inaktivitätsablauf. Statuspolling verlängert keine Sitzung; nach Neustart erneut anmelden.
+- Kurze Aktionsmeldungen und technische Details im Diagnosebereich, einschließlich begrenzter Browserdiagnose. Normale initiale Sitzungsabfragen erzeugen keine AUTH-Fehlerhistorie.
+- Backupformat 3 mit Import alter Formate 1/2; neue Sicherungen benötigen einen aktuellen Importer.
+- MQTT-Speicher-/Stackoptimierung, spezifische Feldfehler und korrekter Empfang leerer MQTT-PUBLISH-Nachrichten.
+- ESP32: komprimierte Webressourcen, kontrollierte LittleFS-Diagnose/-Initialisierung und zeitlich begrenztes USB-Setup ohne Matrix.
 
-Die neue Firmware ist noch nicht auf Hardware getestet. [Anleitung und Teststand](docs/RELEASE_v2.0.10.md).
+Uhr-/Wetter-/Sensorfunktionen und die konfigurierbaren Pins aus 2.0.10 bleiben erhalten. [Vollständiger Stand und bekannte Grenzen](docs/RELEASE_v2.0.11.md).
 
 ### Seit Version 2.0.8 enthalten
 
@@ -84,7 +81,7 @@ Die Automatik-Auswahl und eigenen `.chaos`-Animationen aus 2.0.7 bleiben erhalte
 
 Die Software-Leistungsbegrenzung ersetzt keine passend ausgelegte Stromversorgung und Verdrahtung. Ab 2.0.10 wird der LED-Datenpin im Dropdown gewählt und gespeichert; die Pin-Auswahl gilt nach einem bestätigten Neustart. Der bisherige Wemos-Standard D6/GPIO12 bleibt bei der Migration erhalten.
 
-[ESP32-Paket und Anleitung](docs/ESP32_FIRMWARE.md). Die neue ESP32-Firmware ist noch nicht am Gerät getestet; das Nutzerfeedback zur älteren 2.0.6 auf 2.0.5-Basis bestätigt nur diesen früheren Stand. Beide neuen Builds sind für die oben genannten Controller ausgelegt.
+[Aktuelle ESP32-Installation und USB-Setup](docs/FLASHANLEITUNG_2.0.11.md). WLAN/MQTT und Online/Offline sind für ESP32 Beta.4.2 bestätigt; OTA, USB-Ersteinrichtung, Persistenz und der finale Stand bleiben offen. Keine ESP32-S3-/WT32-Displayfirmware.
 
 ## Erste Einrichtung
 
@@ -95,13 +92,13 @@ Für eine neue Uhr oder nach einem Werksreset:
 3. Mit dem WLAN **`ChaosUhr-Setup-XXXXXX`** verbinden. Sein WLAN-Passwort ist der angezeigte Code.
 4. **http://192.168.4.1/** öffnen und ein eigenes Admin-Passwort mit **16–64 druckbaren ASCII-Zeichen** setzen und wiederholen. Leer- und Sonderzeichen sind möglich, Umlaute nicht.
 5. Nach dem Neustart vorhandene Heim-WLAN-Daten weiterverwenden lassen oder das Heim-WLAN im Einrichtungsportal hinterlegen.
-6. Nach WLAN-Verbindung erscheint die eigene IP als Lauftext. Im Heimnetz diese Adresse oder **http://chaosuhr.local/** öffnen. Benutzername: **`admin`**, Passwort: das selbst gesetzte Admin-Passwort.
+6. Nach WLAN-Verbindung erscheint die eigene IP als Lauftext. Im Heimnetz diese Adresse oder **http://chaosuhr.local/** öffnen. Im sichtbaren Anmeldeformular das selbst gesetzte Admin-Passwort eingeben. HTTP-Basic-Zugangsdaten ersetzen keine Sitzung.
 
 Der Zahlencode für das Einrichtungs-WLAN und das Admin-Passwort sind getrennt. Nach dem Verbinden synchronisiert die Uhr ihre Zeit über NTP. Eine ausführliche Anleitung steht in [Einrichtung und Bedienung](docs/PUBLIC_FIRMWARE.md).
 
 ## Vorhandene Uhr aktualisieren
 
-**Von 2.0.8:** Zuerst Einstellungen als JSON und eigene `.chaos`-Dateien sichern. Im OTA-Menü **Auf Updates prüfen** und anschließend 2.0.10 bewusst installieren. Das Häkchen für Vorabversionen ist dafür nicht erforderlich. Alternativ die passende Anwendungs-BIN manuell hochladen. Der bisherige Wemos-Pin D6/GPIO12 bleibt Standard; Wetter und Sensoren sind nach der Migration zunächst ausgeschaltet.
+**Von 2.0.8:** Zuerst Einstellungen als JSON und eigene `.chaos`-Dateien sichern. Die passende 2.0.11-OTA-BIN aus dem Release manuell im OTA-Menü hochladen. Der separate GitHub-Updatekanal wird durch die Veröffentlichung dieses Releases nicht automatisch geändert. Der bisherige Wemos-Pin D6/GPIO12 bleibt Standard; Wetter und Sensoren sind nach der Migration zunächst ausgeschaltet.
 
 **Von 2.0.5 oder 2.0.7:** Einstellungen notieren und eigene `.chaos`-Dateien herunterladen. Die neue BIN über den bisherigen geschützten Web-Updater installieren. Gültige Uhreinstellungen und der vorhandene Admin-Zugang werden übernommen; das Admin-Passwort bleibt gleich.
 
@@ -161,15 +158,17 @@ Unter **Eigene Animationen** einen noch nicht eingerichteten Speicher bei Bedarf
 
 ## Einstellungen sichern und zurücksetzen
 
-**Einstellungen sichern** lädt ab 2.0.8 eine JSON-Datei herunter. Schema 2 ab 2.0.10 enthält zusätzlich Anzeigeoptionen und liest weiterhin alte Sicherungen. Netzwerk-/Admin-/MQTT-Zugangsdaten und der physische LED-Pin werden nicht exportiert. Eigene Animationen zusätzlich als `.chaos` herunterladen.
+**Einstellungen sichern** lädt ab 2.0.8 eine JSON-Datei herunter. Format 3 enthält zusätzlich Nachtabschaltung und MQTT-Helligkeitsfreigabe; Formate 1 und 2 bleiben importierbar. Alte Firmware kann Format 3 nicht importieren. Netzwerk-/Admin-/MQTT-Zugangsdaten und der physische LED-Pin werden nicht exportiert. Eigene Animationen zusätzlich als `.chaos` herunterladen.
 
-Beim Wiederherstellen zuerst die Vorschau prüfen und übernehmen. Das füllt die Formulare; erst **Einstellungen speichern** ändert die Uhr. Benötigte Animationsdateien müssen bereits hochgeladen sein. Ihre Zuordnung erfolgt über SHA-256, auch wenn sie auf anderen Upload-Plätzen liegen.
+Beim Wiederherstellen zuerst die Vorschau prüfen und übernehmen. Das füllt die Formulare; erst die Speichern-Buttons der jeweiligen Boxen ändern die Uhr. Helligkeit/Nachtmodus schreibt zwei getrennte Speicherbereiche und meldet Teilfehler. Benötigte Animationsdateien müssen bereits hochgeladen sein. Ihre Zuordnung erfolgt über SHA-256, auch wenn sie auf anderen Upload-Plätzen liegen.
 
 Ein bestätigter **Werksreset** löscht Uhreinstellungen, Admin-Zugang, Einrichtungs-Code, Heim-WLAN-Daten und eigene Animationen. Danach beginnt die Ersteinrichtung erneut.
 
 ## Teststand und Sicherheitsgrenzen
 
-**2.0.10:** beide Builds erfolgreich, vollständige Host-/GUI-Tests bestanden; beide ZIP-Quellstände isoliert erfolgreich gebaut. Die tatsächlichen BINs bestehen den produktiven OTA-Validator; manipulierte, gekürzte und für den anderen Chip bestimmte Images werden abgewiesen. Hardwareprüfung und realer MQTT-/Lasttest stehen aus. OTA-Dateireserve: etwa 416 KiB beim Wemos und 110 KiB beim ESP32. [Messwerte und Grenzen](docs/RELEASE_v2.0.10.md).
+**2.0.11:** beide Profile vollständig neu gebaut, vollständige Host-/GUI-Suite, tatsächliche OTA-Dateien und ESP32-Factory-Layout geprüft. Einzelheiten und Ressourcengrößen stehen in den [Release Notes](docs/RELEASE_v2.0.11.md). Die Freigabe als Stable ist keine zusätzliche Hardwarebestätigung.
+
+Wemos Beta.2: MQTT-Speichern, ioBroker IPv4/DNS, 30 Sekunden Stromtrennung mit erhaltenen WLAN-/MQTT-Daten, Wiederverbindung und Wetter bestätigt. Wemos Beta.3: vom Nutzer als auf Hardware getestet bestätigt. ESP32 Beta.4.2: WLAN/MQTT und Online/Offline bestätigt. Diese Rückmeldungen ersetzen keine vollständige Hardwareprüfung der finalen Firmware.
 
 Die nachfolgenden bestätigten Gerätetests beziehen sich ausdrücklich auf den vorherigen **2.0.8-Pre-release**:
 
@@ -197,30 +196,29 @@ Zusätzlich für den klassischen ESP32: `pio run -e esp32dev_public`.
 
 Festgelegte Wemos-Umgebung: ESP8266-Plattform **4.2.1**, Arduino-Core **3.1.2**; ESP32: Plattform **8.0.0**, Arduino-Core **3.3.12**. Gemeinsam FastLED **3.10.9**, WiFiManager **2.0.17**, espMqttClient **1.7.3** und ArduinoJson **7.4.3**; Transportbibliotheken stehen exakt gepinnt in `platformio.ini`. Geprüft mit PlatformIO Core **6.2.0**. Ein privater Secrets-Header ist nicht erforderlich. Ein normaler Build führt keinen Geräte-Upload aus.
 
-Die gebaute BIN liegt unter `.pio/build/d1_mini_public/firmware.bin`. Ein neues lokales Weitergabepaket lässt sich mit folgendem Befehl erstellen:
+Die gebauten Anwendungs-BINs liegen unter `.pio/build/d1_mini_public/firmware.bin` beziehungsweise `.pio/build/esp32dev_public/firmware.bin`. Diese ESP32-Datei ist kein vollständiges USB-Factory-Image. Der [Release v2.0.11](https://github.com/EntenPaule/ChaosUhr/releases/tag/v2.0.11) enthält die geprüften fertigen Dateien und Prüfsummen.
 
-```bash
-python3 scripts/package_public.py
-```
-
-Ausgabe: `dist/2.0.10/esp8266/`; für ESP32 `python3 scripts/package_esp32.py` und `dist/2.0.10/esp32/`. Das Skript packt BIN, vollständige öffentliche README, Dokumentation, passende Quellen, Beispiele, Prüfsummen und Lizenzen. Es führt Prüfungen auf persönliche Zugangsdaten durch und lädt selbst nichts hoch. Der Tag [`v2.0.10`](https://github.com/EntenPaule/ChaosUhr/tree/v2.0.10) hält den zum veröffentlichten Paket gehörenden Quellstand fest; die Projektübersicht auf dem Hauptbranch wird weiter gepflegt.
+Die historischen Paketierskripte für 2.0.10 und ältere Teststufen sind keine allgemeine Anweisung zum Packen neuer Releases. `scripts/package_stable_2_0_11.py` ist der lokale, reproduzierbare Verpackungsschritt für die finalen geprüften 2.0.11-Builds; er lädt selbst nichts hoch und überschreibt keine alten Pakete.
 
 Lokale Tests benötigen Python 3, Node.js, einen C++17-Compiler mit Address-/UndefinedBehaviorSanitizer und OpenSSL-Entwicklungsdateien / `libcrypto`:
 
 ```bash
-python3 tests/run_host_tests.py
+python3 tests/run_host_tests.py --esp32
 ```
 
 ### HTTP-API
 
-Die Weboberfläche verwendet dieselbe API. Alle normalen Routen verlangen die Admin-Anmeldung; schreibende Anfragen ab 2.0.8 zusätzlich `X-CSRF-Token` aus `GET /api/session`.
+Die Weboberfläche verwendet dieselbe API. Die statischen Haupt-/OTA-Seiten zeigen ohne Sitzung das Loginformular; Geräte-APIs verlangen eine gültige Cookie-Sitzung. Schreibende Anfragen benötigen `X-CSRF-Token` aus `GET /api/session`.
 
 | Route | Zweck |
 | --- | --- |
 | `GET /api/status` | Version, Uhreinstellungen, Zeit-, WLAN- und Speicherstatus |
 | `GET /api/effects` | Verfügbare eingebaute und eigene Animationen |
 | `GET /api/animations` | Upload-Plätze und Animationsspeicher |
-| `GET /api/session` | Sitzungstoken für schreibende Aufrufe |
+| `GET /api/login`, `POST /api/login`, `POST /api/logout` | Login-Challenge, explizite Anmeldung und serverseitige Abmeldung |
+| `GET /api/session` | Sitzungsstatus/CSRF ohne Verlängerung der Inaktivitätsfrist |
+| `GET /api/diagnostics` | Geschützte bereinigte Gerätehistorie |
+| `GET/POST /api/brightness`, `POST /api/brightness/release` | Helligkeitsrichtlinie, aktiver Status und explizite MQTT-Freigabe |
 | `POST /api/settings` | Einstellungen speichern, auch als Teiländerung |
 | `GET /api/mqtt` | MQTT-Konfiguration und Verbindungsstatus ohne Passwort |
 | `POST /api/mqtt` | Broker, Topics und Sensorplätze speichern |
@@ -230,7 +228,8 @@ Weitere Upload-Routen stehen in der [Animationsdokumentation](docs/ANIMATIONEN_F
 
 ## Dokumentation
 
-- [Neue Version 2.0.10: Teststand](docs/RELEASE_v2.0.10.md), [Upgrade](docs/UPGRADE_2_0_10.md), [MQTT](docs/MQTT_2_0_10.md) und [ESP32](docs/ESP32_FIRMWARE.md)
+- [Stable 2.0.11: Release Notes](docs/RELEASE_v2.0.11.md), [Installation](docs/FLASHANLEITUNG_2.0.11.md) und [bekannte Grenzen](docs/BEKANNTE_EINSCHRAENKUNGEN_2.0.11.md)
+- [Historische Version 2.0.10: Teststand](docs/RELEASE_v2.0.10.md), [Upgrade](docs/UPGRADE_2_0_10.md), [MQTT](docs/MQTT_2_0_10.md) und [ESP32](docs/ESP32_FIRMWARE.md)
 - [Unterschiede zu Michas Referenzsketch](docs/VERGLEICH_GITHUB.md)
 - [Einrichtung und Bedienung](docs/PUBLIC_FIRMWARE.md)
 - [Upgrade von 2.0.5, 2.0.7 und Michas Originalversion](docs/UPGRADE_2_0_8.md)

@@ -1,3 +1,5 @@
+> Archiv des früheren unnummerierten Entwicklungsstands. Für das veröffentlichte Stable 2.0.11 sind die [aktuellen Release Notes](RELEASE_v2.0.11.md) einschließlich Hardwaregrenzen und Buildwerten maßgeblich. Die folgenden alten Messwerte sind historische Belege.
+
 > Historischer unnummerierter 2.0.11-Teststand. Aktuell: [2.0.11-beta.1](BERICHT_2.0.11-beta.1.md); dessen Testumfang und ausschließliches Wemos-Paket sind maßgeblich. Kein offizielles 2.0.11-Release.
 
 # ChaosUhr 2.0.11 – Entwicklungsbericht, Sitzungen und Testpaket
