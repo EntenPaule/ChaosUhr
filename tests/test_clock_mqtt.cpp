@@ -26,5 +26,29 @@ int main(){
   fakeMillis=107000;clock.loop(true);client.connectionAccepted();clock.loop(true);
   config.enabled=0;clock.reconfigure();clock.loop(true);clock.loop(true);
   assert(clock.errorCode()==ErrorCode::None&&!clock.connected());
+  // Same real controller, now with command permission. No filesystem attached.
+  config.enabled=1;strcpy(config.base,"test-clock");clock.reconfigure();clock.setBrightnessControl(true);clock.loop(true);client.connectionAccepted();clock.loop(true);
+  assert(clock.brightnessActive()&&!clock.brightnessConflict());assert(!strcmp(clock.brightnessTopic(),"test-clock/brightness/set"));
+  auto message=[&](const char* value,size_t length=0){if(!length)length=strlen(value);client.messageCallback({},clock.brightnessTopic(),reinterpret_cast<const uint8_t*>(value),length,0,length);clock.loop(true);};
+  assert(client.subscriptions.back()=="test-clock/brightness/set");
+  message("50");assert(clock.brightnessValue().valid&&clock.brightnessValue().percent==50);
+  message("100");message("101");assert(clock.brightnessValue().percent==100);
+  message("0");assert(clock.brightnessValue().valid&&clock.brightnessValue().percent==0);
+  message("AUTO");assert(!clock.brightnessValue().valid);
+  message("5");client.failed(0);clock.loop(true);assert(clock.brightnessValue().percent==5);
+  fakeMillis+=16000;clock.loop(true);client.connectionAccepted();clock.loop(true);message("5");assert(clock.brightnessValue().percent==5);
+  client.publishFails=true;assert(!clock.releaseBrightness()&&clock.brightnessValue().valid);client.publishFails=false;
+  assert(clock.releaseBrightness()&&!clock.brightnessValue().valid&&client.lastPayload=="AUTO"&&client.lastRetain&&client.lastQos==1);
+  message("50");clock.setBrightnessControl(false);clock.loop(true);assert(!clock.brightnessValue().valid);message("100");assert(!clock.brightnessValue().valid);
+  clock.setBrightnessControl(true);clock.loop(true);message("50");
+  strcpy(config.base,"new-base");clock.reconfigure();assert(!clock.brightnessValue().valid);clock.loop(true);clock.loop(true);client.connectionAccepted();clock.loop(true);
+  strcpy(config.weatherTopic,"new-base/brightness/set");clock.reconfigure();clock.loop(true);clock.loop(true);assert(clock.brightnessConflict()&&!clock.brightnessActive());
+  assert(errorRegistry().last()==ErrorCode::MQTT_BRIGHTNESS_TOPIC);
+  client.connectionAccepted();clock.loop(true);
+  client.messageCallback({},config.weatherTopic,reinterpret_cast<const uint8_t*>("sunny"),5,0,5);clock.loop(true);assert(telemetry.condition.valid);
+  strcpy(config.weatherTopic,"house/weather");clock.reconfigure();clock.loop(true);clock.loop(true);client.connectionAccepted();clock.loop(true);
+  message("50");strcpy(config.host,"another-broker");clock.reconfigure();assert(!clock.brightnessValue().valid);
+  config.enabled=0;clock.loop(true);assert(!clock.brightnessValue().valid);
+  puts("PASS MQTT brightness: opt-in, retained-equivalent inbox, strict values, reconnect/hold, AUTO queue acceptance/failure, disabled/base/broker invalidation and collision preserves weather");
   puts("PASS actual ClockMqtt controller: transport callbacks, DNS/TCP/timeout/authorization/general failures, deadline, recovery, deduplicated subscriptions, packet/subscribe faults and deliberate disconnect without false error; fake transport only");
 }

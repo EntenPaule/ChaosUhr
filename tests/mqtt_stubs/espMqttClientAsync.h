@@ -45,8 +45,9 @@ class espMqttClientAsync {
   void disconnect(bool){connected_=false;disconnected_=true;disconnectCallback(espMqttClientTypes::DisconnectReason::USER_OK);}
   bool connected()const{return connected_;}bool disconnected()const{return disconnected_;}
   unsigned queueSize(){return 0;}
-  void publish(const char*,int,bool,const char*){++publishes;}
-  void subscribe(const char* topic,int){subscriptions.emplace_back(topic);}
+  bool publishFails=false;std::string lastTopic,lastPayload;int lastQos=0;bool lastRetain=false;
+  uint16_t publish(const char* topic,int qos,bool retain,const char* payload){if(publishFails)return 0;++publishes;lastTopic=topic;lastPayload=payload;lastQos=qos;lastRetain=retain;return 1;}
+  uint16_t subscribe(const char* topic,int){subscriptions.emplace_back(topic);return 1;}
   void connectionAccepted(){connected_=true;disconnected_=false;connectedCallback(false);}
   void failed(int8_t transport,uint8_t reason=7){if(transport)_clientAsync.client.error(_clientAsync.client.errorArg,&_clientAsync.client,transport);connected_=false;disconnected_=true;disconnectCallback(static_cast<espMqttClientTypes::DisconnectReason>(reason));}
   void packetFailed(){_onErrorCallback(0,espMqttClientTypes::Error::OUT_OF_MEMORY);}

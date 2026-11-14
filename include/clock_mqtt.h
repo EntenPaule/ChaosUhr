@@ -5,6 +5,7 @@
 #include "telemetry.h"
 #include "firmware_version.h"
 #include "mqtt_errors.h"
+#include "brightness_control.h"
 
 // The pinned client does not expose transport errors through DisconnectReason.
 // Observe the protected AsyncTCP transport without replacing its own callbacks.
@@ -26,7 +27,7 @@ class DiagnosedMqttClient:public espMqttClientAsync {
 
 class ClockMqtt {
  public:
-  ClockMqtt(MqttConfig& config,Telemetry& telemetry):config_(config),telemetry_(telemetry){
+  ClockMqtt(MqttConfig& config,Telemetry& telemetry,BrightnessOverride* brightness=nullptr):config_(config),telemetry_(telemetry),brightness_(brightness?*brightness:ownedBrightness_){
     client_.onConnect([this](bool){lock();connectedEvent_=true;unlock();});
     client_.observeTransport([this](MqttTransportCause cause){lock();transportCause_=cause;transportEvent_=true;unlock();});
     client_.onDisconnect([this](espMqttClientTypes::DisconnectReason reason){lock();lastReason_=static_cast<uint8_t>(reason);disconnectedEvent_=true;unlock();});
@@ -36,7 +37,24 @@ class ClockMqtt {
       lock();inbox_.receive(topic,data,len,index,total);unlock();
     });
   }
-  void reconfigure(){pending_=true;}
+  void reconfigure(){
+    if(!config_.enabled || strcmp(config_.host,active_.host) || config_.port!=active_.port || strcmp(config_.base,active_.base))brightness_.clear();
+    pending_=true;brightnessRefresh_=true;
+  }
+  void setBrightnessControl(bool enabled){
+    if(enabled!=brightnessRequested_){brightnessRequested_=enabled;brightnessRefresh_=true;}
+    if(!enabled || !config_.enabled)brightness_.clear();
+  }
+  bool brightnessActive()const{return brightnessRequested_ && config_.enabled && !pending_ && !brightnessConflict_ && brightnessTopic_[0];}
+  const BrightnessOverride& brightnessValue()const{return brightness_;}
+  bool brightnessConflict()const{return brightnessConflict_;}
+  const char* brightnessTopic()const{return brightnessTopic_;}
+  bool releaseBrightness(){
+    if(!brightnessActive() || !connected())return false;
+    // Return value proves local queue acceptance, not PUBACK/durable broker storage.
+    if(!client_.publish(brightnessTopic_,1,true,"AUTO"))return false;
+    brightness_.clear();return true;
+  }
   bool connected()const{return client_.connected();}
   uint8_t lastReason(){lock();const auto reason=lastReason_;unlock();return reason;}
   const char* base()const{return base_;}
@@ -59,6 +77,7 @@ class ClockMqtt {
     }
     if(packet)recordError(ErrorCode::MQTT_PACKET_MEMORY);
     if(subscription)recordError(ErrorCode::MQTT_SUBSCRIBE);
+    if(!config_.enabled || !brightnessRequested_)brightness_.clear();
     if(pending_){
       if(!client_.disconnected()){
         if(!disconnectStarted_){
@@ -69,7 +88,8 @@ class ClockMqtt {
         return;
       }
       client_.clearQueue(true);
-      active_=config_;telemetry_.clear();lock();inbox_.clear();unlock();
+      if(!config_.enabled || strcmp(config_.host,active_.host) || config_.port!=active_.port || strcmp(config_.base,active_.base))brightness_.clear();
+      active_=config_;brightnessRefresh_=true;telemetry_.clear();lock();inbox_.clear();unlock();
       snprintf(id_,sizeof id_,"chaosuhr-%06x",static_cast<unsigned>(deviceIdentifier()));
       if(active_.base[0])snprintf(base_,sizeof base_,"%s",active_.base);else snprintf(base_,sizeof base_,"chaosuhr/%06x",static_cast<unsigned>(deviceIdentifier()));
       snprintf(availability_,sizeof availability_,"%s/availability",base_);
@@ -78,6 +98,14 @@ class ClockMqtt {
       client_.setWill(availability_,0,true,"offline");
       pending_=disconnectStarted_=false;lock();connectedEvent_=false;unlock();lastAttempt_=now-15000;
       error_=ErrorCode::None;established_=false;deadlineReported_=false;
+    }
+    if(brightnessRefresh_){
+      const bool previousConflict=brightnessConflict_;
+      snprintf(brightnessTopic_,sizeof brightnessTopic_,"%s/brightness/set",base_);
+      brightnessConflict_=!strcmp(brightnessTopic_,active_.weatherTopic) || !strcmp(brightnessTopic_,active_.temperatureTopic);
+      for(const auto& sensor:active_.sensors)brightnessConflict_=brightnessConflict_ || !strcmp(brightnessTopic_,sensor.topic);
+      if(brightnessConflict_){brightness_.clear();if(brightnessRequested_ && !previousConflict)recordError(ErrorCode::MQTT_BRIGHTNESS_TOPIC);}
+      brightnessRefresh_=false;brightnessSubscribe_=brightnessActive();
     }
     if(!active_.enabled || !networkReady){if(!client_.disconnected())client_.disconnect(true);return;}
     if(client_.disconnected() && static_cast<uint32_t>(now-lastAttempt_)>=15000){
@@ -94,11 +122,18 @@ class ClockMqtt {
         bool repeated=false;for(uint8_t j=0;j<i;++j)if(!strcmp(topic,active_.sensors[j].topic))repeated=true;
         if(!repeated)client_.subscribe(topic,0);
       }
+      brightnessSubscribe_=brightnessActive();
       if(active_.discovery)publishDiscovery();
       lastPublish_=now-30000;
     }
+    if(brightnessSubscribe_ && connected()){
+      if(client_.subscribe(brightnessTopic_,0))brightnessSubscribe_=false;
+    }
     MqttInbox::Frame frame;
     for(uint8_t i=0;i<6;++i){lock();const bool read=inbox_.pop(frame);unlock();if(!read)break;
+      if(brightnessActive() && !strcmp(frame.topic,brightnessTopic_)){brightness_.receive(frame.payload,frame.size);continue;}
+      // Ignore a previously subscribed control topic after user deactivation.
+      if(!brightnessConflict_ && !strcmp(frame.topic,brightnessTopic_))continue;
       if(!telemetry_.receive(active_,frame.topic,frame.payload,frame.size,now))recordError(ErrorCode::MQTT_PAYLOAD);
     }
     if(connected() && static_cast<uint32_t>(now-lastPublish_)>=30000 && client_.queueSize()<4){
@@ -109,6 +144,9 @@ class ClockMqtt {
   }
  private:
   MqttConfig& config_;Telemetry& telemetry_;MqttConfig active_=defaultMqttConfig();
+  BrightnessOverride ownedBrightness_;BrightnessOverride& brightness_;
+  char brightnessTopic_[96]={};
+  bool brightnessRequested_=false,brightnessConflict_=false,brightnessRefresh_=true,brightnessSubscribe_=false;
   DiagnosedMqttClient client_;MqttInbox inbox_;
   char id_[32]={},base_[64]={},availability_[96]={};
   uint32_t lastAttempt_=0,lastPublish_=0,disconnectAt_=0;

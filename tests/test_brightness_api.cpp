@@ -13,7 +13,11 @@ static struct {bool validMutationToken(){return csrf;}} publicAccess;
 static MemoryAnimationFS filesystem;
 static BrightnessPolicy brightnessPolicy;static BrightnessOverride brightnessRemote;
 static BrightnessStorage<MemoryAnimationFS,AnimationFile> brightnessStorage(filesystem);
-static struct {bool connected(){return false;}} clockMqtt;
+static struct {
+ bool allowRelease=false;bool connected(){return false;}bool brightnessActive(){return false;}bool brightnessConflict(){return false;}
+ const char* brightnessTopic(){return "fixture/brightness/set";}void setBrightnessControl(bool){}
+ bool releaseBrightness(){if(!allowRelease)return false;brightnessRemote.clear();return true;}
+} clockMqtt;
 static BrightnessDecision currentBrightness(){return decideBrightness(false,brightnessPolicy,brightnessRemote,25,6);}
 static struct {
  std::vector<std::pair<String,String>> fields;int status=0;String body;
@@ -32,6 +36,8 @@ int main(){
  server.fields={{"nightLedsOff","0"},{"mqttBrightness","0"}};filesystem.renameFails=true;
  brightnessSaveApi();assert(server.status==507&&brightnessPolicy.nightOff);filesystem.renameFails=false;
  assert(brightnessRemote.receive("0",1));brightnessSaveApi();assert(server.status==200&&!brightnessRemote.valid);
+ server.fields.clear();assert(brightnessRemote.receive("50",2));brightnessReleaseApi();assert(server.status==503&&brightnessRemote.valid);
+ clockMqtt.allowRelease=true;brightnessReleaseApi();assert(server.status==202&&!brightnessRemote.valid&&server.body.find("false")!=String::npos);
  brightnessStatusApi();assert(server.status==200&&server.body.find("GUI")!=String::npos);
  puts("PASS actual brightness HTTP API: auth/CSRF, duplicate/invalid fields, atomic failed save, changed-only writes and safe status");
 }

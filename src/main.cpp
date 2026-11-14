@@ -105,7 +105,7 @@ static Telemetry telemetry;
 static BrightnessPolicy brightnessPolicy;
 static BrightnessOverride brightnessRemote;
 static BrightnessStorage<decltype(LittleFS),fs::File> brightnessStorage(LittleFS);
-static ClockMqtt clockMqtt(mqttConfig,telemetry);
+static ClockMqtt clockMqtt(mqttConfig,telemetry,&brightnessRemote);
 static MqttConfigStorage<decltype(LittleFS),fs::File> mqttStorage(LittleFS);
 static IpAnnouncement ipAnnouncement;
 static uint8_t currentSensor=SENSOR_SLOTS-1;
@@ -604,11 +604,19 @@ function applyBrightnessPolicy(data){
  document.getElementById('nightLedsOff').checked=data.nightLedsOff===true;
  document.getElementById('mqttBrightness').checked=data.mqttBrightness===true;
  brightnessFormChanged();
+ showBrightnessStatus(data);
+}
+function showBrightnessStatus(data){
  document.getElementById('brightnessState').textContent=`Wirksam: ${data.source||'GUI'} · ${data.percent??'?'} % · MQTT-Vorgabe: ${data.mqttValue??'keine'}`;
  document.getElementById('brightnessTopic').textContent=data.mqttBrightness?`Befehlstopic: ${data.topic||'nach MQTT-Konfiguration verfügbar'}${data.conflict?' · Konflikt: Steuerung gesperrt':''}`:'';
  document.getElementById('releaseBrightness').disabled=!data.mqttActive||!data.connected;
 }
 async function loadBrightness(){applyBrightnessPolicy(await readJson('/api/brightness'))}
+async function refreshBrightnessStatus(){
+ if(chaosAdmin.active){try{showBrightnessStatus(await readJson('/api/brightness'))}catch(error){document.getElementById('brightnessMessage').textContent=chaosMessage(error)}}
+ setTimeout(refreshBrightnessStatus,5000);
+}
+setTimeout(refreshBrightnessStatus,5000);
 async function saveBrightnessPolicy(){
  const message=document.getElementById('brightnessMessage');
  try{await changeAnimation('/api/brightness',new URLSearchParams({nightLedsOff:document.getElementById('nightLedsOff').checked?'1':'0',mqttBrightness:document.getElementById('mqttBrightness').checked?'1':'0'}));await loadBrightness();message.textContent='Helligkeitsrichtlinie gespeichert.'}
@@ -1182,6 +1190,7 @@ void setup(){
   server.on("/api/status",HTTP_GET,statusApi);
   server.on("/api/brightness",HTTP_GET,brightnessStatusApi);
   server.on("/api/brightness",HTTP_POST,brightnessSaveApi);
+  server.on("/api/brightness/release",HTTP_POST,brightnessReleaseApi);
   server.on("/api/diagnostics",HTTP_GET,diagnosticsApi);
   server.onNotFound([](){sendError(server,404,ErrorCode::HTTP_NOT_FOUND);});
   server.on("/errors.js",HTTP_GET,[](){CLOCK_PAGE(server,"application/javascript; charset=utf-8",ERROR_JS);});
@@ -1229,6 +1238,7 @@ void loop(){
 #endif
   serviceNetwork();
   uint32_t now=millis();
+  clockMqtt.setBrightnessControl(brightnessPolicy.mqtt);
   clockMqtt.loop(WiFi.status()==WL_CONNECTED && publicAccess.ready() && !publicAccess.pending());
   if(scene.due(now,cfg.mode,cfg.duration) || (cfg.mode==0 && !(availableScenePages()&(1<<scene.page)))) nextScene();
   uint16_t interval=(isLegacyEffect(activeEffect()) || activeEffect()>EFFECT_COUNT)?20:map(cfg.speed,1,100,150,25);
