@@ -176,3 +176,6 @@ HTTP-Status und ChaosUhr-Code sind getrennte Angaben. Meldungen enthalten aussch
 | CFG-208 | CFG | Einstellungssicherung größer als 8 KiB | Die ausgewählte Sicherungsdatei überschreitet die feste Importgrenze. | Eine gültige Sicherung mit höchstens 8 KiB auswählen. |
 | CFG-209 | CFG | Einstellungssicherung enthält kein gültiges JSON | Die ausgewählte Datei lässt sich nicht als JSON lesen. | Originale unveränderte Sicherungsdatei verwenden. |
 | CFG-210 | CFG | Einstellungssicherung konnte nicht gelesen werden | Der Browser konnte den Inhalt der lokalen Datei nicht lesen. | Dateizugriff prüfen und Datei erneut auswählen. |
+| FS-026 | FS | Helligkeitsrichtlinie nicht lesbar | Format oder Integritätsprüfung der separaten Richtliniendatei ist ungültig. | Standardwerte prüfen und Richtlinie ausdrücklich neu speichern; nicht formatieren. |
+| MQTT-023 | MQTT | Helligkeitstopic kollidiert | Das Befehlstopic ist bereits als Wetter- oder Sensortopic konfiguriert. | Topic-Konflikt beheben; Helligkeitssteuerung ist bis dahin gesperrt. |
+| MQTT-024 | MQTT | MQTT-Rückgabe nicht übermittelt | Keine aktive Verbindung oder die Bibliothek hat retained AUTO nicht angenommen. | Verbindung prüfen und erneut versuchen; alte Vorgabe bleibt aktiv. |
