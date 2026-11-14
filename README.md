@@ -1,6 +1,6 @@
 # ChaosUhr 2.0
 
-**Interne Entwicklung: 2.0.11-beta.5.2 für Wemos und klassischen ESP32.** Stille normale Loginprüfung und kurze Aktionsmeldungen mit zentralen Diagnosedetails. Sicherheitsereignisse bleiben erhalten. Keine Veröffentlichung oder Hardwarefreigabe. [Änderungen und Testanleitung](docs/LOGIN_DIAGNOSE_BETA_5_2.md).
+**Interne Entwicklung: 2.0.11-beta.5.3 für Wemos und klassischen ESP32.** Eigene Boxen für Anzeige, Helligkeit & Nachtmodus und Matrixverdrahtung. Getrennte Speicherzugriffe mit eindeutigen Teilfehlermeldungen. Keine Veröffentlichung oder Hardwarefreigabe. [Änderungen und Testanleitung](docs/GUI_BOXEN_BETA_5_3.md).
 
 **Gemeinsamer Pre-Release: [2.0.11-beta.3](https://github.com/EntenPaule/ChaosUhr/releases/tag/v2.0.11-beta.3).** Wemos D1 mini und klassischer ESP32 verwenden denselben Quellstand. Die bereits verteilte **Wemos-BIN ist unverändert und auf echter Hardware bestätigt**. ESP32 ist frisch gebaut/offline validiert; **Hardwaretests einschließlich Setup-AP und WLAN-Persistenz nach Stromtrennung stehen aus**. ESP32-OTA-Reserve nur 1008 Byte.
 

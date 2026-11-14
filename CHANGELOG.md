@@ -1,3 +1,11 @@
+# 2.0.11-beta.5.3 – interne GUI-Aufteilung
+
+- Eigene Box Helligkeit & Nachtmodus, gemeinsamer Speichern-Button mit ehrlicher EEPROM-/LittleFS-Koordination.
+- Matrixverdrahtung als eigene Box mit eigenem Speichern unterhalb häufig verwendeter Einstellungen.
+- Feldweise Speicherung verhindert unbeabsichtigtes Mitspeichern anderer Boxen.
+- Wirksamer Status bleibt gerätebasiert, Entwürfe und Teilfehlerhinweise bleiben bei Statusabfragen erhalten.
+- Keine Änderungen an Steuerlogik, APIs, Speicherlayouts oder Sicherheitsprüfungen.
+
 # 2.0.11-beta.5.2 – interne Login-/Diagnosekorrektur
 
 - Normale Sitzungsabfragen erzeugen keine neuen AUTH-001/020/021-Ereignisse.
