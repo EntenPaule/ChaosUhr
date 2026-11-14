@@ -31,7 +31,7 @@ function environment(failCatalog=false,uploads=false){
     if(route.startsWith('/api/animations/')){animationPosts.push({route,options});return {ok:true,json:async()=>({ok:true,id:31})};}
     if(route==='/api/settings'){
       posted=options;++posts;
-      return {ok:!failSave,text:async()=>'Speicherfehler'};
+      return {ok:!failSave,status:failSave?500:200,json:async()=>({ok:!failSave})};
     }
     return {ok:!(failCatalog && route==='/api/effects'),status:500,json:async()=>route==='/api/effects'?(uploads?[...effects,...uploadedEffects]:effects):(uploads?{...settings,animationUploads:true,autoEffects:0,autoUploads:129}:settings)};
   }};

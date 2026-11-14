@@ -384,7 +384,7 @@ const char INDEX_HTML[] PROGMEM=R"HTML(
 <style>
 :root{color-scheme:dark;font-family:system-ui,Arial}body{background:#0b1020;color:#e9f0ff;max-width:650px;margin:25px auto;padding:0 16px}
 article{background:#171f35;border:1px solid #34415f;border-radius:18px;padding:22px;margin:18px 0}h1{font-size:28px;margin:8px 0}h2{font-size:18px}
-label{display:block;margin:13px 0 5px}select,input,button{font:inherit}input[type=range],select{width:100%}select{background:#0c1426;color:white;border:1px solid #445575;border-radius:8px;padding:10px}
+label{display:block;margin:13px 0 5px}select,input,button{font:inherit}input[type=range],select{width:100%}input:disabled,select:disabled{opacity:.45;cursor:not-allowed}button:disabled{opacity:.5;cursor:not-allowed}pre{overflow-wrap:anywhere}.flex>label{min-width:100px}select{background:#0c1426;color:white;border:1px solid #445575;border-radius:8px;padding:10px}
 button,a.btn{background:#53b9ff;color:#081221;border:0;border-radius:10px;padding:12px 16px;cursor:pointer;display:inline-block;text-decoration:none;font-weight:700}
 small{color:#abb9d0}output{float:right;color:#8bd5ff}.flex{display:flex;gap:10px;flex-wrap:wrap}.status{color:#92e4ae}
 .auto-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:4px;max-height:330px;overflow:auto;margin:12px 0}.auto-list label{display:flex;align-items:center;gap:8px;margin:0;padding:7px}.auto-list input{flex-shrink:0}summary{cursor:pointer;margin:12px 0}.auto-actions button{padding:8px 12px;font-size:14px}
@@ -394,7 +394,6 @@ small{color:#abb9d0}output{float:right;color:#8bd5ff}.flex{display:flex;gap:10px
 <article><h2>Anzeige & Animationen</h2>
 <label>Modus</label><select id="mode"><option value="0">Automatik: gewählte Anzeigen</option><option value="1">Nur Uhrzeit</option><option value="2">Gewählte Animation</option></select>
 <label>Einzelanimation (Modus „Gewählte Animation“)</label><select id="effect"><option value="">Lade Animationen …</option></select>
-<label>Helligkeit <output id="bVal"></output></label><input type="range" id="brightness" min="1" max="100" oninput="bVal.value=this.value+' %'">
 <label>Tempo <output id="sVal"></output></label><input type="range" id="speed" min="1" max="100" oninput="sVal.value=this.value+' %'">
 <label>Dauer je Szene <output id="dVal"></output></label><input type="range" id="duration" min="5" max="120" step="5" oninput="dVal.value=this.value+' s'">
 <h2>Automatik</h2>
@@ -403,7 +402,7 @@ small{color:#abb9d0}output{float:right;color:#8bd5ff}.flex{display:flex;gap:10px
 <p><small>Die Automatik läuft in dieser Reihenfolge: Uhrzeit → Wetter → ein Sensorwert → eine Animation → von vorn. Abgewählte Anzeigen werden übersprungen. Jede verfügbare Szene läuft für die eingestellte „Dauer je Szene“; fällt ihre Datenverfügbarkeit weg, wird vorzeitig weitergeschaltet. Beim nächsten Sensordurchlauf folgt der nächste aktuelle Sensor, beim nächsten Animationsdurchlauf die nächste gewählte Animation.</small></p>
 <p><small>Wetter und Sensorwerte erscheinen nur bei aktiviertem MQTT und aktuellen Daten. Fehlende oder veraltete Daten werden übersprungen; bleibt keine Anzeige verfügbar, erscheint die Uhr. Mit nur Uhr und Animationen ergibt sich Uhr → Animation → Uhr. Die Animationsauswahl läuft der Reihe nach oder in zufälligen Runden, jeweils jede einmal.</small></p>
 <p><small>Der Nachtmodus dimmt alle Anzeigen auf die Nachthelligkeit. Die Automatik und Wetteranzeige laufen dabei weiter.</small></p>
-<p><strong>Dein aktueller Anzeigeablauf</strong><br><span id="displayFlow" role="status"></span><br><small>Vorschau deiner Auswahl; Änderungen mit „Speichern“ übernehmen. Wetter/Sensoren werden nur mit aktuellen MQTT-Daten eingeblendet. Dies ist keine Live-Anzeige der gerade laufenden Szene.</small></p>
+<p><strong>Dein aktueller Anzeigeablauf</strong><br><span id="displayFlow" role="status"></span><br><small>Vorschau deiner Auswahl; Änderungen mit „Anzeige &amp; Animationen speichern“ übernehmen. Wetter/Sensoren werden nur mit aktuellen MQTT-Daten eingeblendet. Dies ist keine Live-Anzeige der gerade laufenden Szene.</small></p>
 <label for="autoOrder">Reihenfolge</label><select id="autoOrder"><option value="0">Zufällig (jede einmal pro Runde)</option><option value="1">Der Reihe nach</option></select>
 <details open><summary>Animationen für die Automatik auswählen</summary>
 <div class="flex auto-actions"><button type="button" onclick="selectAutomatic(true)">Alle auswählen</button><button type="button" onclick="selectAutomatic(false)">Auswahl leeren</button></div>
@@ -413,22 +412,19 @@ small{color:#abb9d0}output{float:right;color:#8bd5ff}.flex{display:flex;gap:10px
 <label><input id="secondsBar" type="checkbox" checked> Sekundenleiste unten anzeigen</label>
 <p><small>Bei sehr geringer Helligkeit kann die Sekundenleiste kaum oder nicht sichtbar sein. Dies gilt auch im Nachtmodus.</small></p>
 <label for="weekdayStyle">Wochentag</label><select id="weekdayStyle"><option value="0">Ausgeschrieben: Montag, Dienstag …</option><option value="1">Kurzform: mo, di, mi, do, fr, sa, so</option></select>
-<h2>Matrixverdrahtung</h2>
-<label for="ledPin">LED-Datenpin</label><select id="ledPin"></select>
-<p><small>Passend zur tatsächlichen Verkabelung wählen. Eine Pin-Änderung startet die Uhr nach dem Speichern neu.</small></p>
-<p><small>Vorsicht: Diese Einstellungen nur aendern, wenn die Anzeige gespiegelt oder verdreht erscheint.</small></p>
-<label>Start-Ecke</label><select id="corner"><option value="0">Oben links</option><option value="1">Oben rechts (Standard)</option><option value="2">Unten links</option><option value="3">Unten rechts</option></select>
-<label>Verlauf</label><select id="vertical"><option value="0">Zeilenweise (Standard)</option><option value="1">Spaltenweise</option></select>
-<label>LED-Muster</label><select id="zigzag"><option value="1">Zickzack (Standard)</option><option value="0">Gleichgerichtet</option></select>
-<h2>Nachtmodus</h2><label><input id="nightOn" type="checkbox"> Aktiv</label>
+<button id="saveButton" type="button" onclick="save()" disabled>Anzeige &amp; Animationen speichern</button> <span id="msg" role="status"></span></article>
+<article id="brightnessPanel"><h2>Helligkeit &amp; Nachtmodus</h2>
+<label>Taghelligkeit <output id="bVal"></output></label><input type="range" id="brightness" min="1" max="100" oninput="bVal.value=this.value+' %'">
+<h3>Nachtmodus</h3><label><input id="nightOn" type="checkbox" onchange="brightnessFormChanged()"> Nachtmodus aktivieren</label>
 <div class="flex"><label>Beginn (Stunde)<br><input id="nightFrom" type="number" min="0" max="23" style="width:75px"></label><label>Ende (Stunde)<br><input id="nightUntil" type="number" min="0" max="23" style="width:75px"></label></div>
 <label>Nachthelligkeit <output id="nVal"></output></label><input type="range" id="nightBrightness" min="1" max="100" oninput="nVal.value=this.value+' %'">
 <label><input id="nightLedsOff" type="checkbox" onchange="brightnessFormChanged()"> LEDs im Nachtmodus vollständig ausschalten</label>
 <label><input id="mqttBrightness" type="checkbox"> LED-Helligkeit über MQTT steuern</label>
-<button type="button" onclick="saveBrightnessPolicy()">Helligkeitsrichtlinie speichern</button>
-<p id="brightnessState" role="status"></p><p id="brightnessTopic"></p>
+<p><small>Taghelligkeit und Nachtzeiten werden zuerst gespeichert, danach die beiden Checkboxen zur Nachtabschaltung und MQTT-Steuerung. Die Speicherbereiche werden getrennt geschrieben; ein Teilfehler wird ausdrücklich angezeigt.</small></p>
+<button id="saveBrightnessButton" type="button" onclick="saveBrightnessPolicy()" disabled>Helligkeit &amp; Nachtmodus speichern</button>
+<p><small id="nightHint"></small></p><p id="brightnessState" role="status"></p><p id="brightnessTopic"></p><p id="brightnessHealth" role="status"></p>
 <button id="releaseBrightness" type="button" onclick="releaseBrightness()">MQTT-Vorgabe aufheben</button><p id="brightnessMessage" role="status"></p>
-<button id="saveButton" onclick="save()" disabled>Einstellungen speichern</button> <span id="msg"></span></article>
+</article>
 <article id="uploadPanel" hidden><h2>Eigene Animationen / Speicher</h2>
 <p>Bis zu acht <code>.chaos</code>-Dateien mit je 24 KiB, 20×15 Pixeln, bis zu 16 Farben und 64 Bildern. Nach dem Upload oben für die Automatik oder als Einzelanimation auswählen.</p>
 <p id="animationStorage"></p>
@@ -457,6 +453,14 @@ small{color:#abb9d0}output{float:right;color:#8bd5ff}.flex{display:flex;gap:10px
 <p><small>Sensoren akzeptieren Zahlen, kurze Texte oder JSON mit value, val oder state. Wetter/Sensoren anschließend oben als Anzeigeart auswählen. Der lokale MQTT-Zugang verwendet kein TLS.</small></p>
 <button type="button" onclick="saveMqtt()">MQTT speichern</button> <button type="button" onclick="loadMqtt()">Status aktualisieren</button>
 <p id="mqttMessage" role="status"></p></article>
+<article id="hardwarePanel"><h2>Matrixverdrahtung</h2>
+<label for="ledPin">LED-Datenpin</label><select id="ledPin"></select>
+<p><small>Passend zur tatsächlichen Verkabelung wählen. Eine Pin-Änderung startet die Uhr nach dem Speichern neu.</small></p>
+<p><small>Vorsicht: Diese Einstellungen nur aendern, wenn die Anzeige gespiegelt oder verdreht erscheint.</small></p>
+<label>Start-Ecke</label><select id="corner"><option value="0">Oben links</option><option value="1">Oben rechts (Standard)</option><option value="2">Unten links</option><option value="3">Unten rechts</option></select>
+<label>Verlauf</label><select id="vertical"><option value="0">Zeilenweise (Standard)</option><option value="1">Spaltenweise</option></select>
+<label>LED-Muster</label><select id="zigzag"><option value="1">Zickzack (Standard)</option><option value="0">Gleichgerichtet</option></select>
+<button id="saveHardwareButton" type="button" onclick="saveHardware()" disabled>Matrixverdrahtung speichern</button><p id="hardwareMessage" role="status"></p></article>
 <article><h2>Diagnose</h2><p>Letzter Fehler und begrenzter RAM-Verlauf. Keine Zugangsdaten, Tokens, Topics oder Messwerte enthalten.</p><button type="button" onclick="loadDiagnostics()">Supportdiagnose laden</button><p id="diagnosticMessage" role="status"></p><textarea id="supportDiagnostics" rows="12" readonly style="width:100%" aria-label="Bereinigte Supportdiagnose"></textarea><h3>Browserdiagnose</h3><pre id="browserDiagnostics" style="white-space:pre-wrap">Keine Browserfehler aufgezeichnet.</pre></article>
 <article><h2>Einstellungen sichern</h2><p>Speichere deine Uhreinstellungen vor einem Update. Zugangsdaten, MQTT-Konfiguration, LED-Datenpin und Animationsdateien werden nicht exportiert. Format 3 enthält auch die Helligkeitsrichtlinie; ältere Firmware benötigt ihr bisheriges Backupformat.</p>
 <button type="button" onclick="exportSettings()">Sicherung herunterladen</button>
@@ -468,10 +472,15 @@ small{color:#abb9d0}output{float:right;color:#8bd5ff}.flex{display:flex;gap:10px
 R"HTML(<article><h2>Werkseinstellungen</h2><p>Alle Uhr-Einstellungen, eigene Animationen, der Admin-Zugang und die gespeicherten WLAN-Daten werden gelöscht. Danach beginnt die Ersteinrichtung erneut.</p><label><input id="resetConfirm" type="checkbox" onchange="document.getElementById('resetButton').disabled=!this.checked"> Ich möchte alle Einstellungen, Uploads und Zugangsdaten löschen.</label><button id="resetButton" onclick="factoryReset()" disabled>Auf Werkseinstellungen zurücksetzen</button><p id="resetMessage" role="status"></p></article>)HTML"
 #endif
 R"HTML(
-</main><script src="/errors.js?v=2.0.11-beta.5.2" onerror="document.addEventListener(&#x27;DOMContentLoaded&#x27;,()=&gt;{document.body.textContent=&#x27;Oberfläche konnte nicht geladen werden. Bitte Seite neu laden.&#x27;;const section=document.createElement(&#x27;section&#x27;);const title=document.createElement(&#x27;h2&#x27;);title.textContent=&#x27;Diagnose&#x27;;const text=document.createElement(&#x27;pre&#x27;);text.style.whiteSpace=&#x27;pre-wrap&#x27;;text.textContent=&quot;Fehler HTTP-018\nDiagnoseskript konnte nicht geladen werden\nDer Browser konnte das gemeinsame lokale Skript nicht laden; die genauere Ursache ist nicht erkennbar.\nMaßnahmen: Uhradresse und Netzwerk prüfen und Seite neu laden.&quot;;section.append(title,text);document.body.append(section)})"></script><script>
+</main><script src="/errors.js?v=2.0.11-beta.5.3" onerror="document.addEventListener(&#x27;DOMContentLoaded&#x27;,()=&gt;{document.body.textContent=&#x27;Oberfläche konnte nicht geladen werden. Bitte Seite neu laden.&#x27;;const section=document.createElement(&#x27;section&#x27;);const title=document.createElement(&#x27;h2&#x27;);title.textContent=&#x27;Diagnose&#x27;;const text=document.createElement(&#x27;pre&#x27;);text.style.whiteSpace=&#x27;pre-wrap&#x27;;text.textContent=&quot;Fehler HTTP-018\nDiagnoseskript konnte nicht geladen werden\nDer Browser konnte das gemeinsame lokale Skript nicht laden; die genauere Ursache ist nicht erkennbar.\nMaßnahmen: Uhradresse und Netzwerk prüfen und Seite neu laden.&quot;;section.append(title,text);document.body.append(section)})"></script><script>
 const ids=['mode','effect','brightness','speed','duration','nightOn','nightFrom','nightUntil','nightBrightness','corner','vertical','zigzag','autoOrder'];
 let automaticChoices=[];
 let effectChoices=[],pendingImport=null;
+let settingsBusy=false,settingsLoaded=false,brightnessLoaded=false;
+const brightnessKeys=['brightness','nightOn','nightFrom','nightUntil','nightBrightness'];
+const hardwareKeys=['ledPin','corner','vertical','zigzag'];
+function settingsButtons(){for(const id of ['saveButton','saveHardwareButton'])document.getElementById(id).disabled=settingsBusy||!settingsLoaded;document.getElementById('saveBrightnessButton').disabled=settingsBusy||!settingsLoaded||!brightnessLoaded;}
+function inputValues(keys){return Object.fromEntries(keys.map(key=>{const el=document.getElementById(key);return [key,['nightOn',...optionFlags].includes(key)?(el.checked?1:0):Number(el.value)]}))}
 const optionFlags=['secondsBar','showClock','showAnimations','showWeather','showSensors'];
 const optionIds=['ledPin','weekdayStyle',...optionFlags];
 let currentOptions={ledPin:12,weekdayStyle:0,secondsBar:1,showClock:1,showAnimations:1,showWeather:0,showSensors:0};
@@ -516,7 +525,7 @@ function buildAutomaticChoices(effects,mask,uploads=0){
 }
 async function readJson(path){const r=await chaosFetch(path,{cache:'no-store'});return chaosJson(r)}
 async function load(){
-  document.getElementById('saveButton').disabled=true;
+  settingsLoaded=false;settingsButtons();
   try{
     const [d,effects]=await Promise.all([readJson('/api/status'),readJson('/api/effects')]);
     effectChoices=effects;
@@ -537,32 +546,40 @@ async function load(){
     document.getElementById('securityStatus').textContent=d.credentialsMigrationPending?'Admin-Zugang wird noch im alten Format gespeichert. Richte den Animationsspeicher ein, um die Passwortspeicherung sicher zu migrieren. Dein bisheriges Passwort bleibt gültig.':'Admin-Passwort wird als gesalzener Hash gespeichert. Die lokale Oberfläche verwendet weiterhin HTTP.';
     if(d.animationUploads)showAnimationStorage(await readJson('/api/animations'));
     bVal.value=d.brightness+' %';sVal.value=d.speed+' %';dVal.value=d.duration+' s';nVal.value=d.nightBrightness+' %';updateDisplayFlow();
-    document.getElementById('saveButton').disabled=false;
+    settingsLoaded=true;settingsButtons();
     document.getElementById('mqttPanel').hidden=!d.mqttAvailable;
     if(d.mqttAvailable)await loadMqtt();
     updateDisplayFlow();
     await loadBrightness();
   }catch(e){document.getElementById('status').textContent=chaosMessage(e)}
 }
+async function postSettings(values){
+ const {token}=await readJson('/api/session');
+ const response=await chaosFetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRF-Token':token},body:new URLSearchParams(values)});
+ return chaosJson(response);
+}
 async function save(){
-  try{
-    const d={};ids.forEach(k=>{const e=document.getElementById(k);d[k]=e.type==='checkbox'?(e.checked?1:0):Number(e.value)});
-    d.autoEffects=automaticMask();
-    d.autoUploads=automaticUploadMask();
-    Object.assign(d,formOptions());
-    if(!d.showClock&&!d.showAnimations&&!d.showWeather&&!d.showSensors)throw chaosFailure('CFG_DISPLAY');
-    if(!d.autoEffects&&!d.autoUploads){
-      if(d.showAnimations)throw chaosFailure('CFG_ANIMATION_SELECTION');
-      Object.assign(d,savedMasks);
-    }
-    if(d.ledPin!==currentOptions.ledPin&&!confirm('LED-Datenpin ändern und die Uhr nach dem Speichern neu starten?'))return;
-    const {token}=await readJson('/api/session');
-    const r=await chaosFetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRF-Token':token},body:new URLSearchParams(d)});
-    await chaosCheck(r);
-    const result=typeof r.json==='function'?await chaosJson(r):{};
-    msg.textContent=result.restarting?'Gespeichert – die Uhr startet mit dem neuen LED-Pin neu.':'✔ gespeichert';
-    if(!result.restarting){currentOptions=formOptions();savedMasks={autoEffects:d.autoEffects,autoUploads:d.autoUploads};setTimeout(()=>msg.textContent='',3000)}
-  }catch(e){msg.textContent=chaosMessage(e)}
+ if(settingsBusy)return;settingsBusy=true;settingsButtons();
+ try{
+  const d=inputValues(['mode','effect','speed','duration','autoOrder','weekdayStyle',...optionFlags]);
+  d.autoEffects=automaticMask();d.autoUploads=automaticUploadMask();
+  if(!d.showClock&&!d.showAnimations&&!d.showWeather&&!d.showSensors)throw chaosFailure('CFG_DISPLAY');
+  if(!d.autoEffects&&!d.autoUploads){if(d.showAnimations)throw chaosFailure('CFG_ANIMATION_SELECTION');Object.assign(d,savedMasks)}
+  await postSettings(d);
+  savedMasks={autoEffects:d.autoEffects,autoUploads:d.autoUploads};
+  for(const key of ['weekdayStyle',...optionFlags])currentOptions[key]=d[key];
+  msg.textContent='Anzeige & Animationen gespeichert.';
+ }catch(error){msg.textContent=chaosMessage(error,'Anzeige konnte nicht gespeichert werden.')}
+ finally{settingsBusy=false;settingsButtons()}
+}
+async function saveHardware(){
+ if(settingsBusy)return;
+ const message=document.getElementById('hardwareMessage'),d=inputValues(hardwareKeys);
+ if(d.ledPin!==currentOptions.ledPin&&!confirm('LED-Datenpin ändern und die Uhr nach dem Speichern neu starten?'))return;
+ settingsBusy=true;settingsButtons();
+ try{const result=await postSettings(d);currentOptions.ledPin=d.ledPin;message.textContent=result.restarting?'Matrixverdrahtung gespeichert. Die Uhr startet neu.':'Matrixverdrahtung gespeichert.'}
+ catch(error){message.textContent=chaosMessage(error,'Matrixverdrahtung konnte nicht gespeichert werden.')}
+ finally{settingsBusy=false;settingsButtons()}
 }
 const mqttFields={host:'mqHost',port:'mqPort',user:'mqUser',base:'mqBase',discoveryPrefix:'mqDiscoveryPrefix',weatherTopic:'mqWeatherTopic',temperatureTopic:'mqTemperatureTopic',staleSeconds:'mqStaleSeconds'};
 async function loadMqtt(){
@@ -600,7 +617,7 @@ async function loadDiagnostics(){
  catch(error){message.textContent=chaosMessage(error)}
  finally{chaosRenderDiagnostics()}
 }
-function brightnessFormChanged(){document.getElementById('nightBrightness').disabled=document.getElementById('nightLedsOff').checked}
+function brightnessFormChanged(){const inactive=!document.getElementById('nightOn').checked;for(const key of ['nightFrom','nightUntil'])document.getElementById(key).disabled=inactive;document.getElementById('nightBrightness').disabled=inactive||document.getElementById('nightLedsOff').checked;document.getElementById('nightHint').textContent=inactive?'Nachtmodus ist ausgeschaltet; Nachtwerte bleiben gespeichert.':document.getElementById('nightLedsOff').checked?'Nachtabschaltung gewählt; die Nachthelligkeit bleibt gespeichert.':'Nachtwerte gelten im eingestellten Zeitraum.';}
 function applyBrightnessPolicy(data){
  document.getElementById('nightLedsOff').checked=data.nightLedsOff===true;
  document.getElementById('mqttBrightness').checked=data.mqttBrightness===true;
@@ -611,22 +628,38 @@ function showBrightnessStatus(data){
  document.getElementById('brightnessState').textContent=`Wirksam: ${data.source||'GUI'} · ${data.percent??'?'} % · MQTT-Vorgabe: ${data.mqttValue??'keine'}`;
  document.getElementById('brightnessTopic').textContent=data.mqttBrightness?`Befehlstopic: ${data.topic||'nach MQTT-Konfiguration verfügbar'}${data.conflict?' · Konflikt: Steuerung gesperrt':''}`:'';
  document.getElementById('releaseBrightness').disabled=!data.mqttActive||!data.connected;
- if(/^FS-[0-9]{3}$/.test(data.configError||''))document.getElementById('brightnessMessage').textContent=chaosMessage(chaosFailure(data.configError));
+ document.getElementById('brightnessHealth').textContent=/^FS-[0-9]{3}$/.test(data.configError||'')?chaosMessage(chaosFailure(data.configError),'Helligkeitsrichtlinie konnte nicht geladen werden.'):'';
 }
 let brightnessTimerStarted=false;
-async function loadBrightness(){applyBrightnessPolicy(await readJson('/api/brightness'));if(!brightnessTimerStarted){brightnessTimerStarted=true;setTimeout(refreshBrightnessStatus,5000)}}
+async function loadBrightness(){applyBrightnessPolicy(await readJson('/api/brightness'));brightnessLoaded=true;settingsButtons();if(!brightnessTimerStarted){brightnessTimerStarted=true;setTimeout(refreshBrightnessStatus,5000)}}
+function brightnessUnavailable(error){chaosRemember(error);document.getElementById('brightnessState').textContent='Wirksamer Status derzeit nicht abrufbar.';document.getElementById('brightnessHealth').textContent='Statusabfrage fehlgeschlagen. Details unter Diagnose.';}
 async function refreshBrightnessStatus(){
- if(chaosAdmin.active){try{showBrightnessStatus(await readJson('/api/brightness'))}catch(error){document.getElementById('brightnessMessage').textContent=chaosMessage(error)}}
+ if(chaosAdmin.active){try{showBrightnessStatus(await readJson('/api/brightness'))}catch(error){brightnessUnavailable(error)}}
  setTimeout(refreshBrightnessStatus,5000);
 }
 async function saveBrightnessPolicy(){
- const message=document.getElementById('brightnessMessage');
- try{await changeAnimation('/api/brightness',new URLSearchParams({nightLedsOff:document.getElementById('nightLedsOff').checked?'1':'0',mqttBrightness:document.getElementById('mqttBrightness').checked?'1':'0'}));await loadBrightness();message.textContent='Helligkeitsrichtlinie gespeichert.'}
- catch(error){message.textContent=chaosMessage(error,'Speichern fehlgeschlagen.')}
+ if(settingsBusy)return;
+ const message=document.getElementById('brightnessMessage'),clock=inputValues(brightnessKeys);
+ const policy={nightLedsOff:document.getElementById('nightLedsOff').checked?'1':'0',mqttBrightness:document.getElementById('mqttBrightness').checked?'1':'0'};
+ settingsBusy=true;settingsButtons();let phase='validation';
+ try{
+  if(!brightnessKeys.every(key=>Number.isInteger(clock[key]))||clock.brightness<1||clock.brightness>100||clock.nightBrightness<1||clock.nightBrightness>100||clock.nightFrom<0||clock.nightFrom>23||clock.nightUntil<0||clock.nightUntil>23)throw chaosFailure('CFG_RANGE');
+  phase='clock';await postSettings(clock);
+  message.textContent='Taghelligkeit und Nachtzeiten gespeichert. Speichere Nachtabschaltung und MQTT-Freigabe …';
+  phase='policy';await changeAnimation('/api/brightness',new URLSearchParams(policy));
+  message.textContent='Helligkeit & Nachtmodus gespeichert (beide Speicherbereiche bestätigt).';
+ }catch(error){
+  chaosRemember(error);
+  message.textContent=phase==='validation'?'Bitte Helligkeit und Nachtzeiten prüfen. Details unter Diagnose.':phase==='clock'?'Taghelligkeit und Nachtzeiten: Speicherung nicht bestätigt. Nachtabschaltung und MQTT-Freigabe: nicht gesendet. Details unter Diagnose.':'Taghelligkeit und Nachtzeiten gespeichert. Nachtabschaltung und MQTT-Freigabe: Speicherung nicht bestätigt. Details unter Diagnose.';
+ }finally{
+  // Read only the active status. Never copy it over pending form edits.
+  try{showBrightnessStatus(await readJson('/api/brightness'))}catch(error){brightnessUnavailable(error);message.textContent+=' Wirksamer Status derzeit nicht abrufbar; Details unter Diagnose.'}
+  settingsBusy=false;settingsButtons();
+ }
 }
 async function releaseBrightness(){
  const message=document.getElementById('brightnessMessage');
- try{await changeAnimation('/api/brightness/release',new URLSearchParams());await loadBrightness();message.textContent='Retained AUTO von der MQTT-Bibliothek zur Übertragung angenommen. GUI übernimmt lokal; dauerhafte Speicherung beim Broker ist damit noch nicht bestätigt.'}
+ try{await changeAnimation('/api/brightness/release',new URLSearchParams());showBrightnessStatus(await readJson('/api/brightness'));message.textContent='Retained AUTO von der MQTT-Bibliothek zur Übertragung angenommen. GUI übernimmt lokal; dauerhafte Speicherung beim Broker ist damit noch nicht bestätigt.'}
  catch(error){message.textContent=chaosMessage(error,'Rückgabe fehlgeschlagen.')}
 }
 async function exportSettings(){
@@ -691,7 +724,7 @@ function applySettingsImport(){
   optionIds.filter(key=>key!=='ledPin').forEach(key=>{document.getElementById(key)[optionFlags.includes(key)?'checked':'value']=optionFlags.includes(key)?!!d[key]:d[key]});
   bVal.value=d.brightness+' %';sVal.value=d.speed+' %';dVal.value=d.duration+' s';nVal.value=d.nightBrightness+' %';updateDisplayFlow();
   document.getElementById('nightLedsOff').checked=!!d.brightnessPolicy.nightLedsOff;document.getElementById('mqttBrightness').checked=!!d.brightnessPolicy.mqttBrightness;brightnessFormChanged();
-  document.getElementById('backupMessage').textContent='Vorschau übernommen. Uhreinstellungen und Helligkeitsrichtlinie über ihre jeweiligen Schaltflächen speichern.';document.getElementById('applyBackup').hidden=true;pendingImport=null;
+  document.getElementById('backupMessage').textContent='Vorschau übernommen. Anzeige & Animationen, Helligkeit & Nachtmodus und Matrixverdrahtung jeweils in ihrer Box speichern.';document.getElementById('applyBackup').hidden=true;pendingImport=null;
 }
 let animationBusy=false;
 function showAnimationStorage(storage){

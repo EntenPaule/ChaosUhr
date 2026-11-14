@@ -13,7 +13,7 @@ function app(){
   Blob:class{constructor(parts){blobs.push(parts.join(''))}},URL:{createObjectURL:()=> 'blob:fixture',revokeObjectURL:()=>{}},
   fetch:async(route,options)=>{
    if(route==='/api/session')return {ok:true,json:async()=>({token:'fixture-session'})};
-   if(route==='/api/settings'){posts.push(options);return {ok:true};}
+   if(route==='/api/settings'){posts.push(options);return {ok:true,json:async()=>({ok:true})};}
    return {ok:true,json:async()=>route==='/api/status'?{...settings,animationUploads:true,version:'2.0.8',ip:'127.0.0.1',adminPassword:'fixture-never-export-this',ssid:'fixture-private-wifi'}:route==='/api/effects'?effects:{ready:true,uploads}};
   }};
  for(const name of ['bVal','sVal','dVal','nVal','msg'])context[name]=document.getElementById(name);
