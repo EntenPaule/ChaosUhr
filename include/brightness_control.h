@@ -24,3 +24,8 @@ inline BrightnessDecision decideBrightness(bool night,const BrightnessPolicy& po
   return {pct,static_cast<uint8_t>(pct?2+(static_cast<unsigned>(pct)-1)*118/99:0),forced?BrightnessSource::NightOff:mqtt?BrightnessSource::Mqtt:BrightnessSource::Gui};
 }
 inline const char* brightnessSourceName(BrightnessSource source){return source==BrightnessSource::NightOff?"Nachtabschaltung":source==BrightnessSource::Mqtt?"MQTT":"GUI";}
+
+template<class Clear,class Set,class Show>bool transmitBrightnessOff(const BrightnessDecision& decision,Clear clear,Set set,Show show){
+ if(decision.scale)return false;
+ clear();set(0);show();return true;
+}

@@ -20,5 +20,9 @@ int main(){
  assert(remote.receive("AUTO",4)&&!remote.valid);assert(decideBrightness(true,policy,remote,25,6).percent==6);
  assert(remote.receive("0",1)&&decideBrightness(false,policy,remote,25,6).scale==0);
  policy.mqtt=false;assert(decideBrightness(false,policy,remote,25,6).percent==25);
+ unsigned pixels[300];for(auto& pixel:pixels)pixel=0xffffff;unsigned scale=99,shows=0;
+ auto black=[&](){for(auto& pixel:pixels)pixel=0;};auto set=[&](uint8_t value){scale=value;};auto show=[&](){for(auto pixel:pixels)assert(pixel==0);assert(scale==0);++shows;};
+ assert(transmitBrightnessOff(BrightnessDecision{0,0,BrightnessSource::NightOff},black,set,show)&&shows==1);
+ assert(!transmitBrightnessOff(BrightnessDecision{25,30,BrightnessSource::Gui},black,set,show)&&shows==1);
  puts("PASS brightness priority: unchanged day/night, zero, cap, strict commands/AUTO, nighttime override and invalid preservation");
 }

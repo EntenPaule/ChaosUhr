@@ -16,7 +16,7 @@ for name,path in [('INDEX_HTML','src/main.cpp'),('OTA_HTML','include/ota_ui.h'),
         subprocess.run(['g++',str(cpp),'-o',str(exe)],check=True)
         raw=subprocess.check_output([str(exe)])
     # ESP32-only clarification; Wemos HTML stays byte-identical.
-    raw=raw.replace(b'/errors.js?v=2.0.11-beta.4"',b'/errors.js?v=2.0.11-beta.4.2"')
+    # Shared numbered version; no platform-specific replacement required.
     if name=='INDEX_HTML':
         raw=raw.replace('Animationsspeicher einrichten? Dabei werden vorhandene Dateien in diesem Speicher gelöscht. WLAN, Admin-Zugang und Uhreinstellungen bleiben erhalten.'.encode(),
           'LittleFS initialisieren? Alle Dateien dieser Partition werden gelöscht: eigene Animationen, MQTT-Konfiguration, zusätzliche Anzeigeeinstellungen und Speicherjournal. WLAN und Admin-Zugang im NVS bleiben erhalten. Bei beschädigter Installation zuerst sichern; nur bei bewusst akzeptiertem Datenverlust fortfahren.'.encode())

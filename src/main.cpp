@@ -42,6 +42,7 @@ using ClockUpdateServer = ESP8266HTTPUpdateServer;
 #include "esp32_fs_probe.h"
 #endif
 #include "animation_library.h"
+#include "brightness_storage.h"
 #include "legacy_animation.h"
 #include "animation_examples.h"
 #endif
@@ -101,6 +102,9 @@ static DisplayOptions displayOptions=defaultDisplayOptions(TARGET_ESP32);
 static bool settingsPersisted=false,optionsPersisted=false;
 static MqttConfig mqttConfig=defaultMqttConfig();
 static Telemetry telemetry;
+static BrightnessPolicy brightnessPolicy;
+static BrightnessOverride brightnessRemote;
+static BrightnessStorage<decltype(LittleFS),fs::File> brightnessStorage(LittleFS);
 static ClockMqtt clockMqtt(mqttConfig,telemetry);
 static MqttConfigStorage<decltype(LittleFS),fs::File> mqttStorage(LittleFS);
 static IpAnnouncement ipAnnouncement;
@@ -111,6 +115,7 @@ static void loadSettings(){
   clockStorage.get(DISPLAY_OPTIONS_OFFSET,displayOptions);
   optionsPersisted=normalizeDisplayOptions(displayOptions,TARGET_ESP32);
   mqttStorage.load(mqttConfig);
+  if(!brightnessStorage.load(brightnessPolicy))recordError(brightnessStorage.errorCode());
 }
 template<uint8_t Pin>static void addLedController(){FastLED.addLeds<WS2812B,Pin,GRB>(leds,LED_COUNT);}
 static void setupLedController(){
@@ -315,7 +320,15 @@ static void drawSensor(){
   snprintf(value,sizeof value,"%s%s",reading.text,unit);
   drawText(label,dataTextX(label),1,CRGB(100,180,255));drawText(value,dataTextX(value),9,CRGB(255,180,60));
 }
+static BrightnessDecision currentBrightness(){
+  time_t now=time(nullptr);tm loc;
+  const bool night=now>1700000000 && localtime_r(&now,&loc) && isNightHour(loc.tm_hour,cfg);
+  return decideBrightness(night,brightnessPolicy,brightnessRemote,cfg.brightness,cfg.nightBrightness);
+}
 static void render(){
+  const auto brightness=currentBrightness();
+  if(transmitBrightnessOff(brightness,[](){clear();},[](uint8_t scale){FastLED.setBrightness(scale);},[](){FastLED.show();}))return;
+
 #ifdef CHAOSUHR_PUBLIC_BUILD
   if(publicAccess.pending() || !publicAccess.ready() || wifiManager.getConfigPortalActive()){
     clear();FastLED.setBrightness(40);
@@ -325,10 +338,7 @@ static void render(){
     FastLED.show();return;
   }
 #endif
-  time_t now=time(nullptr); tm loc;
-  bool night=now>1700000000 && localtime_r(&now,&loc) && isNightHour(loc.tm_hour,cfg);
-  uint8_t pct=night?cfg.nightBrightness:cfg.brightness;
-  FastLED.setBrightness((uint8_t)map(pct,1,100,2,120)); // safety cap: 120/255
+  FastLED.setBrightness(brightness.scale); // shared safety cap: 120/255
   const uint8_t effect=activeEffect();
   if(ipAnnouncement.active(millis())){clear();drawText(ipAnnouncement.text(),ipAnnouncement.x(millis()),5,CRGB(120,210,255));}
   else if(cfg.mode==0 && scene.page==PAGE_WEATHER)drawWeather();
@@ -413,6 +423,11 @@ small{color:#abb9d0}output{float:right;color:#8bd5ff}.flex{display:flex;gap:10px
 <h2>Nachtmodus</h2><label><input id="nightOn" type="checkbox"> Aktiv</label>
 <div class="flex"><label>Beginn (Stunde)<br><input id="nightFrom" type="number" min="0" max="23" style="width:75px"></label><label>Ende (Stunde)<br><input id="nightUntil" type="number" min="0" max="23" style="width:75px"></label></div>
 <label>Nachthelligkeit <output id="nVal"></output></label><input type="range" id="nightBrightness" min="1" max="100" oninput="nVal.value=this.value+' %'">
+<label><input id="nightLedsOff" type="checkbox" onchange="brightnessFormChanged()"> LEDs im Nachtmodus vollständig ausschalten</label>
+<label><input id="mqttBrightness" type="checkbox"> LED-Helligkeit über MQTT steuern</label>
+<button type="button" onclick="saveBrightnessPolicy()">Helligkeitsrichtlinie speichern</button>
+<p id="brightnessState" role="status"></p><p id="brightnessTopic"></p>
+<button id="releaseBrightness" type="button" onclick="releaseBrightness()">MQTT-Vorgabe aufheben</button><p id="brightnessMessage" role="status"></p>
 <button id="saveButton" onclick="save()" disabled>Einstellungen speichern</button> <span id="msg"></span></article>
 <article id="uploadPanel" hidden><h2>Eigene Animationen / Speicher</h2>
 <p>Bis zu acht <code>.chaos</code>-Dateien mit je 24 KiB, 20×15 Pixeln, bis zu 16 Farben und 64 Bildern. Nach dem Upload oben für die Automatik oder als Einzelanimation auswählen.</p>
@@ -453,7 +468,7 @@ small{color:#abb9d0}output{float:right;color:#8bd5ff}.flex{display:flex;gap:10px
 R"HTML(<article><h2>Werkseinstellungen</h2><p>Alle Uhr-Einstellungen, eigene Animationen, der Admin-Zugang und die gespeicherten WLAN-Daten werden gelöscht. Danach beginnt die Ersteinrichtung erneut.</p><label><input id="resetConfirm" type="checkbox" onchange="document.getElementById('resetButton').disabled=!this.checked"> Ich möchte alle Einstellungen, Uploads und Zugangsdaten löschen.</label><button id="resetButton" onclick="factoryReset()" disabled>Auf Werkseinstellungen zurücksetzen</button><p id="resetMessage" role="status"></p></article>)HTML"
 #endif
 R"HTML(
-</main><script src="/errors.js?v=2.0.11-beta.4" onerror="document.addEventListener(&#x27;DOMContentLoaded&#x27;,()=&gt;{document.body.textContent=&quot;Fehler HTTP-018\nDiagnoseskript konnte nicht geladen werden\nDer Browser konnte das gemeinsame lokale Skript nicht laden; die genauere Ursache ist nicht erkennbar.\nMaßnahmen: Uhradresse und Netzwerk prüfen und Seite neu laden.&quot;})"></script><script>
+</main><script src="/errors.js?v=2.0.11-beta.5" onerror="document.addEventListener(&#x27;DOMContentLoaded&#x27;,()=&gt;{document.body.textContent=&quot;Fehler HTTP-018\nDiagnoseskript konnte nicht geladen werden\nDer Browser konnte das gemeinsame lokale Skript nicht laden; die genauere Ursache ist nicht erkennbar.\nMaßnahmen: Uhradresse und Netzwerk prüfen und Seite neu laden.&quot;})"></script><script>
 const ids=['mode','effect','brightness','speed','duration','nightOn','nightFrom','nightUntil','nightBrightness','corner','vertical','zigzag','autoOrder'];
 let automaticChoices=[];
 let effectChoices=[],pendingImport=null;
@@ -526,6 +541,7 @@ async function load(){
     document.getElementById('mqttPanel').hidden=!d.mqttAvailable;
     if(d.mqttAvailable)await loadMqtt();
     updateDisplayFlow();
+    await loadBrightness();
   }catch(e){document.getElementById('status').textContent=chaosMessage(e)}
 }
 async function save(){
@@ -582,6 +598,26 @@ async function loadDiagnostics(){
  const message=document.getElementById('diagnosticMessage');
  try{const data=await readJson('/api/diagnostics');document.getElementById('supportDiagnostics').value=JSON.stringify(data,null,2);message.textContent=data.lastError?'Letzter Fehler: '+data.lastError+'. Details und Maßnahmen stehen im kopierbaren Text.':'Keine Fehler aufgezeichnet.';}
  catch(error){message.textContent=chaosMessage(error)}
+}
+function brightnessFormChanged(){document.getElementById('nightBrightness').disabled=document.getElementById('nightLedsOff').checked}
+function applyBrightnessPolicy(data){
+ document.getElementById('nightLedsOff').checked=data.nightLedsOff===true;
+ document.getElementById('mqttBrightness').checked=data.mqttBrightness===true;
+ brightnessFormChanged();
+ document.getElementById('brightnessState').textContent=`Wirksam: ${data.source||'GUI'} · ${data.percent??'?'} % · MQTT-Vorgabe: ${data.mqttValue??'keine'}`;
+ document.getElementById('brightnessTopic').textContent=data.mqttBrightness?`Befehlstopic: ${data.topic||'nach MQTT-Konfiguration verfügbar'}${data.conflict?' · Konflikt: Steuerung gesperrt':''}`:'';
+ document.getElementById('releaseBrightness').disabled=!data.mqttActive||!data.connected;
+}
+async function loadBrightness(){applyBrightnessPolicy(await readJson('/api/brightness'))}
+async function saveBrightnessPolicy(){
+ const message=document.getElementById('brightnessMessage');
+ try{await changeAnimation('/api/brightness',new URLSearchParams({nightLedsOff:document.getElementById('nightLedsOff').checked?'1':'0',mqttBrightness:document.getElementById('mqttBrightness').checked?'1':'0'}));await loadBrightness();message.textContent='Helligkeitsrichtlinie gespeichert.'}
+ catch(error){message.textContent='Speichern fehlgeschlagen: '+chaosMessage(error)}
+}
+async function releaseBrightness(){
+ const message=document.getElementById('brightnessMessage');
+ try{await changeAnimation('/api/brightness/release',new URLSearchParams());await loadBrightness();message.textContent='Retained AUTO von der MQTT-Bibliothek zur Übertragung angenommen. GUI übernimmt lokal; dauerhafte Speicherung beim Broker ist damit noch nicht bestätigt.'}
+ catch(error){message.textContent='Rückgabe fehlgeschlagen: '+chaosMessage(error)}
 }
 async function exportSettings(){
   const message=document.getElementById('backupMessage');
@@ -730,6 +766,7 @@ static String gpioChoicesJson(){
     result+="{\"gpio\":"+String(pin.gpio)+",\"label\":\""+String(pin.label)+"\"}";}
   return result+"]";
 }
+#include "brightness_api.h"
 static void statusApi(){
   if(!auth()) return;
   String s="{";
@@ -1143,6 +1180,8 @@ void setup(){
     CLOCK_PAGE(server,"text/html; charset=utf-8",INDEX_HTML);
   });
   server.on("/api/status",HTTP_GET,statusApi);
+  server.on("/api/brightness",HTTP_GET,brightnessStatusApi);
+  server.on("/api/brightness",HTTP_POST,brightnessSaveApi);
   server.on("/api/diagnostics",HTTP_GET,diagnosticsApi);
   server.onNotFound([](){sendError(server,404,ErrorCode::HTTP_NOT_FOUND);});
   server.on("/errors.js",HTTP_GET,[](){CLOCK_PAGE(server,"application/javascript; charset=utf-8",ERROR_JS);});
