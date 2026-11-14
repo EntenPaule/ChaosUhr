@@ -9,7 +9,7 @@ static const char OTA_HTML[] PROGMEM=R"HTML(
 <label><input id="includePreview" type="checkbox"> Vorabversionen berücksichtigen</label>
 <button id="checkOnline" type="button" onclick="checkOnlineUpdates()">Auf Updates prüfen</button>
 <button id="installOnline" type="button" onclick="installOnlineUpdate()" hidden>Gefundene Version installieren</button><p id="onlineMessage" role="status"></p>
-</main><script src="/errors.js?v=2.0.11-beta.5.1" onerror="document.addEventListener(&#x27;DOMContentLoaded&#x27;,()=&gt;{document.body.textContent=&quot;Fehler HTTP-018\nDiagnoseskript konnte nicht geladen werden\nDer Browser konnte das gemeinsame lokale Skript nicht laden; die genauere Ursache ist nicht erkennbar.\nMaßnahmen: Uhradresse und Netzwerk prüfen und Seite neu laden.&quot;})"></script><script>
+</main><section aria-label="Diagnose"><h2>Diagnose</h2><pre id="browserDiagnostics" style="white-space:pre-wrap">Keine Browserfehler aufgezeichnet.</pre></section><script src="/errors.js?v=2.0.11-beta.5.2" onerror="document.addEventListener(&#x27;DOMContentLoaded&#x27;,()=&gt;{document.body.textContent=&#x27;Oberfläche konnte nicht geladen werden. Bitte Seite neu laden.&#x27;;const section=document.createElement(&#x27;section&#x27;);const title=document.createElement(&#x27;h2&#x27;);title.textContent=&#x27;Diagnose&#x27;;const text=document.createElement(&#x27;pre&#x27;);text.style.whiteSpace=&#x27;pre-wrap&#x27;;text.textContent=&quot;Fehler HTTP-018\nDiagnoseskript konnte nicht geladen werden\nDer Browser konnte das gemeinsame lokale Skript nicht laden; die genauere Ursache ist nicht erkennbar.\nMaßnahmen: Uhradresse und Netzwerk prüfen und Seite neu laden.&quot;;section.append(title,text);document.body.append(section)})"></script><script>
 const UPDATE_BASE='https://raw.githubusercontent.com/EntenPaule/ChaosUhr/firmware-updates/';
 let onlineCandidate=null,onlineBusy=false;
 function updateVersion(text){
@@ -49,7 +49,7 @@ async function checkOnlineUpdates(){
   if(!candidates.length){const error=results.find(result=>result.status==='rejected');if(error)throw error.reason;message.textContent='Im gewählten Updatekanal ist noch keine Version veröffentlicht. Das manuelle OTA bleibt verfügbar.';return;}
   const found=candidates[0];if(compareUpdateVersions(found.version,current.version)<=0){message.textContent='Installiert: '+current.version+'. Keine neuere passende Version gefunden.';return;}
   onlineCandidate=found;message.textContent='Verfügbar: '+found.version+(found.prerelease?' (Vorabversion)':'')+' · '+Math.round(found.bytes/1024)+' KiB. Vor der Installation Einstellungen sichern.';document.getElementById('installOnline').hidden=false;
- }catch(error){message.textContent='Updateprüfung fehlgeschlagen: '+chaosMessage(error)+' Manuelles OTA ist weiterhin möglich.'}
+ }catch(error){message.textContent=chaosMessage(error,'Updateprüfung fehlgeschlagen.')+' Manuelles OTA ist weiterhin möglich.'}
  finally{onlineBusy=false;button.disabled=false}
 }
 async function installOnlineUpdate(){
@@ -66,7 +66,7 @@ async function installOnlineUpdate(){
   message.textContent='Übertrage und prüfe Firmware. Stromversorgung nicht trennen.';
   const result=await chaosFetch('/update',{method:'POST',credentials:'same-origin',headers:{'X-CSRF-Token':token,'X-Firmware-SHA256':candidate.sha256},body:form});
   await chaosCheck(result);message.textContent='Firmware geprüft. Die Uhr startet mit '+candidate.version+' neu.';onlineCandidate=null;
- }catch(error){message.textContent='Update abgebrochen: '+chaosMessage(error);button.disabled=false}
+ }catch(error){message.textContent=chaosMessage(error,'Update abgebrochen.');button.disabled=false}
  finally{onlineBusy=false}
 }
 document.getElementById('otaForm').addEventListener('submit',async event=>{
@@ -77,7 +77,7 @@ document.getElementById('otaForm').addEventListener('submit',async event=>{
  const form=new FormData();form.append('firmware',file);message.textContent='Update läuft. Bitte die Stromversorgung nicht trennen.';
  const response=await chaosFetch('/update',{method:'POST',credentials:'same-origin',headers:{'X-CSRF-Token':token},body:form});
  await chaosCheck(response);message.textContent='Firmware geprüft und übertragen. Die Uhr startet neu.';
- }catch(error){message.textContent='Fehler: '+chaosMessage(error);button.disabled=false}
+ }catch(error){message.textContent=chaosMessage(error,'Aktion fehlgeschlagen.');button.disabled=false}
 });
 chaosSessionStart();
 </script></body></html>

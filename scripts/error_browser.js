@@ -5,7 +5,39 @@ function chaosFailure(symbol,status=0,definition=null){
  const e=new Error('Fehler '+code+(status?' (HTTP '+status+')':'')+'\n'+d.message+'\n'+d.details+'\nMaßnahmen: '+d.action);
  e.chaosCode=code;e.httpStatus=status;return e;
 }
-function chaosMessage(error){return error?.chaosCode?error.message:chaosFailure('SYS_UI').message}
+// Only catalogue codes/status and a lifecycle flag enter this bounded RAM list.
+// Never keep response bodies, submitted values, passwords, cookies or tokens.
+const chaosBrowserErrors=[];
+function chaosRenderDiagnostics(){
+ const target=document.getElementById('browserDiagnostics');if(!target)return;
+ target.textContent=chaosBrowserErrors.map(e=>{
+  const d=CHAOS_CLIENT_ERRORS[e.code];
+  return 'Fehler '+e.code+(e.status?' (HTTP '+e.status+')':'')+'\n'+d.message+'\n'+d.details+(e.field?' Feld: '+e.field+'.':'')+'\nMaßnahmen: '+d.action+(e.count>1?'\nWiederholungen: '+e.count:'');
+ }).join('\n\n')||'Keine Browserfehler aufgezeichnet.';
+}
+function chaosRemember(error){
+ const code=Object.prototype.hasOwnProperty.call(CHAOS_CLIENT_ERRORS,error?.chaosCode)?error.chaosCode:CHAOS_CODES.SYS_UI;
+ if(error?.quietSession)return;
+ const expected=error?.expectedSession===true;
+ const field=error?.chaosCode===CHAOS_CODES.MQTT_CONFIG_FIELD&&['format','enabled','discovery','reserved','checksum','port','staleSeconds','host','user','password','base','discoveryPrefix','weatherTopic','temperatureTopic','sensorTopic','sensorLabel','sensorUnit'].includes(error?.chaosField)?error.chaosField:'';
+ const last=chaosBrowserErrors[chaosBrowserErrors.length-1];
+ if(last&&last.code===code&&last.expected===expected&&last.field===field)last.count=Math.min(65535,last.count+1);
+ else{if(chaosBrowserErrors.length===8)chaosBrowserErrors.shift();chaosBrowserErrors.push({code,status:Number.isInteger(error?.httpStatus)?error.httpStatus:0,expected,field,count:1})}
+ chaosRenderDiagnostics();
+}
+function chaosResolveSessionErrors(){
+ for(let i=chaosBrowserErrors.length-1;i>=0;--i)if(chaosBrowserErrors[i].expected)chaosBrowserErrors.splice(i,1);
+ chaosRenderDiagnostics();
+}
+function chaosMessage(error,action='Aktion fehlgeschlagen.'){
+ chaosRemember(error);
+ if(error?.quietSession)return '';
+ if(error?.expectedSession)return 'Bitte erneut anmelden.';
+ const brief={AUTH_PASSWORD_FORMAT:'Bitte ein Passwort mit 16–64 gültigen Zeichen eingeben.',AUTH_PASSWORD_REPEAT:'Die Passwörter stimmen nicht überein.',AUTH_CONFIRM:'Bitte die Bestätigung aktivieren.',CFG_UPLOAD_EMPTY:'Bitte eine Animationsdatei auswählen.',CFG_ANIMATION_SELECTION:'Bitte mindestens eine Animation auswählen.',CFG_DISPLAY:'Bitte mindestens eine Anzeigeart auswählen.'};
+ for(const [symbol,text] of Object.entries(brief))if(error?.chaosCode===CHAOS_CODES[symbol])return text;
+ if(error?.chaosCode===CHAOS_CODES.AUTH_REJECTED)return 'Anmeldung nicht möglich. Bitte Passwort prüfen.';
+ return action+' Details unter Diagnose.';
+}
 async function chaosFetch(url,options={}){
  try{
   const response=await fetch(url,{credentials:'same-origin',...options});
@@ -16,27 +48,32 @@ async function chaosFetch(url,options={}){
  }
  catch(error){throw chaosFailure(error?.name==='AbortError'||error?.name==='TimeoutError'?'HTTP_TIMEOUT':'HTTP_NETWORK')}
 }
-async function chaosCheck(response){
+async function chaosCheck(response,sessionProbe=null){
  if(response.ok)return response;
  let data=null;
  try{
   if(typeof response.text==='function'){const text=await response.text();if(text)data=JSON.parse(text)}
   else if(typeof response.json==='function')data=await response.json();
  }catch(_){/* Empty/non-JSON error bodies use status-specific fallbacks. */}
- if(response.status===401)chaosSessionLost(Object.values(CHAOS_CODES).includes(data?.code)?data.code:'AUTH_REQUIRED');
+ const code=Object.values(CHAOS_CODES).includes(data?.code)?data.code:CHAOS_CODES.AUTH_REQUIRED;
+ const normalSession=response.status===401 && sessionProbe && [CHAOS_CODES.AUTH_REQUIRED,CHAOS_CODES.AUTH_SESSION_INVALID,CHAOS_CODES.AUTH_SESSION_EXPIRED].includes(code);
+ const mark=error=>{error.expectedSession=!!normalSession;error.quietSession=!!(normalSession&&sessionProbe.quiet);return error};
+ if(response.status===401)chaosSessionLost(code,!!(normalSession&&sessionProbe.quiet));
  if(data&&Object.values(CHAOS_CODES).includes(data.code)&&['message','details','action'].every(k=>typeof data[k]==='string'&&data[k].length>0&&data[k].length<=512))
   {
    const fields=['format','enabled','discovery','reserved','checksum','port','staleSeconds','host','user','password','base','discoveryPrefix','weatherTopic','temperatureTopic','sensorTopic','sensorLabel','sensorUnit'];
    const definition=data.code===CHAOS_CODES.MQTT_CONFIG_FIELD&&fields.includes(data.field)?{...data,details:data.details+' Feld: '+data.field+'.'}:data;
-   throw chaosFailure(data.code,response.status,definition);
+   const error=mark(chaosFailure(data.code,response.status,definition));
+   if(data.code===CHAOS_CODES.MQTT_CONFIG_FIELD&&fields.includes(data.field))error.chaosField=data.field;
+   throw error;
   }
- throw chaosFailure(response.status===401?'AUTH_REQUIRED':response.status===403?'AUTH_FORBIDDEN':response.status===413?'HTTP_BODY_LIMIT':'HTTP_STATUS',response.status);
+ throw mark(chaosFailure(response.status===401?'AUTH_REQUIRED':response.status===403?'AUTH_FORBIDDEN':response.status===413?'HTTP_BODY_LIMIT':'HTTP_STATUS',response.status));
 }
 
 // Shared by the main GUI and OTA. Cookies are HttpOnly; JS only keeps CSRF in
 // RAM. No password storage, automatic login or automatic mutation retry.
 const chaosAdmin={started:false,active:false,csrf:'',timer:0,lastActivity:0,onReady:null};
-function chaosSessionLost(reason=''){
+function chaosSessionLost(reason='',quiet=false){
  if(!chaosAdmin.started)return;
  chaosAdmin.active=false;chaosAdmin.csrf='';clearTimeout(chaosAdmin.timer);
  document.getElementById('protectedContent').hidden=true;
@@ -44,7 +81,7 @@ function chaosSessionLost(reason=''){
  document.getElementById('adminLogout').hidden=true;
  document.getElementById('adminState').textContent='Nicht angemeldet';
  document.getElementById('adminPassword').value='';
- document.getElementById('adminMessage').textContent=reason?chaosFailure(reason).message:'Abgemeldet.';
+ document.getElementById('adminMessage').textContent=quiet?'':reason?'Bitte erneut anmelden.':'Abgemeldet.';
  for(const id of ['mqPassword','supportDiagnostics']){const element=document.getElementById(id);if(element)element.value=''}
 }
 function chaosSessionApply(data){
@@ -52,15 +89,15 @@ function chaosSessionApply(data){
  chaosAdmin.active=true;chaosAdmin.csrf=data.token;clearTimeout(chaosAdmin.timer);
  // Another tab may have recorded real activity. Verify the server deadline
  // with a non-renewing GET; the browser clock is not the authority.
- chaosAdmin.timer=setTimeout(async()=>{try{await chaosSessionRead()}catch(error){chaosSessionLost(error.chaosCode||'HTTP_NETWORK')}},data.remainingSeconds*1000);
+ chaosAdmin.timer=setTimeout(async()=>{try{await chaosSessionRead()}catch(error){chaosSessionLost(error.chaosCode||'HTTP_NETWORK');chaosRemember(error)}},data.remainingSeconds*1000);
  document.getElementById('adminState').textContent='Angemeldet als admin';
  document.getElementById('adminLogout').hidden=false;
  document.getElementById('loginPanel').hidden=true;
  document.getElementById('protectedContent').hidden=false;
  document.getElementById('adminMessage').textContent='';
 }
-async function chaosSessionRead(){
- const data=await chaosJson(await chaosFetch('/api/session',{cache:'no-store'}));
+async function chaosSessionRead(quiet=false){
+ const data=await chaosJson(await chaosFetch('/api/session',{cache:'no-store'}),{quiet});
  chaosSessionApply(data);return data;
 }
 async function chaosLogin(event){
@@ -69,7 +106,7 @@ async function chaosLogin(event){
   const {token}=await chaosJson(await chaosFetch('/api/login',{cache:'no-store'}));
   const body=new URLSearchParams({password:document.getElementById('adminPassword').value});
   const data=await chaosJson(await chaosFetch('/api/login',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRF-Token':token},body}));
-  chaosSessionApply(data);chaosAdmin.lastActivity=Date.now();
+  chaosSessionApply(data);chaosResolveSessionErrors();chaosAdmin.lastActivity=Date.now();
   if(chaosAdmin.onReady)await chaosAdmin.onReady();
  }catch(error){document.getElementById('adminMessage').textContent=chaosMessage(error)}
  finally{document.getElementById('adminPassword').value='';button.disabled=false}
@@ -99,14 +136,14 @@ async function chaosSessionStart(onReady=null){
  for(const name of ['pointerdown','keydown','input','change'])document.addEventListener(name,chaosUserActivity,true);
  globalThis.addEventListener?.('pagehide',()=>{chaosAdmin.csrf='';document.getElementById('protectedContent').hidden=true});
  globalThis.addEventListener?.('pageshow',async event=>{if(event.persisted){try{await chaosSessionRead()}catch(error){document.getElementById('adminMessage').textContent=chaosMessage(error)}}});
- try{await chaosSessionRead();if(onReady)await onReady()}
+ try{await chaosSessionRead(true);if(onReady)await onReady()}
  catch(error){document.getElementById('adminMessage').textContent=chaosMessage(error)}
  finally{document.getElementById('adminLoginButton').disabled=false}
  // This GET deliberately does not renew the server's idle deadline.
  setInterval(async()=>{if(!chaosAdmin.active)return;try{await chaosSessionRead()}catch(error){document.getElementById('adminMessage').textContent=chaosMessage(error)}},60000);
 }
-async function chaosJson(response){
- await chaosCheck(response);
+async function chaosJson(response,sessionProbe=null){
+ await chaosCheck(response,sessionProbe);
  let text;
  try{
   if(typeof response.text!=='function')return await response.json();

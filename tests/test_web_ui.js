@@ -57,7 +57,7 @@ function environment(failCatalog=false,uploads=false){
   assert.match(app.elements.autoCount.textContent,/3 von 30/);
   app.context.selectAutomatic(false);
   await app.context.save();assert.equal(app.posts,1);
-  assert.match(app.elements.msg.textContent,/CFG-006/);
+  assert.match(app.elements.msg.textContent,/Animation auswählen/);assert.match(app.elements.browserDiagnostics.textContent,/CFG-006/);
   app.context.selectAutomatic(true);app.elements.autoOrder.value=0;
   await app.context.save();assert.equal(app.posted.body.get('autoEffects'),String(2**30-1));
   assert.equal(app.posted.body.get('autoOrder'),'0');
@@ -68,10 +68,10 @@ function environment(failCatalog=false,uploads=false){
   assert.match(app.elements.autoCount.textContent,/1 von 30/);
   assert.match(app.elements.msg.textContent,/gespeichert/);
   app.failSave();await app.context.save();
-  assert.match(app.elements.msg.textContent,/HTTP-011/);
+  assert.match(app.elements.msg.textContent,/Details unter Diagnose/);assert.match(app.elements.browserDiagnostics.textContent,/HTTP-011/);
   const failed=environment(true);await failed.context.load();
   assert.equal(failed.elements.saveButton.disabled,true);
-  assert.match(failed.elements.status.textContent,/HTTP 500/);
+  assert.match(failed.elements.status.textContent,/Details unter Diagnose/);assert.match(failed.elements.browserDiagnostics.textContent,/HTTP 500/);
   await app.context.factoryReset();assert.equal(app.resetPosted,undefined);
   app.elements.resetConfirm.checked=true;
   await app.context.factoryReset();assert.equal(app.resetPosted,undefined);

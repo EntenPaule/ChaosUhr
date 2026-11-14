@@ -23,7 +23,7 @@ for _,code,component,msg,details,action,_ in rows:text+='| '+' | '.join(v.replac
 required=set()
 for name in ('src/main.cpp','include/ota_ui.h','include/public_ui.h','include/portal_ui.h','scripts/error_browser.js'):
     required.update(re.findall(r"chaosFailure\('([A-Z_]+)'",(root/name).read_text()))
-client={r[1]:{'message':r[3],'details':r[4],'action':r[5]} for r in rows if r[-1] or r[0] in required}
+client={r[1]:{'message':r[3],'details':r[4],'action':r[5]} for r in rows if True}
 symbols={r[0]:r[1] for r in rows}
 js='const CHAOS_CLIENT_ERRORS='+json.dumps(client,ensure_ascii=False,separators=(',',':'))+';\nconst CHAOS_CODES='+json.dumps(symbols,separators=(',',':'))+';\n'
 js+=(root/'scripts/error_browser.js').read_text()
@@ -31,7 +31,7 @@ outputs={root/'docs/FEHLERCODES.md':text,root/'include/error_ui.h':'// Generated
 version=re.search(r'CHAOSUHR_VERSION "([^"]+)"',(root/'include/firmware_version.h').read_text())[1]
 script_failure=next(row for row in rows if row[0]=='HTTP_SCRIPT')
 fallback='Fehler '+script_failure[1]+'\n'+script_failure[3]+'\n'+script_failure[4]+'\nMaßnahmen: '+script_failure[5]
-handler="document.addEventListener('DOMContentLoaded',()=>{document.body.textContent="+json.dumps(fallback,ensure_ascii=False)+"})"
+handler="document.addEventListener('DOMContentLoaded',()=>{document.body.textContent='Oberfläche konnte nicht geladen werden. Bitte Seite neu laden.';const section=document.createElement('section');const title=document.createElement('h2');title.textContent='Diagnose';const text=document.createElement('pre');text.style.whiteSpace='pre-wrap';text.textContent="+json.dumps(fallback,ensure_ascii=False)+";section.append(title,text);document.body.append(section)})"
 tag='<script src="/errors.js?v='+version+'" onerror="'+html.escape(handler,quote=True)+'"></script>'
 for name in ('src/main.cpp','include/ota_ui.h','include/public_ui.h','include/portal_ui.h'):
     path=root/name;original=path.read_text()

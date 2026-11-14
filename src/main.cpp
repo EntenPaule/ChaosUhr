@@ -457,7 +457,7 @@ small{color:#abb9d0}output{float:right;color:#8bd5ff}.flex{display:flex;gap:10px
 <p><small>Sensoren akzeptieren Zahlen, kurze Texte oder JSON mit value, val oder state. Wetter/Sensoren anschließend oben als Anzeigeart auswählen. Der lokale MQTT-Zugang verwendet kein TLS.</small></p>
 <button type="button" onclick="saveMqtt()">MQTT speichern</button> <button type="button" onclick="loadMqtt()">Status aktualisieren</button>
 <p id="mqttMessage" role="status"></p></article>
-<article><h2>Diagnose</h2><p>Letzter Fehler und begrenzter RAM-Verlauf. Keine Zugangsdaten, Tokens, Topics oder Messwerte enthalten.</p><button type="button" onclick="loadDiagnostics()">Supportdiagnose laden</button><p id="diagnosticMessage" role="status"></p><textarea id="supportDiagnostics" rows="12" readonly style="width:100%" aria-label="Bereinigte Supportdiagnose"></textarea></article>
+<article><h2>Diagnose</h2><p>Letzter Fehler und begrenzter RAM-Verlauf. Keine Zugangsdaten, Tokens, Topics oder Messwerte enthalten.</p><button type="button" onclick="loadDiagnostics()">Supportdiagnose laden</button><p id="diagnosticMessage" role="status"></p><textarea id="supportDiagnostics" rows="12" readonly style="width:100%" aria-label="Bereinigte Supportdiagnose"></textarea><h3>Browserdiagnose</h3><pre id="browserDiagnostics" style="white-space:pre-wrap">Keine Browserfehler aufgezeichnet.</pre></article>
 <article><h2>Einstellungen sichern</h2><p>Speichere deine Uhreinstellungen vor einem Update. Zugangsdaten, MQTT-Konfiguration, LED-Datenpin und Animationsdateien werden nicht exportiert. Format 3 enthält auch die Helligkeitsrichtlinie; ältere Firmware benötigt ihr bisheriges Backupformat.</p>
 <button type="button" onclick="exportSettings()">Sicherung herunterladen</button>
 <label for="settingsFile">Sicherungsdatei wiederherstellen</label><input id="settingsFile" type="file" accept=".json" onchange="previewSettingsImport()">
@@ -468,7 +468,7 @@ small{color:#abb9d0}output{float:right;color:#8bd5ff}.flex{display:flex;gap:10px
 R"HTML(<article><h2>Werkseinstellungen</h2><p>Alle Uhr-Einstellungen, eigene Animationen, der Admin-Zugang und die gespeicherten WLAN-Daten werden gelöscht. Danach beginnt die Ersteinrichtung erneut.</p><label><input id="resetConfirm" type="checkbox" onchange="document.getElementById('resetButton').disabled=!this.checked"> Ich möchte alle Einstellungen, Uploads und Zugangsdaten löschen.</label><button id="resetButton" onclick="factoryReset()" disabled>Auf Werkseinstellungen zurücksetzen</button><p id="resetMessage" role="status"></p></article>)HTML"
 #endif
 R"HTML(
-</main><script src="/errors.js?v=2.0.11-beta.5.1" onerror="document.addEventListener(&#x27;DOMContentLoaded&#x27;,()=&gt;{document.body.textContent=&quot;Fehler HTTP-018\nDiagnoseskript konnte nicht geladen werden\nDer Browser konnte das gemeinsame lokale Skript nicht laden; die genauere Ursache ist nicht erkennbar.\nMaßnahmen: Uhradresse und Netzwerk prüfen und Seite neu laden.&quot;})"></script><script>
+</main><script src="/errors.js?v=2.0.11-beta.5.2" onerror="document.addEventListener(&#x27;DOMContentLoaded&#x27;,()=&gt;{document.body.textContent=&#x27;Oberfläche konnte nicht geladen werden. Bitte Seite neu laden.&#x27;;const section=document.createElement(&#x27;section&#x27;);const title=document.createElement(&#x27;h2&#x27;);title.textContent=&#x27;Diagnose&#x27;;const text=document.createElement(&#x27;pre&#x27;);text.style.whiteSpace=&#x27;pre-wrap&#x27;;text.textContent=&quot;Fehler HTTP-018\nDiagnoseskript konnte nicht geladen werden\nDer Browser konnte das gemeinsame lokale Skript nicht laden; die genauere Ursache ist nicht erkennbar.\nMaßnahmen: Uhradresse und Netzwerk prüfen und Seite neu laden.&quot;;section.append(title,text);document.body.append(section)})"></script><script>
 const ids=['mode','effect','brightness','speed','duration','nightOn','nightFrom','nightUntil','nightBrightness','corner','vertical','zigzag','autoOrder'];
 let automaticChoices=[];
 let effectChoices=[],pendingImport=null;
@@ -579,8 +579,8 @@ async function loadMqtt(){
         const caption=document.createElement('label'),input=document.createElement('input');caption.textContent=label;input.id='mqSensor'+i+key;input.type='text';input.maxLength=max;input.value=entry[key]||'';caption.append(input);group.append(caption);
       }list.append(group);
     }
-    document.getElementById('mqttStatus').textContent=!d.storageReady?chaosFailure('FS_MOUNT').message:!d.enabled?'MQTT ist ausgeschaltet.':d.connected?'MQTT ist verbunden.':d.connectionFailure?chaosFailure(d.connectionFailure.code,0,d.connectionFailure).message:d.connectionError?'MQTT-Verbindungsfehler '+d.connectionError+'. Details unter Diagnose.':'MQTT-Verbindung wird aufgebaut.';
-  }catch(error){document.getElementById('mqttStatus').textContent='MQTT-Status nicht verfügbar: '+chaosMessage(error)}
+    document.getElementById('mqttStatus').textContent=!d.storageReady?chaosMessage(chaosFailure('FS_MOUNT')):!d.enabled?'MQTT ist ausgeschaltet.':d.connected?'MQTT ist verbunden.':d.connectionFailure?chaosMessage(chaosFailure(d.connectionFailure.code,0,d.connectionFailure)):d.connectionError?'MQTT-Verbindung fehlgeschlagen. Details unter Diagnose.':'MQTT-Verbindung wird aufgebaut.';
+  }catch(error){document.getElementById('mqttStatus').textContent=chaosMessage(error,'MQTT-Status nicht verfügbar.')}
 }
 async function saveMqtt(){
   const message=document.getElementById('mqttMessage');
@@ -592,12 +592,13 @@ async function saveMqtt(){
     if(values.enabled&&!values.host)throw chaosFailure('CFG_HOST');
     const {token}=await readJson('/api/session'),r=await chaosFetch('/api/mqtt',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRF-Token':token},body:new URLSearchParams(values)});
     await chaosCheck(r);message.textContent='MQTT-Konfiguration gespeichert. Die Verbindung wird neu aufgebaut.';await loadMqtt();
-  }catch(error){message.textContent='MQTT konnte nicht gespeichert werden: '+chaosMessage(error)}
+  }catch(error){message.textContent=chaosMessage(error,'MQTT konnte nicht gespeichert werden.')}
 }
 async function loadDiagnostics(){
  const message=document.getElementById('diagnosticMessage');
  try{const data=await readJson('/api/diagnostics');document.getElementById('supportDiagnostics').value=JSON.stringify(data,null,2);message.textContent=data.lastError?'Letzter Fehler: '+data.lastError+'. Details und Maßnahmen stehen im kopierbaren Text.':'Keine Fehler aufgezeichnet.';}
  catch(error){message.textContent=chaosMessage(error)}
+ finally{chaosRenderDiagnostics()}
 }
 function brightnessFormChanged(){document.getElementById('nightBrightness').disabled=document.getElementById('nightLedsOff').checked}
 function applyBrightnessPolicy(data){
@@ -610,7 +611,7 @@ function showBrightnessStatus(data){
  document.getElementById('brightnessState').textContent=`Wirksam: ${data.source||'GUI'} · ${data.percent??'?'} % · MQTT-Vorgabe: ${data.mqttValue??'keine'}`;
  document.getElementById('brightnessTopic').textContent=data.mqttBrightness?`Befehlstopic: ${data.topic||'nach MQTT-Konfiguration verfügbar'}${data.conflict?' · Konflikt: Steuerung gesperrt':''}`:'';
  document.getElementById('releaseBrightness').disabled=!data.mqttActive||!data.connected;
- if(/^FS-[0-9]{3}$/.test(data.configError||''))document.getElementById('brightnessMessage').textContent=chaosFailure(data.configError).message;
+ if(/^FS-[0-9]{3}$/.test(data.configError||''))document.getElementById('brightnessMessage').textContent=chaosMessage(chaosFailure(data.configError));
 }
 let brightnessTimerStarted=false;
 async function loadBrightness(){applyBrightnessPolicy(await readJson('/api/brightness'));if(!brightnessTimerStarted){brightnessTimerStarted=true;setTimeout(refreshBrightnessStatus,5000)}}
@@ -621,12 +622,12 @@ async function refreshBrightnessStatus(){
 async function saveBrightnessPolicy(){
  const message=document.getElementById('brightnessMessage');
  try{await changeAnimation('/api/brightness',new URLSearchParams({nightLedsOff:document.getElementById('nightLedsOff').checked?'1':'0',mqttBrightness:document.getElementById('mqttBrightness').checked?'1':'0'}));await loadBrightness();message.textContent='Helligkeitsrichtlinie gespeichert.'}
- catch(error){message.textContent='Speichern fehlgeschlagen: '+chaosMessage(error)}
+ catch(error){message.textContent=chaosMessage(error,'Speichern fehlgeschlagen.')}
 }
 async function releaseBrightness(){
  const message=document.getElementById('brightnessMessage');
  try{await changeAnimation('/api/brightness/release',new URLSearchParams());await loadBrightness();message.textContent='Retained AUTO von der MQTT-Bibliothek zur Übertragung angenommen. GUI übernimmt lokal; dauerhafte Speicherung beim Broker ist damit noch nicht bestätigt.'}
- catch(error){message.textContent='Rückgabe fehlgeschlagen: '+chaosMessage(error)}
+ catch(error){message.textContent=chaosMessage(error,'Rückgabe fehlgeschlagen.')}
 }
 async function exportSettings(){
   const message=document.getElementById('backupMessage');
@@ -641,7 +642,7 @@ async function exportSettings(){
     const blob=new Blob([JSON.stringify(backup,null,2)+'\n'],{type:'application/json'}),url=URL.createObjectURL(blob),link=document.createElement('a');
     link.href=url;link.download='chaosuhr-einstellungen-'+current.version+'.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
     message.textContent='Einstellungen gesichert. Eigene Animationen bitte zusätzlich als .chaos herunterladen.';
-  }catch(error){message.textContent='Sicherung fehlgeschlagen: '+chaosMessage(error)}
+  }catch(error){message.textContent=chaosMessage(error,'Sicherung fehlgeschlagen.')}
 }
 function validateSettingsBackup(backup,currentUploads){
   if(!backup || typeof backup!=='object' || Array.isArray(backup) || Object.keys(backup).some(key=>!(backup.version===3?['format','version','firmware','settings','uploads','brightnessPolicy']:['format','version','firmware','settings','uploads']).includes(key)) || backup.format!=='chaosuhr-settings' || ![1,2,3].includes(backup.version) || typeof backup.firmware!=='string' || backup.firmware.length>32)throw chaosFailure('BACKUP_SCHEMA');
@@ -681,7 +682,7 @@ async function previewSettingsImport(){
     document.getElementById('backupPreview').textContent=`Vorschau – noch nicht gespeichert\nModus: ${['Automatik','Nur Uhrzeit','Einzelanimation'][d.mode]}\nHelligkeit: ${d.brightness} % · Tempo: ${d.speed} %\nSzenendauer: ${d.duration} s\nAutomatik: ${count(d.autoEffects)+count(d.autoUploads)} Animationen, ${d.autoOrder?'der Reihe nach':'zufällige Runden'}\nNachtmodus: ${d.nightOn?'an':'aus'}, ${d.nightFrom} bis ${d.nightUntil} Uhr, ${d.nightBrightness} %\nAuch die Matrixausrichtung wird übernommen.\nWLAN und Admin-Zugang bleiben erhalten.`;
     document.getElementById('backupPreview').textContent+=`\nNacht-AUS: ${d.brightnessPolicy.nightLedsOff?'an':'aus'} · MQTT-Helligkeit: ${d.brightnessPolicy.mqttBrightness?'an':'aus'}`;
     document.getElementById('applyBackup').hidden=false;message.textContent='Prüfe die Vorschau, bevor du sie übernimmst.';
-  }catch(error){pendingImport=null;message.textContent='Import abgelehnt: '+chaosMessage(error)}
+  }catch(error){pendingImport=null;message.textContent=chaosMessage(error,'Import abgelehnt.')}
 }
 function applySettingsImport(){
   if(!pendingImport)return;
@@ -726,7 +727,7 @@ async function initializeAnimations(){
 }
 async function uploadAnimation(){
   const file=document.getElementById('animationFile').files?.[0];
-  if(!file){document.getElementById('uploadMessage').textContent=chaosFailure('CFG_UPLOAD_EMPTY').message;return}
+  if(!file){document.getElementById('uploadMessage').textContent=chaosMessage(chaosFailure('CFG_UPLOAD_EMPTY'));return}
   if(file.size>24576){document.getElementById('uploadMessage').textContent='Datei darf höchstens 24 KiB groß sein.';return}
   const form=new FormData();form.append('animation',file);
   await runAnimationChange(()=>changeAnimation('/api/animations/upload',form),'Hochgeladen. Jetzt für die Automatik oder als Einzelanimation auswählen und Einstellungen speichern.');
@@ -735,7 +736,7 @@ async function deleteAnimation(id,name){
   if(!confirm(`Upload „${name}“ wirklich löschen?`))return;
   await runAnimationChange(()=>changeAnimation('/api/animations/delete',new URLSearchParams({id,confirm:'DELETE'})),'Upload gelöscht.');
 }
-async function factoryReset(){const message=document.getElementById('resetMessage');if(!document.getElementById('resetConfirm').checked){message.textContent=chaosFailure('AUTH_CONFIRM').message;return}if(!confirm('Wirklich alle Einstellungen, eigene Animationen, den Admin-Zugang und die WLAN-Daten löschen?'))return;const button=document.getElementById('resetButton');button.disabled=true;try{const {token}=await readJson('/api/session');const response=await chaosFetch('/api/factory-reset',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRF-Token':token},body:new URLSearchParams({confirm:'RESET'})});await chaosCheck(response);message.textContent='Die Uhr wird zurückgesetzt und startet neu. Verbinde dich anschließend mit dem Einrichtungs-WLAN; den neuen Code zeigt die Uhr an.';}catch(error){message.textContent='Fehler: '+chaosMessage(error);button.disabled=false}}
+async function factoryReset(){const message=document.getElementById('resetMessage');if(!document.getElementById('resetConfirm').checked){message.textContent=chaosMessage(chaosFailure('AUTH_CONFIRM'));return}if(!confirm('Wirklich alle Einstellungen, eigene Animationen, den Admin-Zugang und die WLAN-Daten löschen?'))return;const button=document.getElementById('resetButton');button.disabled=true;try{const {token}=await readJson('/api/session');const response=await chaosFetch('/api/factory-reset',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRF-Token':token},body:new URLSearchParams({confirm:'RESET'})});await chaosCheck(response);message.textContent='Die Uhr wird zurückgesetzt und startet neu. Verbinde dich anschließend mit dem Einrichtungs-WLAN; den neuen Code zeigt die Uhr an.';}catch(error){message.textContent=chaosMessage(error,'Aktion fehlgeschlagen.');button.disabled=false}}
 chaosSessionStart(load);
 </script></body></html>
 )HTML";
@@ -789,7 +790,7 @@ static void statusApi(){
   s+="\"version\":\""+String(VERSION)+"\",\"ip\":\""+WiFi.localIP().toString()+"\",";
   s+="\"rssi\":"+String(WiFi.RSSI())+",\"heap\":"+String(ESP.getFreeHeap());
   s+=",\"flash\":"+String(deviceFlashSize())+",\"ota\":"+String(ESP.getFreeSketchSpace());
-  s+=",\"lastError\":\""+errorText(errorDefinition(errorRegistry().last()).code)+"\"";
+  s+=",\"lastError\":\""+errorText(errorDefinition(errorRegistry().visibleLast()).code)+"\"";
   s+=",\"platform\":\""+String(DEVICE_FAMILY)+"\",\"ledPin\":"+String(displayOptions.ledPin);
   s+=",\"secondsBar\":"+String((displayOptions.flags&DISPLAY_SECONDS)?1:0)+",\"weekdayStyle\":"+String(displayOptions.weekdayStyle);
   s+=",\"showClock\":"+String((displayOptions.flags&DISPLAY_CLOCK)?1:0)+",\"showAnimations\":"+String((displayOptions.flags&DISPLAY_ANIMATIONS)?1:0);

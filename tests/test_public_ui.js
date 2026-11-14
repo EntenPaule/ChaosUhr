@@ -31,7 +31,7 @@ function fixture(failSave=false){
   assert.match(app.elements.setupMessage.textContent,/startet neu/);
   const fail=fixture(true);fail.form.value=fail.repeat.value='fixture-admin-password-42';
   await fail.context.saveAdmin({preventDefault(){}});
-  assert.match(fail.elements.setupMessage.textContent,/HTTP-011/);
+  assert.match(fail.elements.setupMessage.textContent,/Details unter Diagnose/);assert.match(fail.elements.browserDiagnostics.textContent,/HTTP-011/);
   assert.equal(fail.elements.setupSubmit.disabled,false);
   console.log('PASS setup GUI: new password/confirmation, input validation, CSRF request, no echoed password, save-error recovery');
 })().catch(error=>{console.error(error);process.exitCode=1});

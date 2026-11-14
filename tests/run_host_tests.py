@@ -31,6 +31,7 @@ if test_esp32:
         print("PASS ESP32 foundations:",name,flush=True)
 subprocess.run(["node",str(project/"tests/test_session_ui.js")],check=True)
 subprocess.run(["node",str(project/"tests/test_error_ui.js")],check=True)
+subprocess.run(["node",str(project/"tests/test_central_diagnostics.js")],check=True)
 subprocess.run(["python3",str(project/"scripts/generate_error_docs.py"),"--check"],check=True)
 subprocess.run(["python3",str(project/"tests/test_release_safety.py")],check=True)
 subprocess.run(["python3",str(project/"tests/run_http_parser_test.py"),*parser_args],check=True)

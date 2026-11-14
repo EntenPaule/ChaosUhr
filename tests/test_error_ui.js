@@ -22,8 +22,8 @@ const response=(status,body)=>({ok:status>=200&&status<300,status,text:async()=>
 (async()=>{
  for(const [mode,code] of [['empty401','AUTH-001'],['csrf','AUTH-003'],['fs','FS-007'],['network','HTTP-007'],['timeout','HTTP-008']]){
   const a=fixture(mode);await a.context.saveMqtt();
-  const text=a.elements.mqttMessage.textContent;assert(text.includes(code));assert(/Maßnahmen/.test(text));
-  if(mode==='empty401')assert(text.includes('HTTP 401'));
+  const text=a.elements.mqttMessage.textContent;assert(!text.includes(code));assert(!/Maßnahmen/.test(text));assert(a.elements.browserDiagnostics.textContent.includes(code));assert(/Maßnahmen/.test(a.elements.browserDiagnostics.textContent));
+  if(mode==='empty401')assert(a.elements.browserDiagnostics.textContent.includes('HTTP 401'));
   assert(!/fixture-.*private|fixture-secret/.test(text));assert.equal(a.posts.length,1);
  }
  const a=fixture('empty401');
@@ -38,6 +38,6 @@ const response=(status,body)=>({ok:status>=200&&status<300,status,text:async()=>
  // A failed shared script still produces a coded message without any helper loaded.
  const attribute=main.match(/src="\/errors\.js[^\"]*" onerror="([^\"]*)"/)[1];
  const handler=attribute.replaceAll('&quot;','"').replaceAll('&#x27;',"'").replaceAll('&amp;','&').replaceAll('&lt;','<').replaceAll('&gt;','>');
- let loaded;const bootstrap={document:{body:{textContent:''},addEventListener(_,callback){loaded=callback}}};vm.createContext(bootstrap);vm.runInContext(handler,bootstrap);loaded();assert(bootstrap.document.body.textContent.includes('HTTP-018'));
- console.log('PASS error GUI: actual MQTT form empty 401/session/FS errors, timeout/connection/body abort, empty/malformed JSON, no raw secret echoes or automatic POST retries, coded script-load fallback');
+ let loaded;const children=[];const bootstrap={document:{body:{textContent:'',append:node=>children.push(node)},createElement:tag=>({tag,style:{},append(...nodes){this.children=nodes}}),addEventListener(_,callback){loaded=callback}}};vm.createContext(bootstrap);vm.runInContext(handler,bootstrap);loaded();assert(!bootstrap.document.body.textContent.includes('HTTP-018'));assert.equal(children[0].children[0].textContent,'Diagnose');assert(children[0].children[1].textContent.includes('HTTP-018'));
+ console.log('PASS error GUI: actual MQTT form empty 401/session/FS errors, timeout/connection/body abort, empty/malformed JSON, no raw secret echoes or automatic POST retries, short action messages, central complete diagnosis and script-load fallback');
 })().catch(e=>{console.error(e);process.exitCode=1});

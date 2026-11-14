@@ -47,7 +47,7 @@ function backup(){return {format:'chaosuhr-settings',version:1,firmware:'2.0.8',
  b=backup();b.uploads.push({...b.uploads[0]});invalid.push(b);
  invalid.push(JSON.parse('{"__proto__":{"polluted":true}}'));
  for(const bad of invalid){a.elements.settingsFile.files=[file(JSON.stringify(bad))];await a.context.previewSettingsImport();assert.equal(a.elements.applyBackup.hidden,true);assert.match(a.elements.backupMessage.textContent,/Import abgelehnt/);}
- a.elements.settingsFile.files=[{size:8193,text:async()=>{throw Error('must not read oversized file')}}];await a.context.previewSettingsImport();assert.match(a.elements.backupMessage.textContent,/8 KiB/);
+ a.elements.settingsFile.files=[{size:8193,text:async()=>{throw Error('must not read oversized file')}}];await a.context.previewSettingsImport();assert.match(a.elements.backupMessage.textContent,/Import abgelehnt/);assert.match(a.elements.browserDiagnostics.textContent,/8 KiB/);
  assert.equal(a.posts.length,1);assert.equal({}.polluted,undefined);
  console.log('PASS settings backup GUI: secret-free export, preview without writes, explicit apply/save with CSRF, hash-based upload remapping and invalid/missing/oversized backup rejection');
 })().catch(error=>{console.error(error);process.exitCode=1});
