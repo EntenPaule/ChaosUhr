@@ -1,6 +1,6 @@
 # ChaosUhr 2.0
 
-**Interne Entwicklung: 2.0.11-beta.5.1 für Wemos und klassischen ESP32.** Korrigiert falsches MQTT-016 bei leeren PUBLISH-Nachrichten. Ursache der fehlenden Helligkeitsbefehle am ioBroker bleibt ohne Empfangsnachweis offen. Keine Veröffentlichung oder Hardwarefreigabe. [Befund und gezielter Test](docs/MQTT_HELLIGKEIT_BETA_5_1.md). [Beta.5-Funktionen](docs/HELLIGKEIT_BETA_5.md) bleiben erhalten.
+**Interne Entwicklung: 2.0.11-beta.5.2 für Wemos und klassischen ESP32.** Stille normale Loginprüfung und kurze Aktionsmeldungen mit zentralen Diagnosedetails. Sicherheitsereignisse bleiben erhalten. Keine Veröffentlichung oder Hardwarefreigabe. [Änderungen und Testanleitung](docs/LOGIN_DIAGNOSE_BETA_5_2.md).
 
 **Gemeinsamer Pre-Release: [2.0.11-beta.3](https://github.com/EntenPaule/ChaosUhr/releases/tag/v2.0.11-beta.3).** Wemos D1 mini und klassischer ESP32 verwenden denselben Quellstand. Die bereits verteilte **Wemos-BIN ist unverändert und auf echter Hardware bestätigt**. ESP32 ist frisch gebaut/offline validiert; **Hardwaretests einschließlich Setup-AP und WLAN-Persistenz nach Stromtrennung stehen aus**. ESP32-OTA-Reserve nur 1008 Byte.
 

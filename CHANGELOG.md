@@ -1,3 +1,11 @@
+# 2.0.11-beta.5.2 – interne Login-/Diagnosekorrektur
+
+- Normale Sitzungsabfragen erzeugen keine neuen AUTH-001/020/021-Ereignisse.
+- Nur markierte erwartbare Sitzungsereignisse nach Login aus der sichtbaren Diagnose ausblenden; intern erhalten.
+- Kurze Rückmeldungen in Formularen, vollständige Details im Diagnosebereich.
+- Begrenzte Browserdiagnose ohne Zugangsdaten oder Tokens; Schutzmechanismen erhalten.
+- Keine Gerätezugriffe oder Veröffentlichung.
+
 # 2.0.11-beta.5.1 – interne Empfangskorrektur
 
 - Leere MQTT-PUBLISH-Nachrichten nicht länger als MQTT-016 verwerfen.
