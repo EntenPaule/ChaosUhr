@@ -1,3 +1,10 @@
+# 2.0.11-beta.5.1 – interne Empfangskorrektur
+
+- Leere MQTT-PUBLISH-Nachrichten nicht länger als MQTT-016 verwerfen.
+- Regression mit echtem espMqttClient-Parser und TCP-Fragmentierung.
+- ioBroker-Rückweg getrennt dokumentiert; Hardwareursache weiterhin offen.
+- Alte Beta.5-Artefakte unverändert, keine Veröffentlichung.
+
 # 2.0.11-beta.4 – Entwicklung vorbereitet
 
 ## 2.0.11-beta.5 – intern
