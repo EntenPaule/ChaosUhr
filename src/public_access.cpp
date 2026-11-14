@@ -17,10 +17,10 @@ bool PublicAccess::viaSetupAP(){return server_.client().localIP()==WiFi.softAPIP
 void PublicAccess::clearCookie(){
   server_.sendHeader("Set-Cookie","ChaosUhrSID=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0");
 }
-int PublicAccess::sessionSlot(bool report){
+int PublicAccess::sessionSlot(bool report,bool probe){
   sessions_.expire(millis());
   const String cookie=server_.header("Cookie");uint8_t sid[16]={},digest[32]={};bool present=false;
-  ErrorCode code=ErrorCode::AUTH_REQUIRED;int slot=-1;
+  ErrorCode code=ErrorCode::AUTH_REQUIRED;int slot=-1;bool expected=false;
   if(!readAdminCookie(cookie.c_str(),cookie.length(),sid,present))code=ErrorCode::AUTH_SESSION_COOKIE;
   else if(present){
     if(!AdminSessions::fingerprint(sid,digest))code=ErrorCode::AUTH_CRYPTO;
@@ -29,14 +29,23 @@ int PublicAccess::sessionSlot(bool report){
       if(slot>=0){
         const auto state=sessions_.get(slot).state;
         if(state==AdminSessions::State::Active){eraseSecret(sid,sizeof sid);eraseSecret(digest,sizeof digest);return slot;}
-        if(state==AdminSessions::State::Expired)code=ErrorCode::AUTH_SESSION_EXPIRED;
+        if(state==AdminSessions::State::Expired){
+          code=ErrorCode::AUTH_SESSION_EXPIRED;
+          const String origin=server_.header("Origin");const String host=server_.header("Host");
+          expected=origin.length() && originMatchesHost(origin.c_str(),host.c_str());
+        }
       }
     }
   }
   eraseSecret(sid,sizeof sid);eraseSecret(digest,sizeof digest);
   // A late background 401 must not delete a newer cookie from another tab's
   // login. Only explicit logout sends cookie deletion; retired IDs stay invalid.
-  if(report)error(code==ErrorCode::AUTH_CRYPTO?503:401,code);
+  if(report){
+    const int status=code==ErrorCode::AUTH_CRYPTO?503:401;
+    const bool normalProbe=probe && (code==ErrorCode::AUTH_REQUIRED || code==ErrorCode::AUTH_SESSION_INVALID || code==ErrorCode::AUTH_SESSION_EXPIRED);
+    if(!normalProbe)errorRegistry().record(code,millis(),expected);
+    server_.sendHeader("Cache-Control","no-store");server_.send(status,"application/json; charset=utf-8",errorJson(code,status));
+  }
   return -1;
 }
 bool PublicAccess::authenticate(){
@@ -99,6 +108,7 @@ void PublicAccess::loginApi(){
   uint8_t sid[16],csrf[16];deviceRandomBytes(sid,sizeof sid);deviceRandomBytes(csrf,sizeof csrf);
   if(!AdminSessions::fingerprint(sid,digest)){eraseSecret(sid,sizeof sid);eraseSecret(csrf,sizeof csrf);error(503,ErrorCode::AUTH_CRYPTO);return;}
   sessions_.start(slot,digest,csrf,millis());
+  errorRegistry().resolveExpectedSessions();
   char text[33];AdminSessions::hex(sid,text);
   server_.sendHeader("Set-Cookie",String("ChaosUhrSID=")+text+"; Path=/; HttpOnly; SameSite=Strict");
   eraseSecret(sid,sizeof sid);eraseSecret(csrf,sizeof csrf);eraseSecret(digest,sizeof digest);eraseSecret(text,sizeof text);
@@ -232,8 +242,8 @@ void PublicAccess::serveSetup(){
 void PublicAccess::sessionApi(){
   if(pending()){error(503,resetting()?ErrorCode::SYS_RESETTING:ErrorCode::SYS_RESTARTING);return;}
   if(ready()){
-    if(!authenticate())return;
-    const int slot=sessionSlot(false);if(slot<0){error(401,ErrorCode::AUTH_SESSION_INVALID);return;}
+    if(locked()){error(503,ErrorCode::AUTH_CREDENTIALS_CORRUPT);return;}
+    const int slot=sessionSlot(true,true);if(slot<0)return;
     const auto& entry=sessions_.get(slot);
     const uint32_t elapsed=static_cast<uint32_t>(millis()-entry.lastActivity);
     if(elapsed>=AdminSessions::IDLE_MS){sessions_.expire(millis());error(401,ErrorCode::AUTH_SESSION_EXPIRED);return;}

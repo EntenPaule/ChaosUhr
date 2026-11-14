@@ -30,9 +30,10 @@ static void diagnosticsApi(){
   const auto saved=savedWifiState();document["wifiCredentials"]=saved==SavedWifiState::Available?"available":saved==SavedWifiState::Missing?"missing":"unreadable";
   document["wifiConnected"]=WiFi.status()==WL_CONNECTED;
   document["mqttEnabled"]=mqttConfig.enabled!=0;document["mqttConnected"]=clockMqtt.connected();
-  document["lastError"]=errorText(errorDefinition(errorRegistry().last()).code);
+  document["lastError"]=errorText(errorDefinition(errorRegistry().visibleLast()).code);
   auto history=document["errors"].to<JsonArray>();
   for(size_t i=0;i<errorRegistry().size();++i){
+    if(!errorRegistry().visible(i))continue;
     const auto& event=errorRegistry().at(i);const auto definition=errorDefinition(event.code);
     auto entry=history.add<JsonObject>();
     entry["code"]=errorText(definition.code);entry["component"]=errorText(definition.component);

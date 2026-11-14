@@ -49,7 +49,7 @@ class PublicAccess {
   ErrorCode policyError_=ErrorCode::AUTH_ORIGIN;
   bool tokenMatches();
   bool loginAllowed();
-  int sessionSlot(bool report);
+  int sessionSlot(bool report,bool probe=false);
   void clearCookie();
   void loginApi();
   void loginChallengeApi();

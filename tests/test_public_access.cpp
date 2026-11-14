@@ -54,9 +54,10 @@ int main(){
   second.socket.address=WiFi.softAPIP();
   second.dispatch("/setup",HTTP_GET);assert(second.status==403);
   second.dispatch("/api/setup",HTTP_POST);assert(second.status==403);
+  const auto probeSequence=errorRegistry().sequence();
   second.dispatch("/api/session",HTTP_GET);assert(second.status==401);
   assert(second.body.find("AUTH-001")!=std::string::npos&&second.body.find("\"action\"")!=std::string::npos);
-  assert(errorRegistry().last()==ErrorCode::AUTH_REQUIRED); // same registry across translation units
+  assert(errorRegistry().sequence()==probeSequence); // normal probe must not record an AUTH event
   second.user="admin";second.password="fixture-admin-passphrase-42";
   second.dispatch("/api/session",HTTP_GET);assert(second.status==401); // cached Basic cannot log in
   login(second,"fixture-admin-passphrase-42");

@@ -28,6 +28,18 @@ int main(){
   assert(serial.text.find(errorDefinition(ErrorCode::FS_RENAME).details)!=String::npos);
   for(unsigned i=0;i<50;++i)registry.record(i&1?ErrorCode::FS_RENAME:ErrorCode::AUTH_CSRF,100+i);
   assert(registry.size()==8&&registry.at(7).uptimeMs==149);
+  ErrorRegistry lifecycle;
+  lifecycle.record(ErrorCode::MQTT_DNS,1);lifecycle.record(ErrorCode::AUTH_REJECTED,2);
+  lifecycle.record(ErrorCode::AUTH_SESSION_INVALID,3); // Unknown provenance must survive.
+  lifecycle.record(ErrorCode::AUTH_SESSION_EXPIRED,4,true);
+  assert(lifecycle.visibleLast()==ErrorCode::AUTH_SESSION_EXPIRED);
+  lifecycle.resolveExpectedSessions();assert(lifecycle.size()==4);
+  assert(lifecycle.visibleLast()==ErrorCode::AUTH_SESSION_INVALID);
+  assert(lifecycle.visible(0)&&lifecycle.visible(1)&&lifecycle.visible(2)&&!lifecycle.visible(3));
+  lifecycle.record(ErrorCode::AUTH_SESSION_EXPIRED,5); // Same code, security event: never merge.
+  assert(lifecycle.visibleLast()==ErrorCode::AUTH_SESSION_EXPIRED&&lifecycle.size()==5);
+  lifecycle.resolveExpectedSessions();assert(lifecycle.visible(4));
+  static_assert(sizeof(ErrorEvent)<=12,"No growth of registry event storage");
   using T=MqttTransportCause;
   assert(mqttDisconnectCode(7,T::Dns,false)==ErrorCode::MQTT_DNS);
   assert(mqttDisconnectCode(0,T::Dns,false)==ErrorCode::MQTT_DNS);

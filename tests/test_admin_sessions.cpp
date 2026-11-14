@@ -66,7 +66,9 @@ int main(){
   server.on("/api/diagnostics",HTTP_GET,diagnosticsApi);
   // Cached Basic headers do not create, renew or resurrect sessions.
   server.user="admin";server.password="fixture-upgrade-admin-205";
-  server.dispatch("/api/session",HTTP_GET);expect(401,"AUTH-001");
+  const auto initialSequence=errorRegistry().sequence();
+  for(unsigned i=0;i<5;++i){server.dispatch("/api/session",HTTP_GET);expect(401,"AUTH-001");}
+  assert(errorRegistry().sequence()==initialSequence);
   assert(!server.responseHeaders.count("WWW-Authenticate"));
   attempt("fixture-incorrect-password");expect(401,"AUTH-002");
   auto csrf=login();const auto originalCookie=server.headers["Cookie"];
@@ -84,12 +86,25 @@ int main(){
   // Pure GET polling, including token reads, must never extend last activity.
   for(unsigned i=1;i<30;++i){fakeMillis+=60000;assert(session()==csrf&&remaining()==1800-i*60);}
   fakeMillis+=59999;assert(session()==csrf&&remaining()==1);
+  const auto beforeExpiry=errorRegistry().sequence();
   ++fakeMillis;server.dispatch("/api/session",HTTP_GET);expect(401,"AUTH-020");
+  assert(errorRegistry().sequence()==beforeExpiry);
   assert(!server.responseHeaders.count("Set-Cookie")); // late background 401 cannot delete a newer login cookie
   save(csrf);expect(401,"AUTH-020");assert(filesystem.files==files);
   // Successful explicit relogin rotates both identifiers. Logout revokes on
   // the server, even if a client keeps the previous cookie and Basic header.
+  assert(errorRegistry().at(errorRegistry().size()-1).visibility==1);
+  const auto eventsBeforeLogin=errorRegistry().size();
   csrf=login();assert(server.headers["Cookie"]!=originalCookie);
+  assert(errorRegistry().size()==eventsBeforeLogin);
+  assert(errorRegistry().at(errorRegistry().size()-1).visibility==2);
+  server.dispatch("/api/diagnostics",HTTP_GET);assert(server.status==200);
+  JsonDocument diagnosis;assert(!deserializeJson(diagnosis,server.body));
+  assert(diagnosis["lastError"]=="AUTH-003");
+  bool rejected=false,csrfError=false;
+  for(JsonObject e:diagnosis["errors"].as<JsonArray>()){
+    assert(e["code"]!="AUTH-020");if(e["code"]=="AUTH-002")rejected=true;if(e["code"]=="AUTH-003")csrfError=true;
+  }assert(rejected&&csrfError);
   save(csrf);assert(server.status==200);
   server.headers["X-CSRF-Token"]=csrf;server.dispatch("/api/logout",HTTP_POST);assert(server.status==200);
   assert(server.responseHeaders.at("Set-Cookie").find("Max-Age=0")!=std::string::npos);
@@ -114,7 +129,9 @@ int main(){
   server.headers.erase("Cookie");save(csrfB);expect(401,"AUTH-001");
   // Reboot clears all RAM sessions; a previous login challenge is also invalid.
   const auto oldChallenge=challenge();publicAccess.begin();
+  const auto beforeRebootProbe=errorRegistry().sequence();
   server.headers["Cookie"]=cookieB;server.dispatch("/api/session",HTTP_GET);expect(401,"AUTH-021");
+  assert(errorRegistry().sequence()==beforeRebootProbe);
   save(csrfB);expect(401,"AUTH-021");
   server.headers["X-CSRF-Token"]=oldChallenge;server.arguments={{"password","fixture-upgrade-admin-205"}};
   server.dispatch("/api/login",HTTP_POST);expect(403,"AUTH-003");server.arguments.clear();

@@ -31,25 +31,29 @@ ErrorDefinition errorDefinition(ErrorCode code){
 // ESP32 keeps unused copies in each unit's shared string section after COMDAT.
 ErrorDefinition errorDefinition(ErrorCode code);
 #endif
-struct ErrorEvent {ErrorCode code=ErrorCode::None;uint32_t uptimeMs=0;uint16_t occurrences=0;};
+struct ErrorEvent {ErrorCode code=ErrorCode::None;uint32_t uptimeMs=0;uint16_t occurrences=0;uint8_t visibility=0;};
 class ErrorRegistry {
  public:
   static constexpr size_t CAPACITY=8;
   using Sink=void(*)(const ErrorEvent&);
   void setSink(Sink sink){sink_=sink;}
-  void record(ErrorCode code,uint32_t now){
+  void record(ErrorCode code,uint32_t now,bool expectedSession=false){
     if(code==ErrorCode::None)return;
     ++sequence_;
-    if(count_ && events_[(next_+CAPACITY-1)%CAPACITY].code==code){
+    if(count_ && events_[(next_+CAPACITY-1)%CAPACITY].code==code && events_[(next_+CAPACITY-1)%CAPACITY].visibility==(expectedSession?1:0)){
       auto& last=events_[(next_+CAPACITY-1)%CAPACITY];
       if(last.occurrences!=65535)++last.occurrences;
       if(static_cast<uint32_t>(now-last.uptimeMs)<30000){last.uptimeMs=now;return;}
     }
-    events_[next_]={code,now,1};if(sink_)sink_(events_[next_]);next_=(next_+1)%CAPACITY;if(count_<CAPACITY)++count_;
+    events_[next_]={code,now,1,static_cast<uint8_t>(expectedSession?1:0)};if(sink_)sink_(events_[next_]);next_=(next_+1)%CAPACITY;if(count_<CAPACITY)++count_;
   }
   size_t size()const{return count_;}
   const ErrorEvent& at(size_t chronological)const{return events_[(next_+CAPACITY-count_+chronological)%CAPACITY];}
   ErrorCode last()const{return count_?at(count_-1).code:ErrorCode::None;}
+  // 0: ordinary/security event; 1: expected session loss; 2: resolved, retained internally.
+  void resolveExpectedSessions(){for(size_t i=0;i<count_;++i){auto& e=events_[(next_+CAPACITY-count_+i)%CAPACITY];if(e.visibility==1)e.visibility=2;}}
+  bool visible(size_t i)const{return at(i).visibility!=2;}
+  ErrorCode visibleLast()const{for(size_t i=count_;i>0;--i)if(visible(i-1))return at(i-1).code;return ErrorCode::None;}
   uint32_t sequence()const{return sequence_;}
  private:
   ErrorEvent events_[CAPACITY];size_t next_=0,count_=0;Sink sink_=nullptr;
