@@ -35,6 +35,7 @@ subprocess.run(["node",str(project/"tests/test_central_diagnostics.js")],check=T
 subprocess.run(["node",str(project/"tests/test_settings_sections.js")],check=True)
 subprocess.run(["python3",str(project/"scripts/generate_error_docs.py"),"--check"],check=True)
 subprocess.run(["python3",str(project/"tests/test_release_safety.py")],check=True)
+subprocess.run(["python3",str(project/"tests/test_stable_publisher.py")],check=True)
 subprocess.run(["python3",str(project/"tests/run_http_parser_test.py"),*parser_args],check=True)
 subprocess.run(["python3",str(project/"tests/run_mqtt_browser_test.py")],check=True)
 build_dir = project / ".pio" / "host-tests"

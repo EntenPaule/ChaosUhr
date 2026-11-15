@@ -1,0 +1,53 @@
+name: Verify and publish Stable OTA channel
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing published Stable tag (no build or release creation)
+        required: true
+        type: string
+      approve_stable:
+        description: Explicit authorization to activate both Stable OTA channels
+        required: true
+        default: false
+        type: boolean
+permissions:
+  contents: write
+concurrency:
+  group: stable-ota-${{ github.repository }}
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: >-
+      github.repository == 'EntenPaule/ChaosUhr' &&
+      ((github.event_name == 'release' && !github.event.release.prerelease &&
+      !github.event.release.draft && contains(github.event.release.body, '<!-- chaosuhr-stable-ota-approved -->')) ||
+      (github.event_name == 'workflow_dispatch' && inputs.approve_stable))
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      GIT_AUTHOR_NAME: github-actions[bot]
+      GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+      GIT_COMMITTER_NAME: github-actions[bot]
+      GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+      RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      REQUIRE_MARKER: ${{ github.event_name == 'release' }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: chaosuhr-2.0
+          fetch-depth: 0
+      - name: Test publisher safety offline
+        run: python3 tests/test_stable_publisher.py
+      - name: Verify published assets and update both Stable channels
+        shell: bash
+        run: |
+          args=()
+          if [ "$REQUIRE_MARKER" = true ]; then args+=(--require-marker); fi
+          python3 scripts/publish_stable_channel.py --tag "$RELEASE_TAG" --approved --publish --report .pio/ota-report.json "${args[@]}"
+      - name: Record completion evidence
+        if: always()
+        run: test ! -f .pio/ota-report.json || cat .pio/ota-report.json >> "$GITHUB_STEP_SUMMARY"
