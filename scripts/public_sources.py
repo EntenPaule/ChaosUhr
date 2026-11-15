@@ -20,7 +20,7 @@ def collect_public_sources(project, default_environment):
             if path.is_file() and (path.suffix in ('.h', '.cpp') or
                                   path.name in ('library.json', 'UPSTREAM_SHA256.json', 'LICENSE')):
                 source[path.relative_to(project).as_posix()] = path.read_bytes()
-    docs = ('GUI_BOXEN_BETA_5_3.md','LOGIN_DIAGNOSE_BETA_5_2.md','HELLIGKEIT_BETA_5.md', 'MQTT_HELLIGKEIT_BETA_5_1.md','ESP32_UART_BETA_4_2.md','ESP32_BETA_4_1.md','PUBLIC_FIRMWARE.md', 'ESP32_FIRMWARE.md', 'AUTOMATIK_2_0_7.md',
+    docs = ('RELEASEPROZESS.md','GUI_BOXEN_BETA_5_3.md','LOGIN_DIAGNOSE_BETA_5_2.md','HELLIGKEIT_BETA_5.md', 'MQTT_HELLIGKEIT_BETA_5_1.md','ESP32_UART_BETA_4_2.md','ESP32_BETA_4_1.md','PUBLIC_FIRMWARE.md', 'ESP32_FIRMWARE.md', 'AUTOMATIK_2_0_7.md',
             'ANIMATIONEN_FORMAT.md', 'CHATGPT_ANIMATION_PROMPT.txt', 'RELEASE_v2.0.7.md',
             'RELEASE_v2.0.8.md', 'UPGRADE_2_0_8.md', 'SICHERHEIT_2_0_8.md',
             'GITHUB_UPDATES.md', 'MQTT_2_0_10.md', 'UPGRADE_2_0_10.md', 'RELEASE_v2.0.10.md',

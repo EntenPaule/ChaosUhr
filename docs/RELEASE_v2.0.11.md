@@ -122,5 +122,7 @@ bewiesene Absturzursache. AUTH-021 nach Neustart ist erwartetes Sitzungsverhalte
 Keine Hardwarezugriffe oder Flashvorgänge für diese Veröffentlichung.
 Lokales HTTP und MQTT sind unverschlüsselt; vertrauenswürdiges LAN verwenden.
 SHA-256/CRC sind keine Herausgebersignatur. MQTT-TLS ist auf eine spätere Version
-verschoben. Kein Rollback-Feature. Die Veröffentlichung ändert nicht automatisch
-die separaten Manifeste im Branch `firmware-updates`; dort bleibt Stable 2.0.10.
+verschoben. Kein Rollback-Feature. Die zunächst separat auf 2.0.10 verbliebenen Manifeste im Branch
+`firmware-updates` wurden anschließend auf die unveränderten 2.0.11-OTA-Assets
+aktualisiert und öffentlich mit beiden Firmware-Updatern geprüft. Preview bleibt
+Beta.3. Der verbindliche Releaseabschluss umfasst künftig immer beide Stable-Kanäle.

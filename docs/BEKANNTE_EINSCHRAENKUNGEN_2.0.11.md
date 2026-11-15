@@ -15,6 +15,6 @@
 - MQTT-Helligkeit nur bei freigegebener Richtlinie und ohne Themenkollision. Retained AUTO-Queueannahme ist keine PUBACK-/Persistenzbestätigung. Änderungen an ioBroker-Zuständen beweisen keine MQTT-Auslieferung; ack-/Publish-/set-Regeln separat prüfen.
 - Backupformat 3 importiert alte Formate 1/2; ältere Firmware importiert Format 3 nicht. Zugangsdaten und Animationen sind nicht Bestandteil der JSON-Sicherung. Neue Einstellungen müssen nach Vorschau über die jeweiligen Boxen gespeichert werden.
 - Bis zu acht Animationsplätze, aber 192 KiB LittleFS auf ESP32 begrenzen die Gesamtmenge; acht maximal große Uploads passen nicht gleichzeitig. Speicherreserve für Konfiguration beachten.
-- GitHub-Release und der separate Branch firmware-updates sind getrennt. Dieses Release aktualisiert keine Kanalmanifeste; Stable-Kanäle bleiben vorerst auf 2.0.10. Manuell die richtige OTA-Datei aus v2.0.11 installieren.
+- GitHub-Release und der separate Branch firmware-updates sind getrennt. Die zunächst fehlende Kanalaktualisierung ist repariert: Stable bietet 2.0.11 an. Preview bleibt Beta.3. Die richtige OTA-BIN ist weiterhin auch manuell installierbar.
 
 [Release Notes](RELEASE_v2.0.11.md) · [Installation](FLASHANLEITUNG_2.0.11.md)

@@ -1,4 +1,6 @@
-"""Package verified Stable 2.0.11 builds offline; never publish or overwrite archives."""
+"""Package verified Stable 2.0.11 builds offline; never publish or overwrite archives.
+Packaging does not complete a release: follow docs/RELEASEPROZESS.md and verify both public Stable channels.
+"""
 from pathlib import Path
 import hashlib,importlib.util,json,re,subprocess,zipfile
 from release_safety import ReleaseSafety
@@ -79,4 +81,5 @@ def main():
  assert len(list(release.iterdir()))==4
  for name,data in files.items():assert (release/name).read_bytes()==data
  print(json.dumps(info,indent=2));print(release)
+ print('PACKAGED ONLY: release incomplete until both public Stable channels and actual updater version tests pass')
 if __name__=='__main__':main()

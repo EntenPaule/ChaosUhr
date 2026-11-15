@@ -98,7 +98,7 @@ Der Zahlencode für das Einrichtungs-WLAN und das Admin-Passwort sind getrennt. 
 
 ## Vorhandene Uhr aktualisieren
 
-**Von 2.0.8:** Zuerst Einstellungen als JSON und eigene `.chaos`-Dateien sichern. Die passende 2.0.11-OTA-BIN aus dem Release manuell im OTA-Menü hochladen. Der separate GitHub-Updatekanal wird durch die Veröffentlichung dieses Releases nicht automatisch geändert. Der bisherige Wemos-Pin D6/GPIO12 bleibt Standard; Wetter und Sensoren sind nach der Migration zunächst ausgeschaltet.
+**Von 2.0.8:** Zuerst Einstellungen als JSON und eigene `.chaos`-Dateien sichern. Die passende 2.0.11-OTA-BIN aus dem Release manuell im OTA-Menü hochladen. Der separate Stable-OTA-Kanal bietet ebenfalls 2.0.11 an; Release und Kanal werden nach dem verbindlichen Releaseprozess gemeinsam geprüft. Der bisherige Wemos-Pin D6/GPIO12 bleibt Standard; Wetter und Sensoren sind nach der Migration zunächst ausgeschaltet.
 
 **Von 2.0.5 oder 2.0.7:** Einstellungen notieren und eigene `.chaos`-Dateien herunterladen. Die neue BIN über den bisherigen geschützten Web-Updater installieren. Gültige Uhreinstellungen und der vorhandene Admin-Zugang werden übernommen; das Admin-Passwort bleibt gleich.
 
@@ -112,7 +112,7 @@ Bei bereits lesbarem LittleFS wird das alte Passwortformat migriert. Ohne lesbar
 
 Unter **OTA-Upload öffnen** bleibt der manuelle Upload einer passenden BIN verfügbar. Ab 2.0.8 kann **Auf Updates prüfen** zusätzlich den GitHub-Kanal abfragen.
 
-2.0.10 wird im stabilen Kanal angeboten; **Vorabversionen berücksichtigen** ist dafür nicht erforderlich. Der Browser braucht Internetzugang; das lokale Admin-Passwort wird nicht an GitHub gesendet. Nur eine neuere passende Version wird zur bestätigten Installation angeboten – keine unbeaufsichtigten Updates und keine erneute Installation derselben Version. ESP32 verwendet einen eigenen Kanal mit passendem Zielchip. [So funktioniert der Updatekanal](docs/GITHUB_UPDATES.md).
+2.0.11 wird im stabilen Kanal angeboten; **Vorabversionen berücksichtigen** ist dafür nicht erforderlich. Der Browser braucht Internetzugang; das lokale Admin-Passwort wird nicht an GitHub gesendet. Nur eine neuere passende Version wird zur bestätigten Installation angeboten – keine unbeaufsichtigten Updates und keine erneute Installation derselben Version. ESP32 verwendet einen eigenen Kanal mit passendem Zielchip. [So funktioniert der Updatekanal](docs/GITHUB_UPDATES.md).
 
 ## Automatik einstellen
 
@@ -181,6 +181,10 @@ Die nachfolgenden bestätigten Gerätetests beziehen sich ausdrücklich auf den 
 Offen bleiben unter anderem Werksreset, WLAN-Recovery, physische Stromausfälle und Langzeitbetrieb auf Hardware. Der komplette Online-Installationsablauf wurde noch nicht im echten Browser ausgeführt; GUI-Skripte und geräteseitiger OTA-Pfad wurden getrennt geprüft. [Ausführlicher Release- und Testbericht](docs/RELEASE_v2.0.8.md).
 
 Die lokale Weboberfläche verwendet weiterhin **HTTP ohne TLS** und gehört ins vertrauenswürdige LAN. CRC, Produktkennung und SHA-256 sind **keine Herausgebersignatur**; eine verpflichtende Firmware-Signatur ist nicht aktiviert. Die erste Passwortprüfung nach Neustart kann einige Sekunden benötigen. [Sicherheitskonzept und verbleibende Grenzen](docs/SICHERHEIT_2_0_8.md).
+
+## Verbindlicher Releaseabschluss
+
+Ein Stable-Release ist erst abgeschlossen, wenn beide OTA-Stable-Kanäle zu den öffentlich geprüften Release-Assets passen. Der [Releaseprozess](docs/RELEASEPROZESS.md) und der freigabegesteuerte [Workflow](.github/workflows/stable-ota.yml) sichern dies ab. Normale Pushes und Prereleases aktivieren Stable nicht.
 
 ## Selbst bauen
 
