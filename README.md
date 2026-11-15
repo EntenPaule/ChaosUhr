@@ -10,7 +10,7 @@ Dieser Fork entwickelt die [ChaosUhr von Micha1986 / oOmicha1986Oo](https://gith
 
 Der vorherige [Wemos-Release 2.0.8](https://github.com/EntenPaule/ChaosUhr/releases/tag/v2.0.8) bleibt unverändert verfügbar. Dessen bestätigte Anzeige-, Web- und OTA-Tests gelten für 2.0.8; sie ersetzen keine Hardwareprüfung von 2.0.11.
 
-[Downloads](#downloads) · [Funktionen](#funktionen) · [Hardware](#hardware) · [Einrichtung](#erste-einrichtung) · [MQTT und Wetter](#mqtt-wetter-und-sensoren) · [Eigene Animationen](#eigene-animationen-erstellen-und-teilen) · [Selbst bauen](#selbst-bauen)
+[Downloads](#downloads) · [Funktionen](#funktionen) · [Hardware](#hardware) · [3D-Druck & Zusammenbau](#3d-druck--zusammenbau) · [Einrichtung](#erste-einrichtung) · [MQTT und Wetter](#mqtt-wetter-und-sensoren) · [Eigene Animationen](#eigene-animationen-erstellen-und-teilen) · [Selbst bauen](#selbst-bauen)
 
 ## Downloads
 
@@ -82,6 +82,12 @@ Die Automatik-Auswahl und eigenen `.chaos`-Animationen aus 2.0.7 bleiben erhalte
 Die Software-Leistungsbegrenzung ersetzt keine passend ausgelegte Stromversorgung und Verdrahtung. Ab 2.0.10 wird der LED-Datenpin im Dropdown gewählt und gespeichert; die Pin-Auswahl gilt nach einem bestätigten Neustart. Der bisherige Wemos-Standard D6/GPIO12 bleibt bei der Migration erhalten.
 
 [Aktuelle ESP32-Installation und USB-Setup](docs/FLASHANLEITUNG_2.0.11.md). WLAN/MQTT und Online/Offline sind für ESP32 Beta.4.2 bestätigt; OTA, USB-Ersteinrichtung, Persistenz und der finale Stand bleiben offen. Keine ESP32-S3-/WT32-Displayfirmware.
+
+## 3D-Druck & Zusammenbau
+
+Du möchtest deine eigene ChaosUhr bauen? Das passende [ChaosUhr-3D-Druckprojekt auf MakerWorld](https://makerworld.com/de/models/46229-chaosuhr) findest du dort mit den bereitgestellten Druckvorlagen und Informationen zum Zusammenbau.
+
+Prüfe vor dem Drucken und Montieren, ob Gehäuse, Controller und LED-Matrix zur gewählten Hardwarevariante passen. Firmware und Installationshinweise findest du unter [Downloads](#downloads) und [Erste Einrichtung](#erste-einrichtung).
 
 ## Erste Einrichtung
 
